@@ -54,7 +54,7 @@ export default defineConfig({
     },
     open: true,
     cors: true,
-    allowedHosts: ["iso-tms.jostechnology.co.th"],
+    allowedHosts: ["test-pms.jostechnology.co.th"],
   },
   preview: {
     port: 4173,
