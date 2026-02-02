@@ -14,7 +14,7 @@ export const login = async (username: string, password: string) => {
         const data = await response.json();
 
         if (data.success) {
-            return authTokenDedicated(data.data.access_token, data.data.refresh_token)
+            return authTokenDedicated(data.access_token, data.refresh_token)
         } else {
             return false
         }
