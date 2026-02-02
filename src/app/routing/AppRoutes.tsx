@@ -8,8 +8,8 @@ import AccessDenied from '../modules/auth/components/AccessDenied'
 import { isTokenExpired, checkIfTokenExpired, authTokenDedicated } from '../helpers/authenticationHelpers'
 import { getTokenFromLocal, giveAccessDenied, getEmpId } from '../helpers/appHelpers'
 // import useCheckInteraction from '../hooks/useCheckInteraction'
-import { initializeNotifications } from '../libs/notificationUtil'
-import DedicatedLogin from '../modules/auth/components/DedicatedLogin'
+// import { initializeNotifications } from '../libs/notificationUtil'
+import DedicatedLogin from '../modules/auth/components/DedicaatedLogin'
 
 const { BASE_URL } = import.meta.env
 
@@ -28,7 +28,7 @@ const AppRoutes: FC = () => {
     if (window.location.pathname === "/login") return; 
 
     if (token) {
-      await initializeNotifications();
+      // await initializeNotifications();
         
       if (window.location.pathname === "/") {
         if (isTokenExpired()) {

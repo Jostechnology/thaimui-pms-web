@@ -2,11 +2,9 @@ import { useAlertModal } from "../../../../app/context/ModalContext"
 import { deleteTokenFromLocal, getEmpId, getUsernameLocal, giveAccessDenied, logout } from "../../../../app/helpers/appHelpers";
 import ChangePasswordModal from "../../../partials/modals/change-password/ChangePasswordModal";
 import { useEffect, useRef, useState } from "react";
-import { ChangePasswordForm } from "../../../../app/type_interface/EmployeeType";
 import { changeEmpPass } from "../../../../app/services/authenticationServices";
 import { isUserSubscribed, NotificationPayload, sendTestNotification, subscribeUserToPush, unsubscribeUserFromPush } from "../../../../app/libs/notificationUtil";
 import NotificationHistory from "../../../partials/modals/notification_history/NotificationHistoryModal";
-import { getEmployeeDetails } from "../../../../app/services/employeeServices";
 import { useNavigate } from "react-router-dom";
 
 const Navbar = () => {
@@ -17,12 +15,6 @@ const Navbar = () => {
   const [subscribed, setSubscribed] = useState<boolean>(false);
   const [showHistory, setShowHistory] = useState<boolean>(false)
   const [employeeName, setEmployeeName] = useState<string>("")
-  const formState: ChangePasswordForm = {
-    oldPassword: "",
-    newPassword: "",
-    confirmPassword: ""
-  };
-  const [formData, setFormData] = useState<ChangePasswordForm>({ ...formState });
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -38,44 +30,20 @@ const Navbar = () => {
   }, [employee_id])
 
   const fetchEmployee = async () => {
-    const res = await getEmployeeDetails(employee_id)
-    if (!res || res.error) {
-      console.error(res.error)
-      return
-    }
-    setEmployeeName(res.data.employee_name.concat(res.data.employee_lastname, " "))
+    
+    setEmployeeName("TEST THAIMUI PMS")
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(state => ({ ...state, [name]: value }));
+    
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      let result = await changeEmpPass(formData);
-      if (result) {
-        if (result.success) {
-          openAlertModal(result.message, () => {
-            setIsModalShow(false);
-            logout();
-          }, true);
-        } else {
-          alertMessage(result.message);
-        }
-      } else {
-        throw new Error("changeEmpPass returns error.");
-      }
-    } catch (e) {
-      console.error(e);
-      alertMessage("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
-    }
+    
   }
 
   const handleClose = () => {
     setIsModalShow(false);
-    setFormData({ ...formState });
   }
 
   const handleLogout = () => {
@@ -128,7 +96,6 @@ const Navbar = () => {
     <>
       <ChangePasswordModal
         isModalShow={isModalShow}
-        formData={formData}
         handleChange={handleChange}
         handleSubmit={handleSubmit}
         handleClose={handleClose}

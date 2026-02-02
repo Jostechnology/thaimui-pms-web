@@ -25,7 +25,6 @@ import {AppRoutes} from './app/routing/AppRoutes'
 import { AppLoadingProvider } from './app/context/AppLoadingContext'
 import AppLoading from './app/custom_components/AppLoading'
 import { ModalProvider } from './app/context/ModalContext'
-import AlertModal from './app/modals/default-modal/AlertModal'
 import { MasterDataProvider } from './app/context/MasterDataContext'
 
 // import {AuthProvider, setupAxios} from './app/modules/auth'
@@ -54,7 +53,6 @@ if (container) {
             <ModalProvider >
 
               <AppLoading />
-              <AlertModal />
               <AppRoutes />
 
             </ModalProvider>

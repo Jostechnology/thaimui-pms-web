@@ -1,21 +1,19 @@
 import { SidebarMenuItemWithSub } from './SidebarMenuItemWithSub'
 import { SidebarMenuItem } from './SidebarMenuItem'
-import { Module, PermissionResponse } from '../../../../../app/type_interface/SettingType'
+import { Module, PermissionResponse, TransformedPermission } from '../../../../../app/type_interface/SettingType'
 import {
   MainRouteType, SubRouteType, mainRoutesConfig, subRoutesConfig,
   RouteType
 } from '../../../../../app/modules/auth/AuthMenu'
 import React, { useState, useEffect } from 'react'
-import { getRolePermission } from '../../../../../app/services/settingServices'
+// import { getRolePermission } from '../../../../../app/services/settingServices'
 import { getEmpId, getRoleId } from '../../../../../app/helpers/appHelpers'
 import { useMasterData } from '../../../../../app/context/MasterDataContext'
 import { useAlertModal } from '../../../../../app/context/ModalContext'
-import { getModulePermissions, TransformedPermission } from '../../../../../app/libs/get_and_format_permission'
-import { getCompanyData } from '../../../../../app/services/company_detail'
 
 const SidebarMenuMain = () => {
 
-  const { masterData, setPermissionList, setActionList, setCompanyData } = useMasterData();
+  const { masterData, setPermissionList, setActionList } = useMasterData();
   const { openAlertModal } = useAlertModal();
   const [isMenuLoading, setIsMenuLoading] = useState<boolean>(false);
   const [isError, setIsError] = useState<boolean>(false);
@@ -40,104 +38,17 @@ const SidebarMenuMain = () => {
   const fetchPermissionList = async () => {
     setIsMenuLoading(true);
     try {
-      let result = await getRolePermission(getRoleId());
-      let company_result = await getCompanyData()
-      if (company_result == false) {
-        console.error("Can't fetch");
-        return;
-      }
-      let company_data = await company_result.json()
-      setCompanyData({
-        company_name: company_data.company_name,
-        company_type: company_data.company_type,
-        company_location_detail: company_data.company_location_detail,
-        company_province_id: company_data.company_province_id,
-        company_district_id: company_data.company_district_id,
-        company_subdistrict_id: company_data.company_subdistrict_id,
-        company_zipcode: company_data.company_zipcode,
-        company_tel: company_data.company_tel,
-        company_email: company_data.company_email,
-        company_tax_no: company_data.company_tax_no,
-        company_established_year: company_data.company_established_year,
-        company_abbreviation: company_data.company_abbreviation,
-        image64: company_data.image64,
-        bank: company_data.bank,
-        account_name: company_data.account_name,
-        account_number: company_data.account_number,
-        company_latitude: company_data.company_latitude,
-        company_longtitude: company_data.company_longtitude,
-      });
-      let adminPermissions = await getModulePermissions("DASHBOARD", "DASHBOARD_MAIN");
-      setDashboardPermission(adminPermissions);
-      adminPermissions = await getModulePermissions("DASHBOARD", "CURRENT_MAP");
-      setCurrentMapPermission(adminPermissions)
-      adminPermissions = await getModulePermissions("DASHBOARD", "DASHBOARD_DELIVERY");
-      setCurrentDeliveryPermission(adminPermissions)
-      if (result) {
-        if (result.success) {
-          let data = result.data as Module[];
-          let userMainRoute: MainRouteType[] = [];
-          let actionList: RouteType[] = [];
-
-          let mainMenuList: string[] = data.map(item => item.module_code);
-          let subMenu: string[] = data.map(item => {
-            return item.sub_modules.map(sub_item => {
-              return sub_item.module_code;
-            })
-          }).flat();
-          for (let i = 0; i < mainMenuList.length; i++) {
-            let module = mainRoutesConfig.find(item => item.module_code === mainMenuList[i]);
-            if (!module) continue;
-
-            module.title = data[i].module_name;
-            // get subMenu
-            let filter_sub_module = subRoutesConfig.filter(sub => sub.main_module_code === module.module_code)
-            let module_sub_item: SubRouteType[] = filter_sub_module.filter((sub_item, sub_i) => {
-
-              // get permission and filter only submenu with permission
-              if (subMenu.includes(sub_item.module_code)) {
-                sub_item.title = data[i].sub_modules.find(module => module.module_code === sub_item.module_code)?.module_name || "";
-                let userMenu = data.filter(item => item.module_code === module.module_code)[0];
-                let userSubMenu = userMenu.sub_modules.filter(item => item.module_code === sub_item.module_code)[0];
-                let permission = (userSubMenu.permission.filter(per => {
-                  per = per as PermissionResponse;
-                  if (per.check) return per;
-                }) as PermissionResponse[]).map(item => item.method);
-
-                if (permission.length > 0) {
-                  sub_item.permission = [...permission];
-                  return sub_item;
-                }
-              }
-            })
-
-            if (module_sub_item.length > 0) {
-              actionList = [...actionList, ...module_sub_item].flat();
-              module.subMenu = [...module_sub_item];
-              userMainRoute.push(module);
-            }
-          }
-          setPermissionList([...userMainRoute]);
-          setActionList([...actionList]);
-        }
-      } else {
-        setIsError(true);
-        throw new Error("getRolePermission returns error.");
-      }
+      
     } catch (e) {
       console.error(e);
       console.log("fetchPermissionList returns error.");
     } finally {
-      setIsMenuLoading(false);
+      // setIsMenuLoading(false);
     }
   }
 
   useEffect(() => {
-    if (getEmpId()) {
       fetchPermissionList();
-    } else {
-      openAlertModal("กรุณาเพิ่มข้อมูลผู้ใช้งานก่อนการใช้งานครั้งแรก", () => window.location.href = "/profile/enter_profile", true);
-    }
   }, [masterData.updatePermission])
 
   // ------------------------ อย่าเพิ่ม PATH ตรงนี้ หรือถ้าเพิ่มเพื่อเทส icon อย่าลืมลบก่อน PUSH ด้วยนะครับบบบบบ ------------------------
