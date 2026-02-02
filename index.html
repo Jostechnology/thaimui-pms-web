@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Metronic React Demo 1" />
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Inter:300,400,500,600,700" />
+    <title>TMS - Transportation Management System</title>
+    <link rel="shortcut icon" href="media/logos/jostech22.png" />
+    <!-- <link rel="stylesheet" id="layout-styles-anchor"
+      href="/splash-screen.css" /> -->
+    <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet"
+      type="text/css" />
+    <!-- <script src="assets/plugins/global/plugins.bundle.js"></script> -->
+
+
+   <!--begin::Vendor Stylesheets(used for this page only)-->
+		<link href="assets/plugins/custom/fullcalendar/fullcalendar.bundle.css" rel="stylesheet" type="text/css" />
+		<!-- <link href="assets/plugins/custom/datatables/datatables.bundle.css" rel="stylesheet" type="text/css" /> -->
+		<!--end::Vendor Stylesheets-->
+		<!--begin::Global Stylesheets Bundle(mandatory for all pages)-->
+		<link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css" />
+		<link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css" />
+  
+  </head>
+
+  <body id="kt_body" class="page-loading">
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <!--begin::Theme mode setup on page load-->
+    <script>
+    let themeMode = 'system'
+
+    if (localStorage.getItem('kt_theme_mode_value')) {
+      themeMode = localStorage.getItem('kt_theme_mode_value')
+    }
+
+    if (themeMode === 'system') {
+      themeMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
+
+    document.documentElement.setAttribute('data-bs-theme', themeMode)
+  </script>
+    <!--end::Theme mode setup on page load-->
+
+    <div id="root"></div>
+
+    <!--begin::Loading markup-->
+    <!-- <div id="splash-screen" class="splash-screen">
+    <img src="media/logos/default-dark.svg" class="dark-logo" alt="Metronic dark logo" />
+    <img src="media/logos/default.svg" class="light-logo" alt="Metronic light logo" />
+  </div> -->
+    <!--end::Loading markup-->
+
+    <div id="root-modals"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <!-- <script src="assets/plugins/global/plugins.bundle.js"></script>
+    <script src="assets/js/scripts.bundle.js"></script>
+    <script
+      src="assets/plugins/custom/fullcalendar/fullcalendar.bundle.js"></script>
+    <script src="assets/js/custom/apps/calendar/calendar.js"></script>
+    
+    <script src="assets/plugins/global/plugins.bundle.js"></script>
+    <script src="assets/js/scripts.bundle.js"></script> -->
+  </body>
+
+</html>

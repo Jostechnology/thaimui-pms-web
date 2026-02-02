@@ -1,0 +1,84 @@
+@import './loading_style.scss';
+@import './calculate_style.scss';
+@import './vehicle_page_styles.scss';
+@import './employee_page_styles.scss';
+@import './modal_styles.scss';
+@import './setting_page_style.scss';
+@import './custom_font.scss';
+@import './skeleton_animation.scss';
+@font-face {
+    font-family: 'notosan';
+    src: url('../fonts/NotoSansThai-VariableFont_wdth\,wght.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+body {
+    font-family: 'notosan';
+}
+
+.text-red-alert {
+    color: red;
+    font-weight: bold;
+}
+
+.divide-section {
+    width: 100%;
+    height: 20px;
+    background-color: #45b1c9;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.inner-card-2-col {
+    display: grid;
+    gap: 15px;
+    grid-template-columns: 1fr 1fr;
+    align-items: flex-end;
+}
+
+.inner-card-3-col {
+    display: grid;
+    gap: 15px;
+    grid-template-columns: 1fr 1fr 60px;
+    align-items: flex-end;
+}
+
+.card-3-col {
+    display: grid;
+    gap: 15px;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: flex-end;
+}
+
+.card-4-col {
+    display: grid;
+    gap: 15px;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    align-items: flex-end;
+}
+
+.bouncing-btn:hover {
+    transform: translate(2px, 2px);
+}
+
+@media (max-width: 1300px) {
+    .card-3-col, .card-4-col {
+        gap: 10px;
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 800px) {
+    .card-3-col, .card-4-col {
+        grid-template-columns: 1fr;
+    }
+
+    .inner-card-3-col {
+        padding-right: 20px;
+    }
+}

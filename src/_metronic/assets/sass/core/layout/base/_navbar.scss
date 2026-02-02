@@ -1,0 +1,25 @@
+//
+// App Navbar
+//
+
+.app-navbar {
+    display: flex;
+    align-items: stretch;
+
+    .app-navbar-item {
+        display: flex;
+        align-items: center;
+    }
+
+    &.app-navbar-stretch {
+        .app-navbar-item {
+            align-items: stretch;
+        }
+    }
+}
+
+.log-out-btn:hover {
+    background-color: rgb(218, 218, 218);
+    border-radius: 0px !important;
+    color: white;
+}

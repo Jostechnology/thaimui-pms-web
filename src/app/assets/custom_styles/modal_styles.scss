@@ -1,0 +1,119 @@
+.swal2-container {
+    z-index: 9999 !important;
+}
+
+.custom-modal-content {
+    background-color: white;
+    height: auto;
+    border-radius: 10px;
+}
+
+.custom-modal-w-500px {
+    width: 500px;
+}
+
+.custom-modal-w-700px {
+    width: 700px;
+}
+
+.custom-modal-w-800px {
+    width: 800px;
+}
+
+.custom-modal-w-900px {
+    width: 900px;
+}
+
+.modal-display-grid-4-col {
+    display: grid;
+    gap: 10px 20px;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    align-items: flex-end;
+}
+
+.modal-display-grid-3-col {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: flex-end;
+}
+
+.modal-display-grid-2-col {
+    display: grid;
+    gap: 10px 20px;
+    grid-template-columns: 1fr 1fr;
+    align-items: flex-end;
+}
+
+.modal-header-section {
+    background-color: #45b1c9;
+    color: white;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    padding-left: 20px;
+}
+
+@media (max-width: 1000px) {
+    .custom-modal-w-900px {
+        width: 90%;
+    }
+}
+
+@media (max-width: 850px) {
+    .custom-modal-w-800px {
+        width: 90%;
+    }
+}
+
+@media (max-width: 800px) {
+    .modal-display-grid-3-col {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px 20px;
+    }
+
+    .modal-display-grid-4-col {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .module_body .modal-display-grid-4-col {
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+    }
+}
+
+@media (max-width: 750px) {
+    .custom-modal-w-700px {
+        width: 90%;
+    }
+
+    .module_body .modal-display-grid-4-col {
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+    }
+}
+
+@media (max-width: 650px) {
+    .modal-display-grid-3-col, .modal-display-grid-2-col {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .module_body .modal-display-grid-4-col {
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+    }
+
+    .modal-display-grid-4-col {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 550px) {
+    .custom-modal-w-500px {
+        width: 90%;
+    }
+}
+
+@media (max-width: 430px) {
+    .module_body .modal-display-grid-4-col {
+        grid-template-columns: 1fr 1fr;
+    }
+}

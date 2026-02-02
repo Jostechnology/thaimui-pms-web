@@ -1,0 +1,46 @@
+.employee-details-container {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+}
+
+.employee-address {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 20px 30px
+}
+
+.employee-details-box {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+.employee-img {
+    box-shadow: 1px 2px 2px 2px grey;
+    width: 100%;
+    max-width: 300px;
+    height: auto;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+@media (max-width: 1600px) {
+    .employee-address {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}
+
+@media (max-width: 1350px) {
+    .employee-details-box {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 1050px) {
+    .employee-details-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+}

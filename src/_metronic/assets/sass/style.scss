@@ -1,0 +1,52 @@
+//
+// Theme style
+//
+
+// Initialize
+@import "init";
+
+// Components
+@import "./core/components/components";
+@import "components/components";
+
+// Layout
+@import "./core/layout/base/layout";
+@import "layout/layout";
+
+.grid-3-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+}
+
+.grid-2-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.fs-14-p {
+    font-size: 14px;
+}
+
+.fs-16-p {
+    font-size: 16px;
+}
+
+.fs-18-p {
+    font-size: 18px;
+}
+
+.fs-24-p {
+    font-size: 24px;
+}
+
+.fs-32-p {
+    font-size: 32px;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}

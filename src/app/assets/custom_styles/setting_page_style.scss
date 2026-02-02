@@ -1,0 +1,21 @@
+.setting-menu {
+    min-height: 600px;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 25px;
+}
+
+.setting-menu-selection {
+    // border: none;
+    width: 90% !important;
+    height: 50px !important;
+    // border-radius: 10px;
+    // font-weight: bold;
+    // box-shadow: 0px 0px 5px 1px rgb(220, 220, 220);
+    font-size: 20px;
+    // color: white;
+    // background-color: rgb(177, 177, 226);
+}

@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  app:
+    platform: linux/amd64
+    container_name: jos-tms-iso
+    image: registry.gitlab.com/armuro.rey.dev/container-registry/jos-tms-web-isolation:${TAG}
+    ports:
+      - "7001:5173"
+    environment:
+      - VITE_FRONT_API=${VITE_FRONT_API}
+      - VITE_GOOGLE_API=${VITE_GOOGLE_API}
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

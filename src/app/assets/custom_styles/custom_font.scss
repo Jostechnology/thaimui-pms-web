@@ -1,0 +1,11 @@
+
+.custom-responsive-font {
+  font-size: 0.8rem; 
+}
+
+
+@media (min-width: 576px) {
+  .custom-responsive-font {
+    font-size: 1.1rem; 
+  }
+}
