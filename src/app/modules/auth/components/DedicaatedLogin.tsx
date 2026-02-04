@@ -153,14 +153,19 @@ const DedicatedLogin: React.FC = () => {
 
           {/* ส่วนซ้าย (Desktop Only) */}
           <div className="col-lg-6 side-visual h-auto">
-            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAiyOfKKetx0le97PFaAjgRO_Sx0VrEB7GvxxMK71olZtZYMlLfmAXrVN3C-dlbIaRaAc5afHWFACCV5-n_VtwpTDUa3g-9sDBEwEEshoWmnug-qSinHvCtLFD_einRys-RVdOM-aMifAjyc7wo_7sg4P34uQ0-3teouiCwqeULvo7R6j3o9VGP19HY2IZ0tzCKjPpVrWY_9N7ggjpN2HgDu2QoQiCogcguggxPo1PfBiLY8ili-3cqoSCbTqjFvrkaXZAIS7ve0TE" alt="Production" />
+            <img src="https://www.thaimui.co.th/wp-content/uploads/2019/01/IMG_1529-1024x768.jpg" alt="Production" />
 
             <div className="visual-content">
-              <div className="d-flex align-items-center gap-2 mb-auto">
-                <div className="bg-white bg-opacity-25 p-2 rounded-3 border border-white border-opacity-25">
-                  <span className="material-symbols-outlined text-white">precision_manufacturing</span>
+              <div className="d-flex align-items-center gap-3 mb-auto">
+                <div className="bg-white bg-opacity-25 p-3 rounded-4 border border-2 border-white border-opacity-25 d-flex align-items-center justify-content-center"
+                  style={{ width: '64px', height: '64px' }}>
+                  <span className="material-symbols-outlined text-white" style={{ fontSize: '36px' }}>
+                    precision_manufacturing
+                  </span>
                 </div>
-                <h4 className="fw-bold mb-0">PMS</h4>
+                <h1 className="fw-extrabold mb-0 text-white" style={{ fontSize: '2.5rem', letterSpacing: '-1px' }}>
+                  PMS
+                </h1>
               </div>
 
               <div style={{ marginTop: '25vh' }}>
