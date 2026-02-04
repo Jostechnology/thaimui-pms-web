@@ -1,5 +1,5 @@
 import { useAlertModal } from "../../../../app/context/ModalContext"
-import { deleteTokenFromLocal, getEmpId, getUsernameLocal, giveAccessDenied, logout } from "../../../../app/helpers/appHelpers";
+import { deleteTokenFromLocal, getEmpId, getUsernameLocal, giveAccessDenied, logout ,destroyToken } from "../../../../app/helpers/appHelpers";
 import ChangePasswordModal from "../../../partials/modals/change-password/ChangePasswordModal";
 import { useEffect, useRef, useState } from "react";
 import { changeEmpPass } from "../../../../app/services/authenticationServices";
@@ -48,6 +48,7 @@ const Navbar = () => {
 
   const handleLogout = () => {
     deleteTokenFromLocal();
+    destroyToken();
     giveAccessDenied();
   }
 
