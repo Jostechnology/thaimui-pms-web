@@ -1,5 +1,6 @@
 import Swal from "sweetalert2";
 import EnvConfig from "../environments/envConfig";
+import axios from 'axios';
 
 const env = new EnvConfig();
 const lcRefresh = "refresh-token"
@@ -141,6 +142,30 @@ export const getGroupId = () => {
 
 export const deleteTokenFromLocal = () => {
     localStorage.clear();
+}
+
+
+
+// export const logout_token_api = axios.post({ //------------
+//     baseURL: env.logout_token_api,
+//     headers: {
+//         "Content-Type": "application/json",
+//     },
+// });
+
+export const destroyToken = () => {
+    try {
+    const refreshToken = getTokenRefresh();
+    const token = getTokenFromLocal();
+
+    if (refreshToken && token) {
+    axios.post('http://localhost:5000/api/logout', { //------------
+        refresh_token: refreshToken
+      });
+    }
+  } catch (error) {
+    console.error("Logout Error:", error);
+  }
 }
 
 export const getPermTree = () => {

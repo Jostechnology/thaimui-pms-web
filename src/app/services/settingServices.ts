@@ -104,7 +104,7 @@ export const getRolePermission = async (role_id: any) => {
 
         savePermTree(base64Encoded);
         saveSignaturePermTree(result.data.signature);
-
+        console.log(result_perm)
         return result_perm;
     } catch (e) {
         console.error(e);

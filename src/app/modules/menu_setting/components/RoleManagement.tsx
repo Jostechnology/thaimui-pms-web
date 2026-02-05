@@ -27,6 +27,7 @@ const RoleManagement = () => {
     const formState: CreateRoleForm = {
         role_id: "",
         role_name: "",
+        role_code : "",
         description: "",
         module_list: []
     };
@@ -38,7 +39,9 @@ const RoleManagement = () => {
             let result = await getRoleList();
             if (result) {
                 if (result.success) {
+                    console.log(result)
                     let data = result.data as RoleToList[];
+                    
                     setRoleList(data);
                 } else {
                     console.log(result.message);
@@ -95,6 +98,7 @@ const RoleManagement = () => {
                 role_id: role.role_id,
                 role_name: role.role_name,
                 description: role.description,
+                role_code : role.role_code,
                 module_list: []
             };
             setIsWatch(isWatch);
@@ -259,7 +263,7 @@ const RoleManagement = () => {
                                             roleList.map((role, index) => {
                                                 return (
                                                     <tr key={`role-${index}`}>
-                                                        <td className="text-center">{role.role_id}</td>
+                                                        <td className="text-center">{role.role_code}</td>
                                                         <td className="text-center">{role.role_name}</td>
                                                         <td className="text-center">{role.description}</td>
                                                         <td className="text-center">
