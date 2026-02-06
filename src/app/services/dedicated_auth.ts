@@ -81,6 +81,28 @@ export const register = async (username: string , password: string) => {
         return false
     }
 }
+
+export const createUser = async (username: string , password: string , role_id: number) => {
+    const body = {
+        username:username,
+        password:password,
+        role_id:role_id
+    }
+    try {
+        const response = await front_api("POST", `/create_user`, body, { wrapData: false })
+        if (!response) return false
+
+        const result = await response.json()
+
+        if (!response.ok) {
+            return { ...result, success: false }
+        }
+
+        return result
+    } catch (error) {
+        return false
+    }
+}
 export const getUserList = async (
     page: number,
     limit: number,
@@ -90,19 +112,19 @@ export const getUserList = async (
     try {
         const params = new URLSearchParams({
             page: page.toString(),
-            limit: limit.toString(),
+            pageConfig: limit.toString(),
         });
-        const group_id = getGroupId()
+        
+        if (search) params.append("search", search); 
+        
+        if (roleId && roleId !== "") params.append("filter", roleId.toString()); 
 
-        if (search) params.append("username", search);
-        if (roleId && roleId !== "") params.append("role_id", roleId.toString());
-        if (group_id) params.append("group_id", group_id.toString());
-
-        const response = await front_api("GET", `/get_user_list?${params.toString()}`, {}, { wrapData: false })
-        if (!response) return false
-        return await response.json()
+        const response = await front_api("GET", `/get_user_list?${params.toString()}`, {}, { wrapData: false });
+        
+        if (!response) return false;
+        return await response.json();
     } catch (error) {
-        return false
+        return false;
     }
 }
 
