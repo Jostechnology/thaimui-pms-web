@@ -121,7 +121,7 @@ const ModuleManagement = () => {
                     return;
                 }
             }
-            let result = await editModule(formData);
+            let result = await editModule(formData, selectedId);
             if (result) {
                 if (result.success) {
                     openAlertModal("บันทึกข้อมูลสำเร็จ", () => {
@@ -163,7 +163,7 @@ const ModuleManagement = () => {
                     setFormData(state => ({
                         ...state,
                         ...data,
-                        permission_list: data.permission
+                        permission_list: data.permission_list
                     }));
                     setIsEdit(true);
                     setSelectedId(module_id);
@@ -242,11 +242,6 @@ const ModuleManagement = () => {
 
                         <div className="card-header border-0 pt-5 d-flex justify-content-between align-items-center">
                             <h3 className="card-title align-items-start flex-row">
-                                <button onClick={() => navigate("/setting")}
-                                    className="d-flex align-items-center text-gray-800 text-hover-primary fs-2 fw-bolder me-1"
-                                    style={{ border: "none", background: "none" }}>
-                                    <KTIcon iconName="arrow-left" className="fs-4 me-2" />
-                                </button>
                                 <span className="card-label fw-bold fs-3 mb-1">
                                     Module Management
                                 </span>
