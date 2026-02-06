@@ -23,6 +23,27 @@ export const login = async (username: string, password: string) => {
     }
 };
 
+export const logout = async () => {
+  try {
+    const refreshToken = localStorage.getItem('refresh_token');
+    
+    // เรียก API ลบ token ใน database
+    await front_api("POST", `/logout`, { refresh_token: refreshToken }, { wrapData: false });
+  } catch (error) {
+    console.error('Logout error:', error);
+  } finally {
+    // ลบ tokens ใน browser ไม่ว่า API จะสำเร็จหรือไม่
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    
+    // redirect ไปหน้า login
+    window.location.href = '/login';
+  }
+};
+
+
+
+
 export const refresh = async (refresh_token: string) => {
     try {
         const env = new EnvConfig()
