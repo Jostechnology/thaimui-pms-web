@@ -33,25 +33,22 @@ const MainMenuSetting = () => {
                                     onClick={() => navigate("role_management")}>
                                     Role Management
                                 </button>
-                                <button
+                                {/* <button
                                     className="btn btn-secondary setting-menu-selection"
                                     onClick={() => navigate("company_detail")}>
                                     ตั้งค่าข้อมูลบริษัท
-
-
-
-</button>
+                            </button> */}
                                  <button
                                     className="btn btn-secondary setting-menu-selection"
                                     onClick={() => navigate("notification_setting_management")}>
                                     ตั้งค่าการแจ้งเตือน
                                 </button>
 
-                                <button
+                                {/* <button
                                     className="btn btn-secondary setting-menu-selection"
                                     onClick={() => navigate("document_code_management")}>
                                     ตั้งค่าเลขเอกสาร
-                                </button>
+                                </button> */}
                                 <button
                                     className="btn btn-secondary setting-menu-selection"
                                     onClick={() => navigate("work_setting")}>

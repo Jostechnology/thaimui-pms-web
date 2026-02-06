@@ -153,19 +153,28 @@ export const deleteTokenFromLocal = () => {
 //     },
 // });
 
-export const destroyToken = () => {
+export const destroyToken = async () => {
     try {
-    const refreshToken = getTokenRefresh();
-    const token = getTokenFromLocal();
+        const env = new EnvConfig();
+        const refreshToken = getTokenRefresh();
+        const token = getTokenFromLocal();
 
-    if (refreshToken && token) {
-    axios.post('http://localhost:5000/api/logout', { //------------
-        refresh_token: refreshToken
-      });
+        console.log("=== Logout Debug ===");
+        console.log("refreshToken:", refreshToken);
+        console.log("API URL:", `${env.front_api}/logout`);
+
+        if (refreshToken && token) {
+            const response = await axios.post(`${env.front_api}/logout`, {
+                refresh_token: refreshToken
+            });
+            console.log("Logout Response:", response.data);
+            return response;
+        } else {
+            console.log("No token found, skip API call");
+        }
+    } catch (error) {
+        console.error("Logout Error:", error);
     }
-  } catch (error) {
-    console.error("Logout Error:", error);
-  }
 }
 
 export const getPermTree = () => {

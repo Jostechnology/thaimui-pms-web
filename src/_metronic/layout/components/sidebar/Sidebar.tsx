@@ -1,21 +1,17 @@
 /* eslint-disable no-prototype-builtins */
 import clsx from 'clsx'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { ILayout, useLayout } from '../../core'
 import { SidebarMenu } from './sidebar-menu/SidebarMenu'
-import { SidebarFooter } from './SidebarFooter'
 import { SidebarLogo } from './SidebarLogo'
-import { getRoleName } from '../../../../app/helpers/appHelpers'
 
 const Sidebar = () => {
 
   const { config } = useLayout()
   const sidebarRef = useRef<HTMLDivElement>(null)
-  const [roleName, setRoleName] = useState<string | null>("");
 
   useEffect(() => {
     updateDOM(config);
-    setRoleName(getRoleName());
   }, [config])
 
   if (!config.app?.sidebar?.display) {
@@ -32,7 +28,6 @@ const Sidebar = () => {
         >
           <SidebarLogo sidebarRef={sidebarRef} />
           <SidebarMenu />
-          <SidebarFooter />
         </div>
       )}
     </>
