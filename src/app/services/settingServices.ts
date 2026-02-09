@@ -9,7 +9,7 @@ import {
 // ------------------------------------- path -------------------------------------
 
 // Get Details
-const get_module_id = "/get_module_id?module_id=";
+const get_module_id = "/get_module/";
 const get_module_sorted = "/get_module_sorted?module_id=";
 const get_role_permission = "/get_role_permission";
 
@@ -23,11 +23,11 @@ const create_module = "/create_module";
 const create_role_permission = "/create_role_permission";
 
 // Edit || Update
-const edit_module = "/edit_module";
+const edit_module = "/edit_module/";
 const upsert_role_permission = "/upsert_role_permission";
 
 // Delete
-const delete_module = "/delete_module";
+const delete_module = "/delete_module/";
 
 // ----------------------------------- services -----------------------------------
 
@@ -202,7 +202,8 @@ export const createRole = async (formData: any) => {
     }
 }
 
-export const editModule = async (formData: any) => {
+export const editModule = async (formData: any ,moduleId: any) => {
+    const fullpath = edit_module + moduleId;
     const request = {
         ...formData,
         username: getUsernameLocal(),
@@ -210,7 +211,7 @@ export const editModule = async (formData: any) => {
     };
 
     // logsPath("PUT", edit_module);
-    const response = await front_api("PUT", edit_module, request, { wrapData: false });
+    const response = await front_api("PUT", fullpath, request, { wrapData: false });
 
     if (!response) return false;
 
@@ -243,13 +244,14 @@ export const editRole = async (formData: any) => {
 }
 
 export const deleteModule = async (module_id: number) => {
+    const fullPath = delete_module + module_id;
     const body = {
         module_id: module_id,
         username: getUsernameLocal()
     };
 
     // logsPath("DELETE", delete_module);
-    const response = await front_api("DELETE", delete_module, body, { wrapData: false });
+    const response = await front_api("DELETE", fullPath, body, { wrapData: false });
 
     if (!response) return false;
 

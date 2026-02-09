@@ -219,11 +219,6 @@ const RoleManagement = () => {
                     <div className={`card mb-5 mb-xl-8`}>
                         <div className="card-header border-0 pt-5 d-flex justify-content-between align-items-center">
                             <h3 className="card-title align-items-start flex-row">
-                                <button onClick={() => navigate("/setting")}
-                                    className="d-flex align-items-center text-gray-800 text-hover-primary fs-2 fw-bolder me-1"
-                                    style={{ border: "none", background: "none" }}>
-                                    <KTIcon iconName="arrow-left" className="fs-4 me-2" />
-                                </button>
                                 <span className="card-label fw-bold fs-3 mb-1">
                                     Role Management
                                 </span>
