@@ -13,8 +13,10 @@ export const login = async (username: string, password: string) => {
         const data = await response.json();
 
         if (data.success) {
-            authTokenDedicated(data.access_token, data.refresh_token)
-            return { success: true };
+            //authTokenDedicated(data.access_token, data.refresh_token)
+            const authResult = authTokenDedicated(data.access_token, data.refresh_token);
+            return {  authResult,
+                success: true };
         } else {
             return { 
                 success: false, 
