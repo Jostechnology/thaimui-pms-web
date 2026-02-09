@@ -8,7 +8,7 @@ import TablePaginator from '../../../custom_components/TablePaginator';
 import SearchComponent from '../../../custom_components/SearchComponent';
 import AddEditUser from '../../../modals/setting_modal/user_modal/dedicatedAddUser';
 import { useTableParams } from '../../../hooks/useTableParams';
-import { getUserList, register, editUser, changePassword, createUser } from '../../../services/dedicated_auth';
+import { getUserList, register, editUser, changePassword, createUser, banUser } from '../../../services/dedicated_auth';
 import { getRoleList } from '../../../services/settingServices';
 
 interface UserData {
@@ -17,6 +17,7 @@ interface UserData {
     role_name: string;
     group_id: number;
     created_date: string;
+    is_active: boolean;
 }
 
 interface RoleData {
@@ -138,7 +139,7 @@ const UserManagement: React.FC = () => {
             title: 'เปลี่ยนรหัสผ่าน',
             html:
                 `<input id="swal-old-pass" class="swal2-input" type="password" placeholder="รหัสผ่านเดิม">` +
-                `<input id="swal-new-pass" class="swal2-input" type="password" placeholder="รหัสผ่านใหม่">`+
+                `<input id="swal-new-pass" class="swal2-input" type="password" placeholder="รหัสผ่านใหม่">` +
                 `<input id="swal-con-new-pass" class="swal2-input" type="password" placeholder="ยืนยันรหัสผ่านใหม่">`,
             focusConfirm: false,
             showCancelButton: true,
@@ -152,7 +153,7 @@ const UserManagement: React.FC = () => {
         });
 
         if (formValues) {
-            const [oldPass, newPass ,conNewPass] = formValues;
+            const [oldPass, newPass, conNewPass] = formValues;
             if (!oldPass || !newPass) return alertMessage("กรุณากรอกข้อมูลให้ครบ");
             if (newPass !== conNewPass) return alertMessage("รหัสผ่านใหม่กับยืนยันรหัสผ่านไม่ตรงกัน");
             setLoading();
@@ -171,36 +172,41 @@ const UserManagement: React.FC = () => {
         }
     }
 
-    const handleDeleteAccountClick = async (username: string) => {
+    const handleToggleActiveClick = async (username: string, currentStatus: boolean) => {
+        const adminUsername = localStorage.getItem('username') || 'System';
+        const actionText = currentStatus ? "ระงับสิทธิ์" : "คืนสิทธิ์การใช้งาน";
+
         const result = await Swal.fire({
-            title: 'ยืนยันการลบผู้ใช้?',
-            text: `คุณกำลังจะลบผู้ใช้ "${username}" ข้อมูลนี้จะไม่สามารถกู้คืนได้!`,
-            icon: 'warning',
+            title: `ยืนยันการ${actionText}?`,
+            text: `คุณกำลังจะทำการ${actionText}ผู้ใช้ "${username}"`,
+            icon: 'question',
             showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'ใช่, ลบเลย!',
+            confirmButtonColor: currentStatus ? '#d33' : '#28a745',
+            confirmButtonText: 'ตกลง',
             cancelButtonText: 'ยกเลิก'
         });
+
         if (result.isConfirmed) {
-            // setLoading();
-            // try {
+            setLoading();
+            try {
+                const res = await banUser({
+                    username: username,
+                    is_active: !currentStatus,
+                    updated_by: adminUsername
+                });
 
-            //     const res = await deleteUser(username);
-
-            //     if (res && res.success) {
-            //         openAlertModal("ลบผู้ใช้สำเร็จ", () => {
-            //             fetchUsers();
-            //         }, true);
-            //     } else {
-            //         alertMessage(res?.message || "ลบผู้ใช้ไม่สำเร็จ");
-            //     }
-            // } catch (error: any) {
-            //     console.error("Delete error:", error);
-            //     alertMessage("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
-            // } finally {
-            //     setUnLoading();
-            // }
+                if (res && res.success) {
+                    openAlertModal(`${actionText}สำเร็จ`, () => {
+                        fetchUsers();
+                    }, true);
+                } else {
+                    alertMessage(res?.message || "ดำเนินการไม่สำเร็จ");
+                }
+            } catch (error) {
+                alertMessage("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+            } finally {
+                setUnLoading();
+            }
         }
     }
 
@@ -264,12 +270,13 @@ const UserManagement: React.FC = () => {
                                 <th className='min-w-150px text-start'>Username</th>
                                 <th className='min-w-150px text-center'>Role</th>
                                 <th className='min-w-150px text-center'>วันที่สร้าง</th>
+                                <th className='min-w-100px text-center'>สถานะใช้งาน</th>
                                 <th className='min-w-100px text-center'>จัดการ</th>
                             </tr>
                         </thead>
                         <tbody>
                             {dataLoading ? (
-                                <tr><td colSpan={4} className='text-center'>Loading...</td></tr>
+                                <tr><td colSpan={5} className='text-center'>Loading...</td></tr>
                             ) : users.length > 0 ? (
                                 users.map((user, index) => (
                                     <tr key={index}>
@@ -278,6 +285,14 @@ const UserManagement: React.FC = () => {
                                             <span className='badge badge-light-primary fs-7'>{user.role_name}</span>
                                         </td>
                                         <td className='text-center'>{user.created_date ? user.created_date.split(" ")[0] : "-"}</td>
+
+                                        <td className='text-center'>
+                                            {Number(user.is_active) === 1 ? (
+                                                <span className='badge badge-light-success fw-bold px-4 py-3'>ใช้งานปกติ</span>
+                                            ) : (
+                                                <span className='badge badge-light-danger fw-bold px-4 py-3'>ระงับสิทธิ์</span>
+                                            )}
+                                        </td>
                                         <td className='text-center'>
                                             <div className="d-flex justify-content-center gap-2">
                                                 <button
@@ -295,18 +310,18 @@ const UserManagement: React.FC = () => {
                                                     <i className="fa fa-key"></i>
                                                 </button>
                                                 <button
-                                                    className="btn btn-icon btn-bg-light btn-active-color-danger btn-sm"
-                                                    onClick={() => handleDeleteAccountClick(user.username)}
-                                                    title="ลบผู้ใช้"
+                                                    className={`btn btn-icon btn-sm btn-bg-light ${user.is_active ? 'btn-active-color-danger' : 'btn-active-color-success'}`}
+                                                    onClick={() => handleToggleActiveClick(user.username, user.is_active)}
+                                                    title={user.is_active ? "ระงับสิทธิ์" : "คืนสิทธิ์"}
                                                 >
-                                                    <i className="fa fa-trash"></i>
+                                                    <i className={`fa ${user.is_active ? 'fa-ban' : 'fa-check-circle'}`}></i>
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
                                 ))
                             ) : (
-                                <tr><td colSpan={4} className="text-center">ไม่พบข้อมูล</td></tr>
+                                <tr><td colSpan={5} className="text-center">ไม่พบข้อมูล</td></tr>
                             )}
                         </tbody>
                     </table>

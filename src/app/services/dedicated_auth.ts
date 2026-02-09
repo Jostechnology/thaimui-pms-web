@@ -86,7 +86,7 @@ export const createUser = async (username: string , password: string , role_id: 
     const body = {
         username:username,
         password:password,
-        role_id:role_id
+        role_id:role_id,
     }
     try {
         const response = await front_api("POST", `/create_user`, body, { wrapData: false })
@@ -133,7 +133,7 @@ export const editUser = async (data: any) => {
     const body = {
         username: data.username,
         role_id: data.role_id,
-        update_by: "system"
+        updated_by: "system"
     }
     try {
         const response = await front_api("PUT", `/change_user_role`, body, { wrapData: false })
@@ -173,3 +173,35 @@ export const changePassword = async (data: any) => {
         return false
     }
 }
+
+export const banUser = async (data: any) => {
+    const body = {
+        username: data.username,
+        is_active: data.is_active,
+        updated_by: data.updated_by
+    };
+
+    try {
+        const response = await front_api("PUT", `/ban_user`, body, { wrapData: false });
+        if (!response) {
+            return { success: false, message: "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้" };
+        }
+
+        const result = await response.json();
+        if (!response.ok) {
+            return { 
+                ...result, 
+                success: false, 
+                message: result.message || "เกิดข้อผิดพลาดจากทางเซิร์ฟเวอร์" 
+            };
+        }
+        return { ...result, success: true };
+
+    } catch (error: any) {
+        console.error("API banUser Error:", error);
+        return { 
+            success: false, 
+            message: error.message || "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ" 
+        };
+    }
+};
