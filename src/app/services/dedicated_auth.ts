@@ -8,18 +8,22 @@ export const login = async (username: string, password: string) => {
     try {
         const response = await front_api("POST", `/login`, { username, password }, { wrapData: false })
         if (!response) {
-            console.log("What ?")
-            return false
+            return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
         }
         const data = await response.json();
 
         if (data.success) {
-            return authTokenDedicated(data.access_token, data.refresh_token)
+            authTokenDedicated(data.access_token, data.refresh_token)
+            return { success: true };
         } else {
-            return false
+            return { 
+                success: false, 
+                message: data.error || "Username หรือ Password ไม่ถูกต้อง" 
+            };
         }
     } catch (error) {
-        return false;
+        console.error("Login Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการเข้าสู่ระบบ" };
     }
 };
 
