@@ -159,7 +159,7 @@ export const changePassword = async (data: any) => {
         new_password: data.new_password
     }
     try {
-        const response = await front_api("POST", `/change_password_islolate`, body, { wrapData: false })
+        const response = await front_api("PUT", `/change_user_password`, body, { wrapData: false })
         if (!response) return false
 
         const result = await response.json()
