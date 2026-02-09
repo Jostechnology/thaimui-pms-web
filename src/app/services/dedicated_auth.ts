@@ -128,7 +128,7 @@ export const getUserList = async (
     }
 }
 
-// Edit User
+// Edit User role
 export const editUser = async (data: any) => {
     const body = {
         username: data.username,
@@ -136,12 +136,11 @@ export const editUser = async (data: any) => {
         update_by: "system"
     }
     try {
-        const response = await front_api("POST", `/edit_user`, body, { wrapData: false })
+        const response = await front_api("PUT", `/change_user_role`, body, { wrapData: false })
         if (!response) return false
 
         const result = await response.json()
 
-        // เพิ่ม: ถ้า HTTP Status ไม่โอเค ให้บังคับ success = false
         if (!response.ok) {
             return { ...result, success: false }
         }
