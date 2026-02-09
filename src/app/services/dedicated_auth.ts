@@ -40,16 +40,13 @@ export const refresh = async (refresh_token: string) => {
     }
 };
 
-export const register = async (data: any) => {
-    const group_id = getGroupId()
+export const register = async (username: string , password: string) => {
     const body = {
-        username: data.username,
-        password: data.password,
-        role_id: data.role_id,
-        group_id: group_id,
+        username:username,
+        password:password
     }
     try {
-        const response = await front_api("POST", `/signup`, body, { wrapData: false })
+        const response = await front_api("POST", `/register`, body, { wrapData: false })
         if (!response) return false
 
         const result = await response.json()

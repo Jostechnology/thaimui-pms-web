@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { login } from '../../../services/dedicated_auth';
 import Swal from 'sweetalert2';
+import { useNavigate } from 'react-router-dom';
 
 const DedicatedLogin: React.FC = () => {
   const [username, setUsername] = useState<string>('');
@@ -35,6 +36,8 @@ const DedicatedLogin: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  const navigate = useNavigate();
 
   return (
     <>
@@ -248,21 +251,21 @@ const DedicatedLogin: React.FC = () => {
                   className="btn btn-login-custom w-100 d-flex align-items-center justify-content-center gap-2"
                   disabled={isLoading}
                 >
-                  <span>{isLoading ? 'Processing...' : 'Login / เข้าสู่ระบบ'}</span>
+                  <span>{isLoading ? 'Processing...' : 'Login'}</span>
                   {!isLoading && <span className="material-symbols-outlined">arrow_forward</span>}
                 </button>
               </form>
-
-              <div className="mt-5 pt-4 border-top text-center">
-                <p className="small text-muted mb-3">Need technical assistance?</p>
-                <div className="d-flex justify-content-center gap-2">
-                  <button className="btn btn-outline-secondary btn-sm px-3 fw-bold d-flex align-items-center gap-2">
-                    <span className="material-symbols-outlined fs-5">help_center</span> Help Center
+              <div className="mt-5 text-center">
+                <p className="small text-muted mb-0">
+                  Don't have an account yet? 
+                  <button 
+                    onClick={() => navigate('/register')}
+                    className="btn btn-link p-0 ms-1 fw-bold text-primary text-decoration-none"
+                    style={{verticalAlign: 'baseline'}}
+                  >
+                    Register
                   </button>
-                  <button className="btn btn-outline-secondary btn-sm px-3 fw-bold d-flex align-items-center gap-2">
-                    <span className="material-symbols-outlined fs-5">contact_support</span> Support
-                  </button>
-                </div>
+                </p>
               </div>
             </div>
           </div>

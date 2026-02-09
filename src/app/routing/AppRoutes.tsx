@@ -10,6 +10,8 @@ import { getTokenFromLocal, giveAccessDenied, getEmpId } from '../helpers/appHel
 // import useCheckInteraction from '../hooks/useCheckInteraction'
 // import { initializeNotifications } from '../libs/notificationUtil'
 import DedicatedLogin from '../modules/auth/components/DedicaatedLogin'
+import DedicatedRegister from '../modules/auth/components/DedicatedRegister';
+
 
 const { BASE_URL } = import.meta.env
 
@@ -64,6 +66,7 @@ const AppRoutes: FC = () => {
                 <Route path={'?tk=/*' + token} element={<></>} />
                 <Route path='access-denied' element={<AccessDenied />} />
                 <Route path='login' element={<DedicatedLogin />} />
+                <Route path='register' element={<DedicatedRegister />} />
               </>
           }
         </Route>
