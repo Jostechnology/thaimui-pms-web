@@ -16,15 +16,15 @@ const DedicatedLogin: React.FC = () => {
     setIsLoading(true);
     try {
       const res = await login(username, password);
-      if (res) {
+      if (res && res.success) {
         window.location.href = '/main';
       } else {
         Swal.fire({
-          icon: 'error',
-          title: 'เข้าสู่ระบบไม่สำเร็จ',
-          text: 'Username หรือ Password ไม่ถูกต้อง',
-          confirmButtonColor: '#1d84f5',
-        });
+                icon: 'error',
+                title: 'เข้าสู่ระบบไม่สำเร็จ',
+                text: res.message, 
+                confirmButtonColor: '#1d84f5',
+            });
       }
     } catch (error: any) {
       if (error.response && error.response.status === 429) {

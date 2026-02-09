@@ -149,7 +149,6 @@ export const getRoleList = async () => {
         body.role_id = Number(roleId);
     }
 
-    // logsPath("POST", get_all_roles);
     const response = await front_api("POST", get_all_roles, body, { wrapData: false });
 
     if (!response) return false;
