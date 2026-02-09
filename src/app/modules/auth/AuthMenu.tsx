@@ -25,7 +25,16 @@ export const mainRoutesConfig: MainRouteType[] = [
         icon: "bi bi-currency-exchange",
         subMenu: [],
         permission: []
-    }
+    },
+    {
+        module_code: "SETTING",
+        path: "/setting",
+        title: "",
+        fontIcon: "bi-gear",
+        icon: "bi bi-gear",
+        subMenu: [],
+        permission: []
+    },
 ]
 
 export const subRoutesConfig: SubRouteType[] = [
@@ -38,5 +47,26 @@ export const subRoutesConfig: SubRouteType[] = [
         title: "",
         permission: []
     },
+    {
+        module_code: "ROLE_MANAGEMENT",
+        main_module_code: "SETTING",
+        path: "/setting/role_management",
+        title: "",
+        permission: []
+    },
+    {
+        module_code:"MODULE_MANAGEMENT",
+        main_module_code: "SETTING",
+        path:"/setting/module_management",
+        title: "",
+        permission:[]
+    },
+    {
+        module_code:"USER_MANAGEMENT",
+        main_module_code: "SETTING",
+        path:"/setting/user_management",
+        title: "",
+        permission:[]
+    }
     
 ]

@@ -23,6 +23,27 @@ export const login = async (username: string, password: string) => {
     }
 };
 
+export const logout = async () => {
+  try {
+    const refreshToken = localStorage.getItem('refresh_token');
+    
+    // เรียก API ลบ token ใน database
+    await front_api("POST", `/logout`, { refresh_token: refreshToken }, { wrapData: false });
+  } catch (error) {
+    console.error('Logout error:', error);
+  } finally {
+    // ลบ tokens ใน browser ไม่ว่า API จะสำเร็จหรือไม่
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    
+    // redirect ไปหน้า login
+    window.location.href = '/login';
+  }
+};
+
+
+
+
 export const refresh = async (refresh_token: string) => {
     try {
         const env = new EnvConfig()
@@ -40,16 +61,13 @@ export const refresh = async (refresh_token: string) => {
     }
 };
 
-export const register = async (data: any) => {
-    const group_id = getGroupId()
+export const register = async (username: string , password: string) => {
     const body = {
-        username: data.username,
-        password: data.password,
-        role_id: data.role_id,
-        group_id: group_id,
+        username:username,
+        password:password
     }
     try {
-        const response = await front_api("POST", `/signup`, body, { wrapData: false })
+        const response = await front_api("POST", `/register`, body, { wrapData: false })
         if (!response) return false
 
         const result = await response.json()

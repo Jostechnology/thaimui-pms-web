@@ -26,7 +26,7 @@ export const front_api = async (
 	options: ApiOptions = {}
 ) => {
 	try {
-		if (isTokenExpired() && path !== "/login") {
+		if (isTokenExpired() && path !== "/login" && path !== "/register") {
 			const refresh_token = getTokenRefresh();
 			if (!refresh_token) {
 				giveAccessDenied();
@@ -84,6 +84,7 @@ export const front_api = async (
 		return false;
 	}
 };
+ 
 
 // export const front_api = axios.create({
 //     baseURL: env.front_api
