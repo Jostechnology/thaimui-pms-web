@@ -8,18 +8,24 @@ export const login = async (username: string, password: string) => {
     try {
         const response = await front_api("POST", `/login`, { username, password }, { wrapData: false })
         if (!response) {
-            console.log("What ?")
-            return false
+            return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
         }
         const data = await response.json();
 
         if (data.success) {
-            return authTokenDedicated(data.access_token, data.refresh_token)
+            //authTokenDedicated(data.access_token, data.refresh_token)
+            const authResult = authTokenDedicated(data.access_token, data.refresh_token);
+            return {  authResult,
+                success: true };
         } else {
-            return false
+            return { 
+                success: false, 
+                message: data.error || "Username หรือ Password ไม่ถูกต้อง" 
+            };
         }
     } catch (error) {
-        return false;
+        console.error("Login Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการเข้าสู่ระบบ" };
     }
 };
 
@@ -81,6 +87,28 @@ export const register = async (username: string , password: string) => {
         return false
     }
 }
+
+export const createUser = async (username: string , password: string , role_id: number) => {
+    const body = {
+        username:username,
+        password:password,
+        role_id:role_id,
+    }
+    try {
+        const response = await front_api("POST", `/create_user`, body, { wrapData: false })
+        if (!response) return false
+
+        const result = await response.json()
+
+        if (!response.ok) {
+            return { ...result, success: false }
+        }
+
+        return result
+    } catch (error) {
+        return false
+    }
+}
 export const getUserList = async (
     page: number,
     limit: number,
@@ -90,36 +118,35 @@ export const getUserList = async (
     try {
         const params = new URLSearchParams({
             page: page.toString(),
-            limit: limit.toString(),
+            pageConfig: limit.toString(),
         });
-        const group_id = getGroupId()
+        
+        if (search) params.append("search", search); 
+        
+        if (roleId && roleId !== "") params.append("filter", roleId.toString()); 
 
-        if (search) params.append("username", search);
-        if (roleId && roleId !== "") params.append("role_id", roleId.toString());
-        if (group_id) params.append("group_id", group_id.toString());
-
-        const response = await front_api("GET", `/get_user_list?${params.toString()}`, {}, { wrapData: false })
-        if (!response) return false
-        return await response.json()
+        const response = await front_api("GET", `/get_user_list?${params.toString()}`, {}, { wrapData: false });
+        
+        if (!response) return false;
+        return await response.json();
     } catch (error) {
-        return false
+        return false;
     }
 }
 
-// Edit User
+// Edit User role
 export const editUser = async (data: any) => {
     const body = {
         username: data.username,
         role_id: data.role_id,
-        update_by: "system"
+        updated_by: "system"
     }
     try {
-        const response = await front_api("POST", `/edit_user`, body, { wrapData: false })
+        const response = await front_api("PUT", `/change_user_role`, body, { wrapData: false })
         if (!response) return false
 
         const result = await response.json()
 
-        // เพิ่ม: ถ้า HTTP Status ไม่โอเค ให้บังคับ success = false
         if (!response.ok) {
             return { ...result, success: false }
         }
@@ -138,7 +165,7 @@ export const changePassword = async (data: any) => {
         new_password: data.new_password
     }
     try {
-        const response = await front_api("POST", `/change_password_islolate`, body, { wrapData: false })
+        const response = await front_api("PUT", `/change_user_password`, body, { wrapData: false })
         if (!response) return false
 
         const result = await response.json()
@@ -152,3 +179,35 @@ export const changePassword = async (data: any) => {
         return false
     }
 }
+
+export const banUser = async (data: any) => {
+    const body = {
+        username: data.username,
+        is_active: data.is_active,
+        updated_by: data.updated_by
+    };
+
+    try {
+        const response = await front_api("PUT", `/ban_user`, body, { wrapData: false });
+        if (!response) {
+            return { success: false, message: "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้" };
+        }
+
+        const result = await response.json();
+        if (!response.ok) {
+            return { 
+                ...result, 
+                success: false, 
+                message: result.message || "เกิดข้อผิดพลาดจากทางเซิร์ฟเวอร์" 
+            };
+        }
+        return { ...result, success: true };
+
+    } catch (error: any) {
+        console.error("API banUser Error:", error);
+        return { 
+            success: false, 
+            message: error.message || "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ" 
+        };
+    }
+};
