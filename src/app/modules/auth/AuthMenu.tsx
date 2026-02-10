@@ -35,6 +35,15 @@ export const mainRoutesConfig: MainRouteType[] = [
         subMenu: [],
         permission: []
     },
+    {
+        module_code: "WORKORDERS",
+        path: "/workorder",
+        title: "",
+        fontIcon: "bi-speedometer2",
+        icon: "bi bi-speedometer2",
+        subMenu: [],
+        permission: []
+    }
 ]
 
 export const subRoutesConfig: SubRouteType[] = [
@@ -65,6 +74,13 @@ export const subRoutesConfig: SubRouteType[] = [
         module_code:"USER_MANAGEMENT",
         main_module_code: "SETTING",
         path:"/setting/user_management",
+        title: "",
+        permission:[]
+    },
+    {
+        module_code:"WORKORDERS_LIST",
+        main_module_code: "WORKORDERS",
+        path:"/workorder/workorders_list",
         title: "",
         permission:[]
     }
