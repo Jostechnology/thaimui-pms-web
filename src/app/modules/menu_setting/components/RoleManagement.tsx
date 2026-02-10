@@ -27,7 +27,7 @@ const RoleManagement = () => {
     const formState: CreateRoleForm = {
         role_id: "",
         role_name: "",
-        role_code : "",
+        role_code: "",
         description: "",
         module_list: []
     };
@@ -41,7 +41,7 @@ const RoleManagement = () => {
                 if (result.success) {
                     console.log(result)
                     let data = result.data as RoleToList[];
-                    
+
                     setRoleList(data);
                 } else {
                     console.log(result.message);
@@ -98,7 +98,7 @@ const RoleManagement = () => {
                 role_id: role.role_id,
                 role_name: role.role_name,
                 description: role.description,
-                role_code : role.role_code,
+                role_code: role.role_code,
                 module_list: []
             };
             setIsWatch(isWatch);
@@ -219,11 +219,6 @@ const RoleManagement = () => {
                     <div className={`card mb-5 mb-xl-8`}>
                         <div className="card-header border-0 pt-5 d-flex justify-content-between align-items-center">
                             <h3 className="card-title align-items-start flex-row">
-                                <button onClick={() => navigate("/setting")}
-                                    className="d-flex align-items-center text-gray-800 text-hover-primary fs-2 fw-bolder me-1"
-                                    style={{ border: "none", background: "none" }}>
-                                    <KTIcon iconName="arrow-left" className="fs-4 me-2" />
-                                </button>
                                 <span className="card-label fw-bold fs-3 mb-1">
                                     Role Management
                                 </span>

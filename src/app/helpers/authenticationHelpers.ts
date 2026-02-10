@@ -115,7 +115,6 @@ export const authTokenDedicated = (token: any, refresh_token: any) => {
         saveRoleCodeToLocal(auth["role_code"])
         saveRoleNameToLocal(auth["role_name"] || "")
         saveEmpIdToLocal(!auth["employee_id"] ? "" : auth["employee_id"]);
-        saveGroupId(auth["group_id"])
         saveTokenExpiredDateToLocal(formatted);
         return true
     } catch (error) {
