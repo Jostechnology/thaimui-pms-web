@@ -220,7 +220,7 @@ const WorkorderList: React.FC = () => {
                                             <button
                                                 className='btn btn-sm btn-icon btn-bg-light btn-color-primary me-1'
                                                 title="Manage Order"
-                                                onClick={() => navigate(`/workorder/workorders_detail/${item.doc_num}`)}
+                                                onClick={() => navigate(`/workorder/workorders_detail/${item.work_order_id}`)}
                                             >
                                                 <i className='bi bi-pencil-square fs-3'></i>
                                             </button>
