@@ -6,7 +6,7 @@ const WorkorderPage = () => {
     return (
         <Routes>
             <Route path="workorders_list" element={<WorkorderList/>}/>
-            <Route path="workorders_detail" element={<WorkorderDetail/>}/>
+            <Route path="workorders_detail/:id" element={<WorkorderDetail/>}/>
         </Routes>
     );
 
