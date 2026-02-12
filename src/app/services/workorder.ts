@@ -47,3 +47,36 @@ export const getWorkOrderList = async (
         return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
     }
 }
+
+export const getWorkOrderById = async (id: Number) => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+
+        const headers = {
+            "Authorization": `Bearer ${token}`
+        };
+        const response = await front_api(
+            "GET", 
+            `/get_work_order_by_id/${id}`, 
+            {},
+            { 
+                wrapData: false,
+                headers: headers
+            }
+        );
+        
+        if (!response) return false;
+
+        const result = await response.json();
+        
+        if (response.ok) {
+            return { ...result, success: true };
+        } else {
+            return { ...result, success: false };
+        }
+
+    } catch (error) {
+        console.error("getWorkOrderById Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+}

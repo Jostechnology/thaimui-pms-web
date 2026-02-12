@@ -4,47 +4,65 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from 'react-bootstrap';
 import Swal from "sweetalert2";
 import { getEmployeeList } from '../../../services/employee';
-import { getWorkOrderList } from '../../../services/workorder';
+import { getWorkOrderById } from '../../../services/workorder';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 
-// --- Interfaces ---
-interface Staff {
-    id: number;
-    name: string;
-    role: string;
+interface Employee {
+    citizen_id: string;
+    employee_first_name: string;
+    employee_id: number;
+    employee_last_name: string;
     status: string;
+    user_id: number;
 }
 
-interface Phase {
-    id: number;
-    title: string;
-    status: 'Completed' | 'Active' | 'Pending';
-    staffs: Staff[];
-    isEditing?: boolean;
+interface SalesItem {
+    cost_price: number;
+    doc_num: string;
+    item_code: string;
+    item_description: string;
+    item_name: string;
+    item_num: number;
+    sales_item_id: number;
+    unit_price: number;
+}
+
+interface CurrentPhase {
+    created_date: string;
+    employee_list: Employee[];
+    end_date: string | null;
+    phase_name: string;
+    phase_status: string;
+    sales_item_list: SalesItem[];
+    start_date: string;
+    work_order_id: number;
+    work_phase_id: number;
 }
 
 interface WorkorderData {
-    work_order_id: number;
+    created_date: string;
+    current_phase: CurrentPhase | null;
     doc_num: string;
     status: string;
-    created_date: string;
-    current_phase: {
-        work_phase_id: number;
-        phase_name: string;
-        phase_status: string;
-        start_date: string;
-        end_date: string | null;
-        employee_list: any[];
-        sales_item_list: any[];
-    } | null;
+    work_order_id: number;
+}
+
+// Interface สำหรับ UI ของ Frontend
+interface Phase {
+    id: number;
+    title: string;
+    status: string;
+    staffs: { id: number; name: string; status: string; role: string }[];
+    items: SalesItem[];
+    isEditing?: boolean;
 }
 
 const WorkorderDetail: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams();
 
-    const [allEmployees, setAllEmployees] = useState<any[]>([]);
+    const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
     const [empLoading, setEmpLoading] = useState<boolean>(false);
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [currentWorkOrder, setCurrentWorkOrder] = useState<WorkorderData | null>(null);
@@ -55,20 +73,21 @@ const WorkorderDetail: React.FC = () => {
     const [showModal, setShowModal] = useState(false);
     const [activePhaseId, setActivePhaseId] = useState<number | null>(null);
 
-    // 1. Logic สำหรับยัดข้อมูลจาก API ลงในหน้า Timeline อัตโนมัติ
+    // 1. Sync ข้อมูลจาก CurrentPhase เข้าสู่ระบบ UI Phases
     useEffect(() => {
         if (currentWorkOrder?.current_phase) {
             const cp = currentWorkOrder.current_phase;
             const initialPhase: Phase = {
                 id: cp.work_phase_id,
                 title: cp.phase_name,
-                status: cp.phase_status as any,
+                status: cp.phase_status,
                 staffs: cp.employee_list.map(emp => ({
                     id: emp.employee_id,
                     name: `${emp.employee_first_name} ${emp.employee_last_name}`,
                     role: 'พนักงาน',
                     status: emp.status
                 })),
+                items: cp.sales_item_list,
                 isEditing: false
             };
             setPhases([initialPhase]);
@@ -77,13 +96,14 @@ const WorkorderDetail: React.FC = () => {
         }
     }, [currentWorkOrder]);
 
-    // 2. Fetch ข้อมูลหลัก (ดึงตาม DocNum)
     const fetchWorkorderData = async () => {
         setLoading();
         try {
-            const result = await getWorkOrderList(1, 1, id || ""); 
-            if (result && result.success && result.data.items.length > 0) {
-                setCurrentWorkOrder(result.data.items[0]);
+            // ดึงข้อมูลตาม ID (แปลงเป็น Number ตาม API)
+            const result = await getWorkOrderById(Number(id));
+            if (result && result.success && result.data) {
+                // สมมติว่า result.data คือ WorkorderData โดยตรง
+                setCurrentWorkOrder(result.data);
             }
         } catch (error) {
             console.error(error);
@@ -93,7 +113,6 @@ const WorkorderDetail: React.FC = () => {
         }
     };
 
-    // 3. Fetch พนักงานสำหรับ Modal
     const fetchEmployees = async (search: string) => {
         setEmpLoading(true);
         try {
@@ -131,6 +150,7 @@ const WorkorderDetail: React.FC = () => {
             title: `ขั้นตอนใหม่ ${newId}`,
             status: 'Pending',
             staffs: [],
+            items: [],
             isEditing: true
         };
         setPhases([...phases, newPhase]);
@@ -148,7 +168,7 @@ const WorkorderDetail: React.FC = () => {
         setPhases(phases.map(p => p.id === id ? { ...p, title: newTitle } : p));
     };
 
-    const assignStaff = (emp: any) => {
+    const assignStaff = (emp: Employee) => {
         if (activePhaseId) {
             setPhases(phases.map(p => {
                 if (p.id === activePhaseId) {
@@ -180,7 +200,7 @@ const WorkorderDetail: React.FC = () => {
                     </button>
                     <div className='d-flex flex-column'>
                         <h1 className='text-gray-900 fw-bold fs-2 mb-0'>
-                            {currentWorkOrder?.doc_num || id || 'LOADING...'}
+                            {currentWorkOrder?.doc_num || 'LOADING...'}
                         </h1>
                         {currentWorkOrder && (
                              <span className={`badge ${currentWorkOrder.status === 'Ready' ? 'badge-light-success' : 'badge-light-primary'} fw-bold fs-8 px-3 py-1 mt-1 w-fit`}>
@@ -189,7 +209,7 @@ const WorkorderDetail: React.FC = () => {
                         )}
                     </div>
                 </div>
-                <button className='btn btn-sm btn-primary fw-bold px-6' onClick={() => Swal.fire('สำเร็จ', 'ข้อมูลถูกจำลองการบันทึก', 'success')}>
+                <button className='btn btn-sm btn-primary fw-bold px-6' onClick={() => Swal.fire('สำเร็จ', 'บันทึกข้อมูลเรียบร้อย', 'success')}>
                     Save Changes
                 </button>
             </div>
@@ -216,20 +236,21 @@ const WorkorderDetail: React.FC = () => {
 
                             <div className='card shadow-sm w-100'>
                                 <div className='card-header border-0 pt-5'>
-                                    <div className='card-title'>
+                                    <div className='card-title flex-column'>
                                         {phase.isEditing ? (
                                             <input
-                                                className='form-control form-control-sm fw-bold fs-4 text-gray-900 border-primary'
+                                                className='form-control form-control-sm fw-bold fs-4 text-gray-900 border-primary mb-1'
                                                 value={phase.title}
                                                 autoFocus
                                                 onBlur={() => toggleEditPhase(phase.id)}
                                                 onChange={(e) => updatePhaseTitle(phase.id, e.target.value)}
                                             />
                                         ) : (
-                                            <span className='card-label fw-bold text-gray-900 fs-4 cursor-pointer' onClick={() => toggleEditPhase(phase.id)}>
+                                            <span className='card-label fw-bold text-gray-900 fs-4 cursor-pointer mb-1' onClick={() => toggleEditPhase(phase.id)}>
                                                 {phase.title} <i className='bi bi-pencil fs-7 ms-2 text-gray-400'></i>
                                             </span>
                                         )}
+                                        <span className='text-muted fw-bold fs-8'>สถานะขั้นตอน: {phase.status}</span>
                                     </div>
                                     <div className='card-toolbar'>
                                         <button className='btn btn-icon btn-sm btn-light-danger' onClick={() => handleDeletePhase(phase.id)}><i className='bi bi-trash'></i></button>
@@ -237,6 +258,18 @@ const WorkorderDetail: React.FC = () => {
                                 </div>
 
                                 <div className='card-body pt-0'>
+                                    {/* ส่วนแสดง Sales Items ถ้ามี */}
+                                    {phase.items.length > 0 && (
+                                        <div className='mb-4 p-3 bg-light-warning rounded border border-dashed border-warning'>
+                                            <span className='text-warning fw-bold fs-8 d-block mb-2 text-uppercase'>รายการสินค้าในขั้นตอนนี้:</span>
+                                            {phase.items.map(item => (
+                                                <div key={item.sales_item_id} className='fs-7 text-gray-700 fw-semibold'>
+                                                    • {item.item_name} ({item.item_num} {item.item_description})
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
                                     <div className='separator separator-dashed my-4'></div>
                                     <div className='d-flex flex-stack mb-4'>
                                         <span className='text-gray-400 fw-bold fs-8 uppercase'>พนักงานที่ได้รับมอบหมาย</span>
@@ -254,6 +287,7 @@ const WorkorderDetail: React.FC = () => {
                                                 }}></i>
                                             </div>
                                         ))}
+                                        {phase.staffs.length === 0 && <span className='text-muted fs-8 italic'>ยังไม่ได้ระบุพนักงาน</span>}
                                     </div>
                                 </div>
                             </div>
@@ -277,7 +311,7 @@ const WorkorderDetail: React.FC = () => {
                         <input
                             type='text'
                             className='form-control form-control-solid w-100 ps-13'
-                            placeholder='ค้นหาด้วยชื่อพนักงาน...'
+                            placeholder='ค้นหาชื่อพนักงาน...'
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -294,7 +328,7 @@ const WorkorderDetail: React.FC = () => {
                             </thead>
                             <tbody>
                                 {empLoading ? (
-                                    <tr><td colSpan={3} className='text-center py-10'>กำลังดึงข้อมูล...</td></tr>
+                                    <tr><td colSpan={3} className='text-center py-10'>กำลังโหลด...</td></tr>
                                 ) : allEmployees.length > 0 ? (
                                     allEmployees.map((emp) => {
                                         const isAlreadyAssigned = phases
@@ -321,7 +355,7 @@ const WorkorderDetail: React.FC = () => {
                                                 </td>
                                                 <td className='text-end'>
                                                     {isAlreadyAssigned ? (
-                                                        <button className='btn btn-sm btn-light-danger fw-bold' disabled style={{ cursor: 'not-allowed' }}>เลือกไปแล้ว</button>
+                                                        <button className='btn btn-sm btn-light-danger fw-bold' disabled style={{ cursor: 'not-allowed' }}>เลือกแล้ว</button>
                                                     ) : (
                                                         <button className='btn btn-sm btn-primary fw-bold' onClick={() => assignStaff(emp)}>เลือก</button>
                                                     )}
