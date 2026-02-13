@@ -248,6 +248,13 @@ const WorkorderList: React.FC = () => {
 
                                             <td className='text-end'>
                                                 <button
+                                                    className='btn btn-sm btn-icon btn-bg-light btn-color-info me-1'
+                                                    title="View Order"
+                                                    onClick={() => navigate(`/workorder/workorders_view/${item.work_order_id}`)}
+                                                >
+                                                    <i className='bi bi-eye fs-3'></i>
+                                                </button>
+                                                <button
                                                     className='btn btn-sm btn-icon btn-bg-light btn-color-primary me-1'
                                                     title="Manage Order"
                                                     onClick={() => navigate(`/workorder/workorders_detail/${item.work_order_id}`)}

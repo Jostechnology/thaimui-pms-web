@@ -2,6 +2,7 @@ import { Routes, Route, Outlet } from "react-router-dom";
 import WorkorderList from "./components/WorkorderList"
 import WorkorderDetail from "./components/WorkorderDetail"
 import WorkorderDashboard from "./components/WorkorderDashboard"
+import WorkorderView from "./components/WorkorderView"
 
 const WorkorderPage = () => {
 
@@ -12,6 +13,7 @@ const WorkorderPage = () => {
             <Route path="workorders_dashboard" element={<WorkorderDashboard />} />
             <Route path="workorders_list" element={<WorkorderList />} />
             <Route path="workorders_detail/:id" element={<WorkorderDetail />} />
+            <Route path="workorders_view/:id" element={<WorkorderView />} />
         </Routes>
     );
 
