@@ -9,6 +9,8 @@ import { useTableParams } from '../../../hooks/useTableParams';
 import { useSearchParams } from 'react-router-dom';
 import TablePaginator from '../../../custom_components/TablePaginator'; // สมมติว่ามี Component นี้อยู่แล้ว
 import { work_order_statuses } from '../../../enum/work_order';
+import { getUserAction } from '../../../helpers/pageAccess';
+import { useMasterData } from '../../../context/MasterDataContext';
 
 // 1. ปรับ Interface ให้ตรงกับข้อมูลจริงใน ER Diagram
 interface WorkorderData {
@@ -41,8 +43,7 @@ const WorkorderList: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState<string>(searchParams.get("search") || "");
     const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get("page") || "1"));
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
-    const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("filter") || "");
-    
+    const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("filter") || "");    
 
     useTableParams({
         currentPage,
@@ -87,22 +88,26 @@ const WorkorderList: React.FC = () => {
         return 'badge-light-secondary';
     };
 
+    const {masterData} = useMasterData()
+    const actionList = masterData.actionList
+    const allowedActions = getUserAction(actionList, "QC", "QC_WORKORDERS")
+
     return (
         <Content>
             {/* Header Section */}
             <div className='d-flex flex-stack mb-10'>
                 <div className='d-flex flex-column'>
-                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>Work Orders</h1>
-                    <span className='text-muted fw-semibold fs-6'>จัดการและติดตามกระบวนการผลิตทั้งหมดในระบบ</span>
+                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>Quality Control Work Orders</h1>
+                    <span className='text-muted fw-semibold fs-6'>จัดการและติดตามใบสั่งเทส</span>
                 </div>
-                <div className='d-flex align-items-center gap-2'>
+                {allowedActions.create && <div className='d-flex align-items-center gap-2'>
                     <button
                         className='btn btn-primary fw-bold px-6 shadow-sm'
-                        onClick={() => Swal.fire('สร้างใบสั่งงาน', 'เตรียมเปิดฟอร์ม...', 'success')}
+                        onClick={() => navigate("create")}
                     >
-                        <i className='bi bi-plus-lg me-2 fs-4'></i> Create Order
+                        <i className='bi bi-plus-lg me-2 fs-4'></i> สร้างใบสั่งเทส
                     </button>
-                </div>
+                </div>}
             </div>
 
             {/* KPI Cards Section */}
