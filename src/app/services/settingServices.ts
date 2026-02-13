@@ -3,7 +3,8 @@ import {
     getUsernameLocal, getUserIdFromLocal,
     getRoleId,
     savePermTree,
-    saveSignaturePermTree
+    saveSignaturePermTree,
+    getSignaturePermTree
 } from "../helpers/appHelpers";
 
 // ------------------------------------- path -------------------------------------
@@ -20,7 +21,7 @@ const get_all_roles = "/get_all_roles";
 
 // Create || Add
 const create_module = "/create_module";
-const create_role_permission = "/create_role_permission";
+const create_role = "/create_role";
 
 // Edit || Update
 const edit_module = "/edit_module/";
@@ -102,8 +103,13 @@ export const getRolePermission = async (role_id: any) => {
             "message": result.data.message || result.message || ""
         };
 
-        savePermTree(base64Encoded);
-        saveSignaturePermTree(result.data.signature);
+        // ป้องกัน overwrite เมื่อดูสิทธิ์ของ role อื่น (เช่น ใน Role Management)
+        const isOwnRole = !role_id || String(role_id) === String(currentRoleId);
+        if (isOwnRole) {
+            savePermTree(base64Encoded);
+            saveSignaturePermTree(result.data.signature);
+        }
+
         console.log(result_perm)
         return result_perm;
     } catch (e) {
@@ -165,7 +171,8 @@ export const createModule = async (formData: any) => {
     const request = {
         ...formData,
         username: getUsernameLocal(),
-        user_id: getUserIdFromLocal()
+        user_id: getUserIdFromLocal(),
+        permission_token: getSignaturePermTree()
     };
 
     // logsPath("POST", create_module);
@@ -174,6 +181,10 @@ export const createModule = async (formData: any) => {
     if (!response) return false;
 
     try {
+        if (!response.ok) {
+            const errData = await response.json();
+            return { success: false, message: errData.details || errData.error || `เกิดข้อผิดพลาด (${response.status})` };
+        }
         return await response.json();
     } catch (e) {
         console.error(e);
@@ -185,15 +196,20 @@ export const createRole = async (formData: any) => {
     const request = {
         ...formData,
         username: getUsernameLocal(),
-        user_id: getUserIdFromLocal()
+        user_id: getUserIdFromLocal(),
+        permission_token: getSignaturePermTree()
     };
 
     // logsPath("POST", create_role_permission);
-    const response = await front_api("POST", create_role_permission, request, { wrapData: false });
+    const response = await front_api("POST", create_role, request, { wrapData: false });
 
     if (!response) return false;
 
     try {
+        if (!response.ok) {
+            const errData = await response.json();
+            return { success: false, message: errData.details || errData.error || `เกิดข้อผิดพลาด (${response.status})` };
+        }
         return await response.json();
     } catch (e) {
         console.error(e);
@@ -201,12 +217,13 @@ export const createRole = async (formData: any) => {
     }
 }
 
-export const editModule = async (formData: any ,moduleId: any) => {
+export const editModule = async (formData: any, moduleId: any) => {
     const fullpath = edit_module + moduleId;
     const request = {
         ...formData,
         username: getUsernameLocal(),
-        user_id: getUserIdFromLocal()
+        user_id: getUserIdFromLocal(),
+        permission_token: getSignaturePermTree()
     };
 
     // logsPath("PUT", edit_module);
@@ -215,6 +232,10 @@ export const editModule = async (formData: any ,moduleId: any) => {
     if (!response) return false;
 
     try {
+        if (!response.ok) {
+            const errData = await response.json();
+            return { success: false, message: errData.details || errData.error || `เกิดข้อผิดพลาด (${response.status})` };
+        }
         return await response.json();
     } catch (e) {
         console.error(e);
@@ -226,7 +247,8 @@ export const editRole = async (formData: any) => {
     const request = {
         ...formData,
         username: getUsernameLocal(),
-        user_id: getUserIdFromLocal()
+        user_id: getUserIdFromLocal(),
+        permission_token: getSignaturePermTree()
     };
 
     // logsPath("PUT", upsert_role_permission);
@@ -235,6 +257,10 @@ export const editRole = async (formData: any) => {
     if (!response) return false;
 
     try {
+        if (!response.ok) {
+            const errData = await response.json();
+            return { success: false, message: errData.details || errData.error || `เกิดข้อผิดพลาด (${response.status})` };
+        }
         return await response.json();
     } catch (e) {
         console.error(e);
@@ -246,7 +272,8 @@ export const deleteModule = async (module_id: number) => {
     const fullPath = delete_module + module_id;
     const body = {
         module_id: module_id,
-        username: getUsernameLocal()
+        username: getUsernameLocal(),
+        permission_token: getSignaturePermTree()
     };
 
     // logsPath("DELETE", delete_module);
@@ -255,6 +282,10 @@ export const deleteModule = async (module_id: number) => {
     if (!response) return false;
 
     try {
+        if (!response.ok) {
+            const errData = await response.json();
+            return { success: false, message: errData.details || errData.error || `เกิดข้อผิดพลาด (${response.status})` };
+        }
         return await response.json();
     } catch (e) {
         console.error(e);

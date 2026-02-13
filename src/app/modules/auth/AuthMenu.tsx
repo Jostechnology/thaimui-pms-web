@@ -35,6 +35,24 @@ export const mainRoutesConfig: MainRouteType[] = [
         subMenu: [],
         permission: []
     },
+    {
+        module_code: "WORKORDERS",
+        path: "/workorder",
+        title: "",
+        fontIcon: "bi-speedometer2",
+        icon: "bi bi-speedometer2",
+        subMenu: [],
+        permission: []
+    },
+    {
+        module_code:"EMPLOYEE",
+        path:"/employee",
+        title: "",
+        fontIcon: "bi-people",
+        icon: "bi bi-people",
+        subMenu: [],
+        permission: []
+    }
 ]
 
 export const subRoutesConfig: SubRouteType[] = [
@@ -67,6 +85,28 @@ export const subRoutesConfig: SubRouteType[] = [
         path:"/setting/user_management",
         title: "",
         permission:[]
+    },
+    {
+        module_code:"EMPLOYEE_LIST",
+        main_module_code: "EMPLOYEE",
+        path:"/employee/employee_list",
+        title: "",
+        permission:[]
+    },
+    {
+        module_code:"DASHBOARD",
+        main_module_code: "WORKORDERS",
+        path:"/workorder/workorders_dashboard",
+        title: "",
+        permission:[]
+    },
+    {
+        module_code:"WORKORDERS_LIST",
+        main_module_code: "WORKORDERS",
+        path:"/workorder/workorders_list",
+        title: "",
+        permission:[]
     }
+    
     
 ]

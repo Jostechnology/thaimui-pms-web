@@ -52,7 +52,7 @@ export const logout = () => {
     window.location.href = env.login_page;
 }
 
-export const saveRefreshToken = (token : string) => {
+export const saveRefreshToken = (token: string) => {
     localStorage.setItem(lcRefresh, token)
 }
 
@@ -88,15 +88,19 @@ export const saveEmpIdToLocal = (employee_id: string) => {
     localStorage.setItem(lcEmpId, employee_id);
 }
 
-export const savePermTree = (perm_tree : string) => {
+export const savePermTree = (perm_tree: string) => {
     localStorage.setItem(prem_tree_en, perm_tree)
 }
 
-export const saveSignaturePermTree = (signature : string) => {
+export const saveSignaturePermTree = (signature: string) => {
     localStorage.setItem(perm_sig, signature)
 }
 
-export const saveGroupId = (group_id : string) => {
+export const getSignaturePermTree = () => {
+    return localStorage.getItem(perm_sig)
+}
+
+export const saveGroupId = (group_id: string) => {
     localStorage.setItem("group_id", group_id)
 }
 
@@ -179,7 +183,7 @@ export const destroyToken = async () => {
 
 export const getPermTree = () => {
     const perm_tree = localStorage.getItem(prem_tree_en);
-    if(!perm_tree) {
+    if (!perm_tree) {
         return
     }
     const jsonStr = atob(perm_tree);
