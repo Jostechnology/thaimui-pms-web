@@ -4,10 +4,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from 'react-bootstrap';
 import Swal from "sweetalert2";
 import { getEmployeeList } from '../../../services/employee';
-import { getWorkOrderById, createWorkPhase } from '../../../services/workorder';
+import { getWorkOrderById, createWorkPhase, updateWorkPhase, deleteWorkPhase } from '../../../services/workorder';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 
+// --- Interfaces ---
 interface Employee {
     citizen_id: string;
     employee_first_name: string;
@@ -28,7 +29,7 @@ interface SalesItem {
     unit_price: number;
 }
 
-// Interface สำหรับข้อมูล Phase จาก Backend
+// ข้อมูล Phase จาก Backend
 interface WorkPhaseData {
     work_phase_id: number;
     work_order_id: number;
@@ -37,8 +38,8 @@ interface WorkPhaseData {
     start_date: string;
     end_date: string | null;
     created_date: string;
-    employee_list: Employee[]; // Backend ส่งรายละเอียดพนักงานมาครบแล้ว
-    sales_item_list?: SalesItem[]; // เผื่อไว้กรณีมีรายการสินค้า
+    employee_list: Employee[];
+    sales_item_list?: SalesItem[];
 }
 
 interface WorkorderData {
@@ -46,11 +47,10 @@ interface WorkorderData {
     doc_num: string;
     status: string;
     created_date: string;
-    current_phase: any | null; // ไม่ได้ใช้ตัวนี้แล้ว
-    work_phases: WorkPhaseData[]; // 1. ดึงข้อมูลจาก Array นี้แทน
+    work_phases: WorkPhaseData[]; // ใช้ Array นี้เป็นหลัก
 }
 
-// Interface สำหรับ UI ของ Frontend
+// UI State สำหรับ Phase
 interface Phase {
     id: number;
     title: string;
@@ -58,25 +58,31 @@ interface Phase {
     staffs: { id: number; name: string; status: string; role: string }[];
     items: SalesItem[];
     isEditing?: boolean;
-    isNew?: boolean;
+    isNew?: boolean; // Flag บอกว่าเป็นของใหม่
 }
 
 const WorkorderDetail: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams();
 
+    // Data States
     const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
     const [empLoading, setEmpLoading] = useState<boolean>(false);
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [currentWorkOrder, setCurrentWorkOrder] = useState<WorkorderData | null>(null);
     
+    // UI States
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
     const [phases, setPhases] = useState<Phase[]>([]);
     const [showModal, setShowModal] = useState(false);
     const [activePhaseId, setActivePhaseId] = useState<number | null>(null);
 
-    // 2. Sync ข้อมูลจาก work_phases (Array) เข้าสู่ระบบ Timeline
+    // Change Tracking States (พระเอกของเรา)
+    const [deleteIDList, setDeleteIDList] = useState<number[]>([]);
+    const [editIDList, setEditIDList] = useState<number[]>([]);
+
+    // --- 1. Sync Data from Backend to UI ---
     useEffect(() => {
         if (currentWorkOrder?.work_phases && Array.isArray(currentWorkOrder.work_phases)) {
             const loadedPhases: Phase[] = currentWorkOrder.work_phases.map((wp) => ({
@@ -89,23 +95,26 @@ const WorkorderDetail: React.FC = () => {
                     role: 'พนักงาน',
                     status: emp.status
                 })),
-                items: wp.sales_item_list || [], // ถ้าไม่มีส่งมา ให้เป็น Array ว่าง
+                items: wp.sales_item_list || [],
                 isEditing: false,
-                isNew: false // ข้อมูลที่มาจาก DB ถือเป็นของเก่าเสมอ
+                isNew: false // ข้อมูลจาก DB = ไม่ใช่ของใหม่
             }));
-
             setPhases(loadedPhases);
+            
+            // Reset tracking lists เมื่อโหลดข้อมูลใหม่
+            setDeleteIDList([]);
+            setEditIDList([]);
         } else {
             setPhases([]);
         }
     }, [currentWorkOrder]);
 
+    // --- 2. API Fetching ---
     const fetchWorkorderData = async () => {
         setLoading();
         try {
             const result = await getWorkOrderById(Number(id));
             if (result && result.success && result.data) {
-                // เก็บข้อมูลทั้งหมดลง State
                 setCurrentWorkOrder(result.data);
             }
         } catch (error) {
@@ -134,10 +143,8 @@ const WorkorderDetail: React.FC = () => {
 
     useEffect(() => {
         if (showModal) {
-            const delayDebounceFn = setTimeout(() => {
-                fetchEmployees(searchTerm);
-            }, 300);
-            return () => clearTimeout(delayDebounceFn);
+            const delay = setTimeout(() => fetchEmployees(searchTerm), 300);
+            return () => clearTimeout(delay);
         }
     }, [searchTerm, showModal]);
 
@@ -145,22 +152,44 @@ const WorkorderDetail: React.FC = () => {
         fetchWorkorderData();
     }, [id]);
 
+    // --- 3. Change Tracking Helpers ---
+    const markAsEdited = (phaseId: number) => {
+        const phase = phases.find(p => p.id === phaseId);
+        // ถ้าเป็นของเก่า (!isNew) และยังไม่ได้อยู่ในรายการแก้ไข -> เพิ่มเข้าไป
+        if (phase && !phase.isNew && !editIDList.includes(phaseId)) {
+            setEditIDList(prev => [...prev, phaseId]);
+        }
+    };
+
+    // --- 4. Phase Actions ---
     const handleAddPhase = () => {
         const newId = phases.length > 0 ? Math.max(...phases.map(p => p.id)) + 1 : 1;
         const newPhase: Phase = {
             id: newId,
             title: `ขั้นตอนใหม่`,
-            status: '',
+            status: 'Pending',
             staffs: [],
             items: [],
             isEditing: true,
-            isNew: true 
+            isNew: true // ระบุว่าเป็นของใหม่
         };
         setPhases([...phases, newPhase]);
     };
 
     const handleDeletePhase = (phaseId: number) => {
+        const phaseToDelete = phases.find(p => p.id === phaseId);
+        
+        // ลบออกจาก UI
         setPhases(phases.filter(p => p.id !== phaseId));
+
+        // ถ้าเป็นของเก่า -> ใส่ Delete List
+        if (phaseToDelete && !phaseToDelete.isNew) {
+            setDeleteIDList(prev => [...prev, phaseId]);
+        }
+        // ถ้าอยู่ใน Edit List -> เอาออก (เพราะจะลบแล้ว)
+        if (editIDList.includes(phaseId)) {
+            setEditIDList(prev => prev.filter(id => id !== phaseId));
+        }
     };
 
     const toggleEditPhase = (id: number) => {
@@ -169,6 +198,7 @@ const WorkorderDetail: React.FC = () => {
 
     const updatePhaseTitle = (id: number, newTitle: string) => {
         setPhases(phases.map(p => p.id === id ? { ...p, title: newTitle } : p));
+        markAsEdited(id); // Mark Change
     };
 
     const assignStaff = (emp: Employee) => {
@@ -189,49 +219,86 @@ const WorkorderDetail: React.FC = () => {
                 }
                 return p;
             }));
+            markAsEdited(activePhaseId); // Mark Change
             setShowModal(false);
             setSearchTerm("");
         }
     };
 
-    // --- Save Logic (ยังคงใช้ Logic เดิม เพราะ Backend Create API ไม่เปลี่ยน) ---
+    // --- 5. The MASTER SAVE Logic ---
     const handleSaveAllChanges = async () => {
-        const newPhases = phases.filter(p => p.isNew);
+        // แยกกองข้อมูล
+        const createList = phases.filter(p => p.isNew);
+        const updateList = phases.filter(p => editIDList.includes(p.id));
+        const deleteIds = deleteIDList;
 
-        if (newPhases.length === 0) {
-            Swal.fire('ไม่มีข้อมูลใหม่', 'คุณยังไม่ได้เพิ่มขั้นตอนใหม่', 'info');
-            return;
-        }
-
-        if (newPhases.some(p => !p.title.trim())) {
+        // Validation (เฉพาะ Create/Update)
+        const validateList = [...createList, ...updateList];
+        if (validateList.some(p => !p.title.trim())) {
             Swal.fire('แจ้งเตือน', 'กรุณาระบุชื่อขั้นตอนให้ครบถ้วน', 'warning');
             return;
         }
 
-        const itemsPayload = newPhases.map(phase => ({
-            work_order_id: currentWorkOrder?.work_order_id,
-            phase_name: phase.title,
-            start_date: new Date().toISOString(),
-            employee_id_list: phase.staffs ? phase.staffs.map(s => s.id) : [] 
-        }));
-
         setLoading();
         try {
-            const res = await createWorkPhase(itemsPayload);
-            
-            if (res.success) {
-                Swal.fire('บันทึกสำเร็จ', `สร้าง ${newPhases.length} ขั้นตอนใหม่เรียบร้อยแล้ว`, 'success').then(() => {
-                    fetchWorkorderData(); // Reload ข้อมูลใหม่จะทำให้ phases ถูก Map จาก API ใหม่หมด
+            const promises = [];
+
+            // A. Create Logic
+            if (createList.length > 0) {
+                const createPayload = createList.map(phase => ({
+                    work_order_id: currentWorkOrder?.work_order_id,
+                    phase_name: phase.title,
+                    start_date: new Date().toISOString(),
+                    employee_id_list: phase.staffs ? phase.staffs.map(s => s.id) : []
+                }));
+                promises.push(createWorkPhase(createPayload));
+            }
+
+            // B. Update Logic (พี่ต้องทำ API รองรับ Array หรือ Loop ยิง)
+            if (updateList.length > 0) {
+                const updatePayload = updateList.map(phase => ({
+                    work_phase_id: phase.id,
+                    phase_name: phase.title,
+                    employee_id_list: phase.staffs ? phase.staffs.map(s => s.id) : []
+                }));
+                // สมมติว่าส่งเป็น list ไป update ทีเดียว
+                promises.push(updateWorkPhase(updatePayload));
+            }
+
+            // C. Delete Logic
+            if (deleteIds.length > 0) {
+                const deletePayload = { work_phase_ids: deleteIds };
+                promises.push(deleteWorkPhase(deletePayload));
+            }
+
+            // ยิงพร้อมกัน
+            const results = await Promise.all(promises);
+            const allSuccess = results.every(res => res && res.success);
+
+            if (allSuccess) {
+                Swal.fire({
+                    title: 'บันทึกสำเร็จ',
+                    text: 'ดำเนินการครบถ้วนเรียบร้อย',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                }).then(() => {
+                    fetchWorkorderData(); // Reload ข้อมูลจริง
                 });
             } else {
-                Swal.fire('บันทึกไม่สำเร็จ', res.message || 'เกิดข้อผิดพลาด', 'error');
+                Swal.fire('บันทึกไม่สมบูรณ์', 'บางรายการอาจเกิดข้อผิดพลาด', 'warning').then(() => fetchWorkorderData());
             }
+
         } catch (error) {
+            console.error(error);
             Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อ API ได้', 'error');
         } finally {
             setUnLoading();
         }
     };
+
+    // คำนวณจำนวนการเปลี่ยนแปลงเพื่อแสดงบนปุ่ม
+    const totalChanges = phases.filter(p => p.isNew).length + editIDList.length + deleteIDList.length;
 
     return (
         <Content>
@@ -250,12 +317,14 @@ const WorkorderDetail: React.FC = () => {
                         )}
                     </div>
                 </div>
+                {/* Global Save Button */}
                 <button 
                     className='btn btn-sm btn-primary fw-bold px-6' 
                     onClick={handleSaveAllChanges}
-                    disabled={phases.filter(p => p.isNew).length === 0}
+                    disabled={totalChanges === 0}
                 >
-                    Save Changes ({phases.filter(p => p.isNew).length})
+                    Save Changes 
+                    {totalChanges > 0 && <span className="badge badge-circle badge-white text-primary ms-2">{totalChanges}</span>}
                 </button>
             </div>
 
@@ -283,13 +352,23 @@ const WorkorderDetail: React.FC = () => {
                                 <div className='card-header border-0 pt-5'>
                                     <div className='card-title flex-column'>
                                         {phase.isEditing ? (
-                                            <input className='form-control form-control-sm fw-bold fs-4 text-gray-900 border-primary mb-1' value={phase.title} autoFocus onBlur={() => toggleEditPhase(phase.id)} onChange={(e) => updatePhaseTitle(phase.id, e.target.value)} />
+                                            <input 
+                                                className='form-control form-control-sm fw-bold fs-4 text-gray-900 border-primary mb-1' 
+                                                value={phase.title} 
+                                                autoFocus 
+                                                onBlur={() => toggleEditPhase(phase.id)} 
+                                                onChange={(e) => updatePhaseTitle(phase.id, e.target.value)} 
+                                            />
                                         ) : (
-                                            <span className='card-label fw-bold text-gray-900 fs-4 cursor-pointer mb-1' onClick={() => toggleEditPhase(phase.id)}>{phase.title} <i className='bi bi-pencil fs-7 ms-2 text-gray-400'></i></span>
+                                            <span className='card-label fw-bold text-gray-900 fs-4 cursor-pointer mb-1' onClick={() => toggleEditPhase(phase.id)}>
+                                                {phase.title} <i className='bi bi-pencil fs-7 ms-2 text-gray-400'></i>
+                                            </span>
                                         )}
                                         <div className='d-flex gap-2 align-items-center'>
-                                            <span className='text-muted fw-bold fs-8'>สถานะ: {phase.status}</span>
+                                            <span className='text-muted fw-bold fs-8'>สถานะ: {phase.status || 'Pending'}</span>
                                             {phase.isNew && <span className='badge badge-light-primary fs-9'>New</span>}
+                                            {/* โชว์ Badge เมื่อมีการแก้ไข */}
+                                            {!phase.isNew && editIDList.includes(phase.id) && <span className='badge badge-light-warning fs-9'>Edited</span>}
                                         </div>
                                     </div>
                                     <div className='card-toolbar'>
@@ -297,7 +376,7 @@ const WorkorderDetail: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className='card-body pt-0'>
-                                    {/* Items List */}
+                                    {/* Items */}
                                     {phase.items && phase.items.length > 0 && (
                                         <div className='mb-4 p-3 bg-light-warning rounded border border-dashed border-warning'>
                                             <span className='text-warning fw-bold fs-8 d-block mb-2 text-uppercase'>รายการสินค้า:</span>
@@ -311,14 +390,15 @@ const WorkorderDetail: React.FC = () => {
                                         <span className='text-gray-400 fw-bold fs-8 uppercase'>พนักงานที่ได้รับมอบหมาย</span>
                                         <button onClick={() => { setActivePhaseId(phase.id); setShowModal(true); }} className='btn btn-sm btn-light-primary fw-bold'><i className='bi bi-person-plus'></i> Assign Staff</button>
                                     </div>
-                                    {/* Staff List */}
+                                    {/* Staffs */}
                                     <div className='d-flex flex-wrap gap-2'>
                                         {phase.staffs && phase.staffs.length > 0 ? (
                                             phase.staffs.map(s => (
                                                 <div key={s.id} className='badge badge-light-secondary d-flex align-items-center py-2 px-3 border border-gray-200'>
                                                     <span className='text-gray-800 fw-bold me-2'>{s.name}</span>
                                                     <i className='bi bi-x-circle text-danger cursor-pointer' onClick={() => {
-                                                        setPhases(phases.map(p => p.id === phase.id ? { ...p, staffs: p.staffs.filter(st => st.id !== s.id) } : p))
+                                                        setPhases(phases.map(p => p.id === phase.id ? { ...p, staffs: p.staffs.filter(st => st.id !== s.id) } : p));
+                                                        markAsEdited(phase.id); // Mark Change when remove staff
                                                     }}></i>
                                                 </div>
                                             ))
@@ -335,7 +415,7 @@ const WorkorderDetail: React.FC = () => {
                 </div>
             )}
 
-            {/* Modal เลือกพนักงาน (คงเดิม) */}
+            {/* Modal */}
             <Modal show={showModal} onHide={() => { setShowModal(false); setSearchTerm(""); }} centered size="lg">
                 <Modal.Header closeButton><Modal.Title className='fw-bold'>มอบหมายงานพนักงาน</Modal.Title></Modal.Header>
                 <Modal.Body>
