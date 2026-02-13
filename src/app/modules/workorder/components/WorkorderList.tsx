@@ -13,6 +13,10 @@ import TablePaginator from '../../../custom_components/TablePaginator'; // ส�
 interface WorkorderData {
     work_order_id: number;
     doc_num: string;
+    sales_item:{
+        item_name: string;
+        item_description: string;
+    };
     status: string;
     created_date: string;
     current_phase: {
@@ -159,8 +163,7 @@ const WorkorderList: React.FC = () => {
                                 <option value='Completed'>Completed</option>
                             </select>
 
-                            {/* ปุ่ม Refresh หรือ Clear Filter (ถ้าต้องการ) */}
-                            <button
+                            {/* <button
                                 className='btn btn-icon btn-light-primary btn-sm'
                                 onClick={() => {
                                     setSearchTerm("");
@@ -169,7 +172,7 @@ const WorkorderList: React.FC = () => {
                                 }}
                             >
                                 <i className='bi bi-arrow-clockwise fs-3'></i>
-                            </button>
+                            </button> */}
                         </div>
                     </div>
                 </div>
@@ -208,7 +211,7 @@ const WorkorderList: React.FC = () => {
                                             <td className='text-center'>
                                                 <div className="d-flex align-items-center">
                                                     <span className='text-gray-800 fw-bold text-hover-primary mb-1 fs-6'>
-                                                        {item.current_phase?.sales_item_list?.[0]?.item_name || 'N/A'}
+                                                        {item.sales_item?.item_name || 'N/A'}
                                                     </span>
                                                 </div>
                                             </td>
@@ -216,7 +219,7 @@ const WorkorderList: React.FC = () => {
                                             <td className='text-center'>
                                                 <div className="d-flex align-items-center">
                                                     <span className='text-muted fs-7 text-truncate' style={{ maxWidth: '180px' }}>
-                                                        {item.current_phase?.sales_item_list?.[0]?.item_description || '-'}
+                                                        {item.sales_item?.item_description || 'N/A'}
                                                     </span>
                                                 </div>
                                             </td>
