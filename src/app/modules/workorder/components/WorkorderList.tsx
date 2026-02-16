@@ -13,6 +13,10 @@ import TablePaginator from '../../../custom_components/TablePaginator'; // ส�
 interface WorkorderData {
     work_order_id: number;
     doc_num: string;
+    sales_item:{
+        item_name: string;
+        item_description: string;
+    };
     status: string;
     created_date: string;
     current_phase: {
@@ -40,7 +44,8 @@ const WorkorderList: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState<string>(searchParams.get("search") || "");
     const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get("page") || "1"));
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
-
+    const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("filter") || "");
+    
 
     useTableParams({
         currentPage,
@@ -77,7 +82,6 @@ const WorkorderList: React.FC = () => {
         fetchWorkorders();
     }, [currentPage, keyword, pageConfig]);
 
-    // Helper: ฟังก์ชันเลือกสี Badge ตามสถานะ
     const getStatusBadge = (status: string) => {
         const s = status?.toLowerCase();
         if (s === 'finished' || s === 'completed') return 'badge-light-success';
@@ -87,175 +91,204 @@ const WorkorderList: React.FC = () => {
     };
 
     return (
-    <Content>
-        {/* Header Section */}
-        <div className='d-flex flex-stack mb-10'>
-            <div className='d-flex flex-column'>
-                <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>Work Orders</h1>
-                <span className='text-muted fw-semibold fs-6'>จัดการและติดตามกระบวนการผลิตทั้งหมดในระบบ</span>
+        <Content>
+            {/* Header Section */}
+            <div className='d-flex flex-stack mb-10'>
+                <div className='d-flex flex-column'>
+                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>Work Orders</h1>
+                    <span className='text-muted fw-semibold fs-6'>จัดการและติดตามกระบวนการผลิตทั้งหมดในระบบ</span>
+                </div>
+                <div className='d-flex align-items-center gap-2'>
+                    <button
+                        className='btn btn-primary fw-bold px-6 shadow-sm'
+                        onClick={() => Swal.fire('สร้างใบสั่งงาน', 'เตรียมเปิดฟอร์ม...', 'success')}
+                    >
+                        <i className='bi bi-plus-lg me-2 fs-4'></i> Create Order
+                    </button>
+                </div>
             </div>
-            <div className='d-flex align-items-center gap-2'>
-                <button 
-                    className='btn btn-primary fw-bold px-6 shadow-sm' 
-                    onClick={() => Swal.fire('สร้างใบสั่งงาน', 'เตรียมเปิดฟอร์ม...', 'success')}
-                >
-                    <i className='bi bi-plus-lg me-2 fs-4'></i> Create Order
-                </button>
-            </div>
-        </div>
 
-        {/* KPI Cards Section */}
-        <div className='row g-5 g-xl-10 mb-10'>
-            <div className='col-md-4'>
-                <div className='card card-flush shadow-sm h-100 py-5 px-6 border-0 bg-white'>
-                    <div className='d-flex align-items-center'>
-                        <div className='symbol symbol-50px me-5'>
-                            <span className='symbol-label bg-light-primary'>
-                                <i className='bi bi-list-task text-primary fs-2x'></i>
-                            </span>
-                        </div>
-                        <div className='d-flex flex-column'>
-                            <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{workorders.length}</span>
-                            <span className='text-gray-500 fw-semibold fs-6 mt-1'>Active on current page</span>
+            {/* KPI Cards Section */}
+            <div className='row g-5 g-xl-10 mb-10'>
+                <div className='col-md-4'>
+                    <div className='card card-flush shadow-sm h-100 py-5 px-6 border-0 bg-white'>
+                        <div className='d-flex align-items-center'>
+                            <div className='symbol symbol-50px me-5'>
+                                <span className='symbol-label bg-light-primary'>
+                                    <i className='bi bi-list-task text-primary fs-2x'></i>
+                                </span>
+                            </div>
+                            <div className='d-flex flex-column'>
+                                <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{workorders.length}</span>
+                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>Active on current page</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        {/* Table Management Card */}
-        <div className='card card-flush shadow-sm border-0'>
-            <div className='card-header align-items-center py-5 gap-2 gap-md-5'>
-                <div className='card-title'>
-                    <div className='d-flex align-items-center position-relative my-1'>
-                        <i className='ki-duotone ki-magnifier fs-3 position-absolute ms-4'>
-                            <span className='path1'></span><span className='path2'></span>
-                        </i>
-                        <input
-                            type='text'
-                            className='form-control form-control-solid w-250px ps-12'
-                            placeholder='Search by DocNum...'
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && setKeyword(searchTerm)}
+            {/* Table Management Card */}
+            <div className='card card-flush shadow-sm border-0'>
+                <div className='card-header align-items-center py-5 gap-2 gap-md-5'>
+                    {/* ส่วนซ้าย: ช่องค้นหา */}
+                    <div className='card-title'>
+                        <div className='d-flex align-items-center position-relative my-1'>
+                            <i className='ki-duotone ki-magnifier fs-3 position-absolute ms-4'>
+                                <span className='path1'></span><span className='path2'></span>
+                            </i>
+                            <input
+                                type='text'
+                                className='form-control form-control-solid w-250px ps-12'
+                                placeholder='Search by DocNum...'
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && setKeyword(searchTerm)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* ส่วนขวา: Dropdown กรองสถานะ (Toolbar) */}
+                    <div className='card-toolbar'>
+                        <div className='d-flex justify-content-end align-items-center gap-3'>
+                            <div className='fw-bold text-gray-700'>Status:</div>
+                            <select
+                                className='form-select form-select-solid w-150px'
+                                value={statusFilter} // สมมติว่ามี State นี้
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                            >
+                                <option value='All'>All Status</option>
+                                <option value='Ready'>Ready</option>
+                                <option value='Pending'>Pending</option>
+                                <option value='In Progress'>In Progress</option>
+                                <option value='Completed'>Completed</option>
+                            </select>
+
+                            {/* <button
+                                className='btn btn-icon btn-light-primary btn-sm'
+                                onClick={() => {
+                                    setSearchTerm("");
+                                    setKeyword("");
+                                    setStatusFilter("All");
+                                }}
+                            >
+                                <i className='bi bi-arrow-clockwise fs-3'></i>
+                            </button> */}
+                        </div>
+                    </div>
+                </div>
+
+                <div className='card-body pt-0'>
+                    <div className='table-responsive'>
+                        <table className='table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer'>
+                            <thead>
+                                <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
+                                    <th className='min-w-150px'>DOCNUM</th>
+                                    <th className='min-w-125px'>PRODUCT</th>
+                                    <th className='min-w-100px'>DETAIL</th>
+                                    <th className='min-w-150px text-center'>CURRENT PHASE</th>
+                                    <th className='min-w-125px text-center'>CREATED DATE</th>
+                                    <th className='min-w-125px text-center'>STATUS</th>
+                                    <th className='text-end min-w-50px'>ACTIONS</th>
+                                </tr>
+                            </thead>
+                            <tbody className='text-gray-600 fw-semibold'>
+                                {dataLoading ? (
+                                    <tr>
+                                        <td colSpan={6} className='text-center p-20'>
+                                            <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
+                                            <span className="ms-3 text-gray-500">กำลังดึงข้อมูล...</span>
+                                        </td>
+                                    </tr>
+                                ) : workorders.length > 0 ? (
+                                    workorders.map((item, index) => (
+                                        <tr key={index} className="hover:bg-light-primary transition-all">
+                                            <td className='text-center'>
+                                                <div className="d-flex align-items-center">
+                                                    <span className='text-gray-800 fw-bold fs-6'>{item.doc_num}</span>
+                                                </div>
+                                            </td>
+
+                                            <td className='text-center'>
+                                                <div className="d-flex align-items-center">
+                                                    <span className='text-gray-800 fw-bold text-hover-primary mb-1 fs-6'>
+                                                        {item.sales_item?.item_name || 'N/A'}
+                                                    </span>
+                                                </div>
+                                            </td>
+
+                                            <td className='text-center'>
+                                                <div className="d-flex align-items-center">
+                                                    <span className='text-muted fs-7 text-truncate' style={{ maxWidth: '180px' }}>
+                                                        {item.sales_item?.item_description || 'N/A'}
+                                                    </span>
+                                                </div>
+                                            </td>
+
+                                            <td className='text-center'>
+                                                <div className="badge badge-light-dark fw-bold px-4 py-2">
+                                                    {item.current_phase?.phase_name || 'No Active Phase'}
+                                                </div>
+                                            </td>
+
+                                            <td className='text-center'>
+                                                <span className="text-gray-700 fw-bold">
+                                                    {item.created_date ? new Date(item.created_date).toLocaleDateString('th-TH', {
+                                                        day: '2-digit',
+                                                        month: 'short',
+                                                        year: 'numeric'
+                                                    }) : '-'}
+                                                </span>
+                                            </td>
+
+                                            <td className='text-center'>
+                                                <span className={`badge ${item.status === 'Pending' ? 'badge-light-warning' :
+                                                        item.status === 'Active' ? 'badge-light-primary' :
+                                                            'badge-light-secondary'
+                                                    } fw-bold px-4 py-3`}>
+                                                    {item.status || 'Waiting'}
+                                                </span>
+                                            </td>
+
+                                            <td className='text-end'>
+                                                <button
+                                                    className='btn btn-sm btn-icon btn-bg-light btn-color-primary me-1'
+                                                    title="Manage Order"
+                                                    onClick={() => navigate(`/workorder/workorders_detail/${item.work_order_id}`)}
+                                                >
+                                                    <i className='bi bi-pencil-square fs-3'></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={6} className='text-center p-20'>
+                                            <div className='d-flex flex-column flex-center'>
+                                                <i className='bi bi-search fs-3x text-gray-300 mb-4'></i>
+                                                <span className='text-gray-500'>ไม่พบข้อมูลใบสั่งงานในระบบ</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Pagination */}
+                    <div className='d-flex flex-stack flex-wrap pt-10'>
+                        <div className='fs-6 fw-semibold text-gray-700'>
+                            {/* แสดงข้อความจำนวนรายการถ้าต้องการ */}
+                        </div>
+                        <TablePaginator
+                            currentPage={currentPage}
+                            setCurrentPage={setCurrentPage}
+                            totalPages={totalPages}
                         />
                     </div>
                 </div>
             </div>
-
-            <div className='card-body pt-0'>
-                <div className='table-responsive'>
-                    <table className='table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer'>
-                        <thead>
-                            <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
-                                <th className='min-w-150px'>DOCNUM</th>
-                                <th className='min-w-200px'>PRODUCT & DETAIL</th>
-                                <th className='min-w-150px text-center'>CURRENT PHASE</th>
-                                <th className='min-w-125px text-center'>CREATED DATE</th>
-                                <th className='min-w-125px text-center'>PHASE STATUS</th>
-                                <th className='text-end min-w-100px'>ACTIONS</th>
-                            </tr>
-                        </thead>
-                        <tbody className='text-gray-600 fw-semibold'>
-                            {dataLoading ? (
-                                <tr>
-                                    <td colSpan={6} className='text-center p-20'>
-                                        <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-                                        <span className="ms-3 text-gray-500">กำลังดึงข้อมูล...</span>
-                                    </td>
-                                </tr>
-                            ) : workorders.length > 0 ? (
-                                workorders.map((item, index) => (
-                                    <tr key={index} className="hover:bg-light-primary transition-all">
-                                        {/* 1. DOCNUM */}
-                                        <td>
-                                            <div className="d-flex align-items-center">
-                                                <span className='text-gray-800 fw-bold fs-6'>{item.doc_num}</span>
-                                            </div>
-                                        </td>
-
-                                        {/* 2. PRODUCT NAME & DESCRIPTION */}
-                                        <td>
-                                            <div className='d-flex flex-column'>
-                                                <span className='text-gray-800 fw-bold text-hover-primary mb-1 fs-6'>
-                                                    {item.current_phase?.sales_item_list?.[0]?.item_name || 'N/A'}
-                                                </span>
-                                                <span className='text-muted fs-7 text-truncate' style={{maxWidth: '180px'}}>
-                                                    {item.current_phase?.sales_item_list?.[0]?.item_description || '-'}
-                                                </span>
-                                            </div>
-                                        </td>
-
-                                        {/* 3. CURRENT PHASE NAME */}
-                                        <td className='text-center'>
-                                            <div className="badge badge-light-dark fw-bold px-4 py-2">
-                                                {item.current_phase?.phase_name || 'No Active Phase'}
-                                            </div>
-                                        </td>
-
-                                        {/* 4. CREATED DATE */}
-                                        <td className='text-center'>
-                                            <span className="text-gray-700 fw-bold">
-                                                {item.created_date ? new Date(item.created_date).toLocaleDateString('th-TH', {
-                                                    day: '2-digit',
-                                                    month: 'short',
-                                                    year: 'numeric'
-                                                }) : '-'}
-                                            </span>
-                                        </td>
-
-                                        {/* 5. PHASE STATUS */}
-                                        <td className='text-center'>
-                                            <span className={`badge ${
-                                                item.current_phase?.phase_status === 'Pending' ? 'badge-light-warning' : 
-                                                item.current_phase?.phase_status === 'Active' ? 'badge-light-primary' : 
-                                                'badge-light-secondary'
-                                            } fw-bold px-4 py-3`}>
-                                                {item.current_phase?.phase_status || 'Waiting'}
-                                            </span>
-                                        </td>
-
-                                        {/* 6. ACTIONS */}
-                                        <td className='text-end'>
-                                            <button
-                                                className='btn btn-sm btn-icon btn-bg-light btn-color-primary me-1'
-                                                title="Manage Order"
-                                                onClick={() => navigate(`/workorder/workorders_detail/${item.work_order_id}`)}
-                                            >
-                                                <i className='bi bi-pencil-square fs-3'></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan={6} className='text-center p-20'>
-                                        <div className='d-flex flex-column flex-center'>
-                                            <i className='bi bi-search fs-3x text-gray-300 mb-4'></i>
-                                            <span className='text-gray-500'>ไม่พบข้อมูลใบสั่งงานในระบบ</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination */}
-                <div className='d-flex flex-stack flex-wrap pt-10'>
-                    <div className='fs-6 fw-semibold text-gray-700'>
-                        {/* แสดงข้อความจำนวนรายการถ้าต้องการ */}
-                    </div>
-                    <TablePaginator
-                        currentPage={currentPage}
-                        setCurrentPage={setCurrentPage}
-                        totalPages={totalPages}
-                    />
-                </div>
-            </div>
-        </div>
-    </Content>
-);
+        </Content>
+    );
 }
 
 export default WorkorderList;
