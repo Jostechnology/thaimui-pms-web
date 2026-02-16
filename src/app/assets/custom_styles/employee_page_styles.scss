@@ -1,3 +1,75 @@
+// ==========================================
+// Employee List Page Styles
+// ==========================================
+
+// Spinner animation for refresh button
+.spinner-rotate {
+    animation: spinRotate 1s linear infinite;
+}
+
+@keyframes spinRotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+// Skeleton pulse animation
+.skeleton-pulse {
+    animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeletonPulse {
+
+    0%,
+    100% {
+        opacity: 0.4;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
+}
+
+// Table row hover effect
+.table tbody tr:hover {
+    background-color: rgba(0, 158, 247, 0.03) !important;
+}
+
+// Pagination styling enhancements
+.pagination {
+    .page-link {
+        border-radius: 6px !important;
+        margin: 0 2px;
+        border: none;
+        color: #5e6278;
+        font-weight: 600;
+        min-width: 32px;
+        text-align: center;
+        transition: all 0.2s ease;
+
+        &:hover {
+            background-color: #f1f1f4;
+            color: #009EF7;
+        }
+    }
+
+    .page-item.active .page-link {
+        background-color: #009EF7;
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(0, 158, 247, 0.3);
+    }
+
+    .page-item.disabled .page-link {
+        color: #b5b5c3;
+        background-color: transparent;
+    }
+}
+
+// Employee detail page styles (legacy)
 .employee-details-container {
     display: grid;
     grid-template-columns: 400px 1fr;
@@ -6,7 +78,7 @@
 .employee-address {
     display: grid;
     grid-template-columns: auto 1fr;
-    gap: 20px 30px
+    gap: 20px 30px;
 }
 
 .employee-details-box {

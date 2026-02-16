@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate, useParams } from "react-router-dom";
-import { getWorkOrderById } from '../../../services/workorder';
+import { getWorkOrderById, updateWorkPhase } from '../../../services/workorder';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
+import Swal from 'sweetalert2';
 import './WorkorderView.css';
 
 // --- Interfaces ---
@@ -27,6 +28,14 @@ interface SalesItem {
     unit_price: number;
 }
 
+interface WorkPhaseBreak {
+    break_id: number;
+    work_phase_id: number;
+    break_start: string;
+    break_end: string | null;
+    break_type: string;
+}
+
 interface WorkPhase {
     created_date: string;
     employee_list: Employee[];
@@ -36,6 +45,7 @@ interface WorkPhase {
     start_date: string | null;
     work_order_id: number;
     work_phase_id: number;
+    breaks?: WorkPhaseBreak[];
 }
 
 interface WorkOrderData {
@@ -51,8 +61,10 @@ interface WorkOrderData {
 // --- Helper functions ---
 const getPhaseStatusColor = (status: string) => {
     switch (status) {
+        case 'InProgress':
         case 'In Progress': return '#0d6efd';
         case 'Completed': return '#198754';
+        case 'Paused': return '#fd7e14';
         case 'Pending': return '#6c757d';
         default: return '#adb5bd';
     }
@@ -60,8 +72,10 @@ const getPhaseStatusColor = (status: string) => {
 
 const getPhaseStatusBg = (status: string) => {
     switch (status) {
+        case 'InProgress':
         case 'In Progress': return '#e7f1ff';
         case 'Completed': return '#d1e7dd';
+        case 'Paused': return '#fff3e0';
         case 'Pending': return '#f8f9fa';
         default: return '#f8f9fa';
     }
@@ -70,11 +84,40 @@ const getPhaseStatusBg = (status: string) => {
 const getStatusBadgeClass = (status: string) => {
     const s = status?.toLowerCase();
     if (s === 'completed' || s === 'finished') return 'wo-badge-success';
-    if (s === 'in progress' || s === 'working') return 'wo-badge-primary';
+    if (s === 'inprogress' || s === 'in progress' || s === 'working') return 'wo-badge-primary';
+    if (s === 'paused') return 'wo-badge-warning';
     if (s === 'ready') return 'wo-badge-info';
     if (s === 'wait_confirm') return 'wo-badge-warning';
     if (s === 'pending') return 'wo-badge-secondary';
     return 'wo-badge-secondary';
+};
+
+const getPhaseStatusLabel = (status: string) => {
+    switch (status) {
+        case 'InProgress': return 'กำลังดำเนินงาน';
+        case 'Completed': return 'เสร็จสิ้น';
+        case 'Paused': return 'พักงาน';
+        case 'Pending': return 'รอดำเนินการ';
+        case 'Cancel': return 'ยกเลิก';
+        default: return status;
+    }
+};
+
+/** Calculate total break time in ms for a phase */
+const calcTotalBreakMs = (breaks?: WorkPhaseBreak[]): number => {
+    if (!breaks || breaks.length === 0) return 0;
+    return breaks.reduce((total, b) => {
+        const start = new Date(b.break_start).getTime();
+        const end = b.break_end ? new Date(b.break_end).getTime() : Date.now();
+        return total + Math.max(0, end - start);
+    }, 0);
+};
+
+const formatDurationMs = (ms: number): string => {
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    return h > 0 ? `${h} ชม. ${m} นาที` : `${m} นาที`;
 };
 
 const formatDate = (dateStr: string | null) => {
@@ -96,8 +139,8 @@ const formatDateTime = (dateStr: string | null) => {
         ' ' + d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 };
 
-// --- Live Timer Component ---
-const LiveTimer: React.FC<{ startDate: string | null }> = ({ startDate }) => {
+// --- Live Timer Component (subtracts break time) ---
+const LiveTimer: React.FC<{ startDate: string | null; breaks?: WorkPhaseBreak[]; isPaused?: boolean }> = ({ startDate, breaks, isPaused }) => {
     const [elapsed, setElapsed] = useState('00:00:00');
 
     useEffect(() => {
@@ -106,10 +149,12 @@ const LiveTimer: React.FC<{ startDate: string | null }> = ({ startDate }) => {
 
         const update = () => {
             const now = Date.now();
-            const diff = Math.max(0, now - start);
-            const hours = Math.floor(diff / 3600000);
-            const minutes = Math.floor((diff % 3600000) / 60000);
-            const seconds = Math.floor((diff % 60000) / 1000);
+            const totalMs = Math.max(0, now - start);
+            const breakMs = calcTotalBreakMs(breaks);
+            const workMs = Math.max(0, totalMs - breakMs);
+            const hours = Math.floor(workMs / 3600000);
+            const minutes = Math.floor((workMs % 3600000) / 60000);
+            const seconds = Math.floor((workMs % 60000) / 1000);
             setElapsed(
                 `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
             );
@@ -117,9 +162,9 @@ const LiveTimer: React.FC<{ startDate: string | null }> = ({ startDate }) => {
         update();
         const interval = setInterval(update, 1000);
         return () => clearInterval(interval);
-    }, [startDate]);
+    }, [startDate, breaks, isPaused]);
 
-    return <span className="wo-timer-value">{elapsed}</span>;
+    return <span className={`wo-timer-value ${isPaused ? 'text-warning' : ''}`} style={isPaused ? { animation: 'wo-pulse 1.5s ease-in-out infinite' } : {}}>{elapsed}</span>;
 };
 
 // --- Main Component ---
@@ -131,6 +176,7 @@ const WorkorderView: React.FC = () => {
 
     const [workOrder, setWorkOrder] = useState<WorkOrderData | null>(null);
     const [dataLoading, setDataLoading] = useState(true);
+    const [statusUpdating, setStatusUpdating] = useState(false);
     const [selectedDate, setSelectedDate] = useState(new Date());
 
     const fetchData = async () => {
@@ -192,6 +238,82 @@ const WorkorderView: React.FC = () => {
     // Navigate date
     const handlePrevDate = () => setSelectedDate(prev => { const d = new Date(prev); d.setDate(d.getDate() - 1); return d; });
     const handleNextDate = () => setSelectedDate(prev => { const d = new Date(prev); d.setDate(d.getDate() + 1); return d; });
+
+    // --- Status Update Handler ---
+    const handleStatusUpdate = useCallback(async (workPhaseId: number, newStatus: string, breakType?: string) => {
+        if (statusUpdating) return;
+        setStatusUpdating(true);
+        try {
+            const payload: any = { work_phase_id: workPhaseId, phase_status: newStatus };
+            if (breakType) payload.break_type = breakType;
+
+            const result = await updateWorkPhase([payload]);
+            if (result.success) {
+                await fetchData(); // Refresh data
+                Swal.fire({
+                    icon: 'success',
+                    title: 'อัปเดตสถานะสำเร็จ',
+                    text: `สถานะถูกเปลี่ยนเป็น ${getPhaseStatusLabel(newStatus)}`,
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
+            } else {
+                Swal.fire('เกิดข้อผิดพลาด', result.message || 'ไม่สามารถอัปเดตสถานะได้', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+        } finally {
+            setStatusUpdating(false);
+        }
+    }, [statusUpdating]);
+
+    // Start phase
+    const handleStart = (phaseId: number) => {
+        Swal.fire({
+            title: 'เริ่มงาน?',
+            text: 'ยืนยันเริ่มดำเนินการขั้นตอนนี้',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#0d6efd',
+            confirmButtonText: 'เริ่มงาน',
+            cancelButtonText: 'ยกเลิก',
+        }).then((r) => { if (r.isConfirmed) handleStatusUpdate(phaseId, 'InProgress'); });
+    };
+
+    // Pause phase — choose break type
+    const handlePause = (phaseId: number) => {
+        Swal.fire({
+            title: 'พักงาน',
+            text: 'เลือกประเภทการพัก',
+            icon: 'info',
+            input: 'select',
+            inputOptions: { 'Lunch': 'พักเที่ยง', 'Short Break': 'พักเบรก', 'Other': 'อื่นๆ' },
+            inputValue: 'Short Break',
+            showCancelButton: true,
+            confirmButtonColor: '#fd7e14',
+            confirmButtonText: 'พักงาน',
+            cancelButtonText: 'ยกเลิก',
+        }).then((r) => { if (r.isConfirmed) handleStatusUpdate(phaseId, 'Paused', r.value); });
+    };
+
+    // Resume phase
+    const handleResume = (phaseId: number) => {
+        handleStatusUpdate(phaseId, 'InProgress');
+    };
+
+    // Complete phase
+    const handleComplete = (phaseId: number) => {
+        Swal.fire({
+            title: 'เสร็จสิ้น?',
+            text: 'ยืนยันว่าขั้นตอนนี้เสร็จสิ้นแล้ว ไม่สามารถย้อนกลับได้',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#198754',
+            confirmButtonText: 'ยืนยันเสร็จสิ้น',
+            cancelButtonText: 'ยกเลิก',
+        }).then((r) => { if (r.isConfirmed) handleStatusUpdate(phaseId, 'Completed'); });
+    };
 
     if (dataLoading) {
         return (
@@ -255,13 +377,23 @@ const WorkorderView: React.FC = () => {
                     <div className="wo-kpi-card">
                         <div className="wo-kpi-header">
                             <span className="wo-kpi-label">ระยะเวลาดำเนินการ (LIVE)</span>
-                            {workOrder.current_phase?.phase_status === 'In Progress' && (
+                            {(workOrder.current_phase?.phase_status === 'InProgress') && (
                                 <span className="wo-live-dot" />
                             )}
+                            {workOrder.current_phase?.phase_status === 'Paused' && (
+                                <span className="wo-live-dot" style={{ background: '#fd7e14' }} />
+                            )}
                         </div>
-                        <LiveTimer startDate={workOrder.current_phase?.start_date || workOrder.created_date} />
+                        <LiveTimer
+                            startDate={workOrder.current_phase?.start_date || workOrder.created_date}
+                            breaks={workOrder.current_phase?.breaks}
+                            isPaused={workOrder.current_phase?.phase_status === 'Paused'}
+                        />
                         <div className="wo-kpi-sub mt-2">
                             <small className="text-muted">เริ่ม: {formatDateTime(workOrder.created_date)}</small>
+                            {workOrder.current_phase?.phase_status === 'Paused' && (
+                                <small className="text-warning ms-2">⏸ พักชั่วคราว</small>
+                            )}
                         </div>
                         <div className="wo-progress-bar mt-3">
                             <div className="wo-progress-fill wo-progress-blue" style={{ width: `${Math.min(progressPercent + 10, 100)}%` }} />
@@ -405,8 +537,7 @@ const WorkorderView: React.FC = () => {
                                                         }}
                                                     >
                                                         <span className="wo-bar-text">
-                                                            {phase.phase_status === 'In Progress' ? 'กำลังดำเนินงาน' :
-                                                                phase.phase_status === 'Completed' ? 'เสร็จสิ้น' : 'รอดำเนินการ'}
+                                                            {getPhaseStatusLabel(phase.phase_status)}
                                                         </span>
                                                         {phase.employee_list.length > 0 && (
                                                             <span className="wo-bar-badge">{phase.employee_list.length} คน</span>
@@ -458,9 +589,11 @@ const WorkorderView: React.FC = () => {
                                                     </div>
                                                 </div>
                                                 <span className="wo-phase-status-badge" style={{ backgroundColor: getPhaseStatusBg(phase.phase_status), color: getPhaseStatusColor(phase.phase_status) }}>
-                                                    {phase.phase_status}
+                                                    {getPhaseStatusLabel(phase.phase_status)}
                                                 </span>
                                             </div>
+
+                                            {/* Employee list */}
                                             {phase.employee_list.length > 0 && (
                                                 <div className="wo-phase-card-body">
                                                     <div className="d-flex flex-wrap gap-2">
@@ -473,6 +606,81 @@ const WorkorderView: React.FC = () => {
                                                     </div>
                                                 </div>
                                             )}
+
+                                            {/* Break Summary */}
+                                            {phase.breaks && phase.breaks.length > 0 && (
+                                                <div className="px-3 pb-3 pt-2 border-top border-dashed">
+                                                    <div className="fs-8 fw-bold text-warning mb-2 d-flex align-items-center">
+                                                        <i className="bi bi-clock-history me-1" />
+                                                        พักทั้งหมด {phase.breaks.length} ครั้ง
+                                                        <span className="ms-2 text-muted">({formatDurationMs(calcTotalBreakMs(phase.breaks))})</span>
+                                                    </div>
+                                                    <div className="d-flex flex-column gap-1">
+                                                        {phase.breaks.map(b => (
+                                                            <div key={b.break_id} className="d-flex align-items-center justify-content-between px-2 py-1 rounded" style={{ background: '#fff8f0', fontSize: '11px' }}>
+                                                                <span className="fw-semibold text-gray-700">{b.break_type}</span>
+                                                                <span className="text-muted">
+                                                                    {formatTime(b.break_start)} - {b.break_end ? formatTime(b.break_end) : 'กำลังพัก...'}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Action Buttons */}
+                                            <div className="d-flex align-items-center gap-2 px-3 pb-3 pt-2 border-top">
+                                                {phase.phase_status === 'Pending' && (
+                                                    <button
+                                                        className="btn btn-sm btn-primary"
+                                                        onClick={() => handleStart(phase.work_phase_id)}
+                                                        disabled={statusUpdating}
+                                                    >
+                                                        <i className="bi bi-play-fill me-1" /> เริ่มงาน
+                                                    </button>
+                                                )}
+                                                {phase.phase_status === 'InProgress' && (
+                                                    <>
+                                                        <button
+                                                            className="btn btn-sm btn-warning"
+                                                            onClick={() => handlePause(phase.work_phase_id)}
+                                                            disabled={statusUpdating}
+                                                        >
+                                                            <i className="bi bi-pause-fill me-1" /> พักงาน
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-sm btn-success"
+                                                            onClick={() => handleComplete(phase.work_phase_id)}
+                                                            disabled={statusUpdating}
+                                                        >
+                                                            <i className="bi bi-check-lg me-1" /> เสร็จสิ้น
+                                                        </button>
+                                                    </>
+                                                )}
+                                                {phase.phase_status === 'Paused' && (
+                                                    <>
+                                                        <button
+                                                            className="btn btn-sm btn-primary"
+                                                            onClick={() => handleResume(phase.work_phase_id)}
+                                                            disabled={statusUpdating}
+                                                        >
+                                                            <i className="bi bi-play-fill me-1" /> ทำงานต่อ
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-sm btn-success"
+                                                            onClick={() => handleComplete(phase.work_phase_id)}
+                                                            disabled={statusUpdating}
+                                                        >
+                                                            <i className="bi bi-check-lg me-1" /> เสร็จสิ้น
+                                                        </button>
+                                                    </>
+                                                )}
+                                                {phase.phase_status === 'Completed' && (
+                                                    <span className="d-inline-flex align-items-center text-success fw-semibold fs-7">
+                                                        <i className="bi bi-check-circle-fill me-1" /> เสร็จสิ้นแล้ว
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
