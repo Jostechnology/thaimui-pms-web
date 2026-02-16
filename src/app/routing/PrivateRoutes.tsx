@@ -8,17 +8,7 @@ const WorkorderPage = lazy(() => import("../modules/workorder/WorkorderPage"));
 const SettingPage = lazy(() => import("../modules/menu_setting/SettingPage"));
 const EmployeePage = lazy(() => import("../modules/Employee/employeePage"));
 const WorkorderDashboard = lazy(() => import("../modules/workorder/components/WorkorderDashboard"));
-const PrivateRoutes = () => {
-
-const WorkorderPage = lazy(() => import("../modules/workorder/WorkorderPage"));
 const QualityControlPage = lazy(() => import("../modules/quality_control/QualityControlPage"));
-
-const SettingPage = lazy(() => import("../modules/menu_setting/SettingPage"));
-const EmployeePage = lazy(() => import("../modules/Employee/employeePage"));
-const WorkorderDashboard = lazy(
-  () => import("../modules/workorder/components/WorkorderDashboard"),
-);
-
 const PrivateRoutes = () => {
   return (
     <Routes>
@@ -32,16 +22,6 @@ const PrivateRoutes = () => {
           }
         />
 
-<<<<<<< HEAD
-        <Route
-          path="setting/*"
-          element={
-            <SuspensedView>
-              <SettingPage />
-            </SuspensedView>
-          }
-        />
-=======
         <Route path="main" element={<div></div>} />
         <Route path="setting/*" element={
           <SuspensedView>
@@ -63,7 +43,6 @@ const PrivateRoutes = () => {
             <WorkorderDashboard />
           </SuspensedView>
         } />
->>>>>>> origin/feature-wo-dashboard
 
         <Route
           path="employee/*"
