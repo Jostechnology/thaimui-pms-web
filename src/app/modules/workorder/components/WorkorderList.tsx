@@ -45,7 +45,7 @@ const WorkorderList: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get("page") || "1"));
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
     const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("filter") || "");
-    
+
 
     useTableParams({
         currentPage,
@@ -242,14 +242,21 @@ const WorkorderList: React.FC = () => {
 
                                             <td className='text-center'>
                                                 <span className={`badge ${item.status === 'Pending' ? 'badge-light-warning' :
-                                                        item.status === 'Active' ? 'badge-light-primary' :
-                                                            'badge-light-secondary'
+                                                    item.status === 'Active' ? 'badge-light-primary' :
+                                                        'badge-light-secondary'
                                                     } fw-bold px-4 py-3`}>
                                                     {item.status || 'Waiting'}
                                                 </span>
                                             </td>
 
                                             <td className='text-end'>
+                                                <button
+                                                    className='btn btn-sm btn-icon btn-bg-light btn-color-info me-1'
+                                                    title="View Order"
+                                                    onClick={() => navigate(`/workorder/workorders_view/${item.work_order_id}`)}
+                                                >
+                                                    <i className='bi bi-eye fs-3'></i>
+                                                </button>
                                                 <button
                                                     className='btn btn-sm btn-icon btn-bg-light btn-color-primary me-1'
                                                     title="Manage Order"
