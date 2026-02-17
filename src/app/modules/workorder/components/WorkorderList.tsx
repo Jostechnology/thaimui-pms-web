@@ -62,7 +62,7 @@ const WorkorderList: React.FC = () => {
         setDataLoading(true);
         setLoading();
         try {
-            const result = await getWorkOrderList(currentPage, pageConfig, keyword);
+            const result = await getWorkOrderList(currentPage, pageConfig, keyword, statusFilter);
             if (result && result.success) {
                 setWorkorders(result.data.items);
                 setTotalPages(result.data.total_pages);
@@ -81,13 +81,13 @@ const WorkorderList: React.FC = () => {
 
     useEffect(() => {
         fetchWorkorders();
-    }, [currentPage, keyword, pageConfig]);
+    }, [currentPage, keyword, pageConfig, statusFilter]);
 
     const getStatusBadge = (status: string) => {
-        const s = status?.toLowerCase();
-        if (s === 'finished' || s === 'completed') return 'badge-light-success';
-        if (s === 'working' || s === 'picking') return 'badge-light-warning';
-        if (s === 'designing') return 'badge-light-primary';
+        const s = (status || '').toLowerCase();
+        if (s === 'completed') return 'badge-light-success';
+        if (s === 'working' || s === 'picking' || s === 'pending') return 'badge-light-warning';
+        if (s === 'ready' || s === 'active') return 'badge-light-primary';
         return 'badge-light-secondary';
     };
 
@@ -154,15 +154,15 @@ const WorkorderList: React.FC = () => {
                             <div className='fw-bold text-gray-700'>Status:</div>
                             <select
                                 className='form-select form-select-solid w-150px'
-                                value={statusFilter} // สมมติว่ามี State นี้
-                                onChange={(e) => setStatusFilter(e.target.value)}
+                                value={statusFilter}
+                                onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
                             >
+                                <option value=''>All</option>
                                 {work_order_statuses.map((status) => {
                                     return (
-                                        <option value={`${status}`}>{status}</option>
+                                        <option key={String(status)} value={String(status)}>{status}</option>
                                     )
                                 })}
-                                
                             </select>
 
                             {/* <button
@@ -243,10 +243,7 @@ const WorkorderList: React.FC = () => {
                                             </td>
 
                                             <td className='text-center'>
-                                                <span className={`badge ${item.status === 'Pending' ? 'badge-light-warning' :
-                                                    item.status === 'Active' ? 'badge-light-primary' :
-                                                        'badge-light-secondary'
-                                                    } fw-bold px-4 py-3`}>
+                                                <span className={`badge ${getStatusBadge(item.status)} fw-bold px-4 py-3`}>
                                                     {item.status || 'Waiting'}
                                                 </span>
                                             </td>
