@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { getEmployeeList } from '../../../services/employee';
-import { Employee } from '../../../type_interface/EmployeeType';
+import { getEmployeeList, createEmployee, updateEmployee, deleteEmployee } from '../../../services/employee';
+import { Employee,EmployeeSalaryHistory } from '../../../type_interface/EmployeeType';
+import { useAlertModal } from '../../../context/ModalContext';
+import AddEditEmployeeModal from '../../../modals/employee_modal/AddEditEmployeeModal';
+
 
 // ==========================================
 // STATUS CONFIG
@@ -30,11 +33,15 @@ const AVATAR_COLORS = [
 
 const getAvatarColor = (id: number) => AVATAR_COLORS[id % AVATAR_COLORS.length];
 
+const formatSalary = (val?: number) =>
+  val != null && val > 0 ? val.toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '-';
+
 // ==========================================
 // SKELETON LOADING COMPONENT
 // ==========================================
 const SkeletonRow: React.FC = () => (
   <tr>
+    <td><div className='d-flex align-items-center gap-2'><div className='bg-secondary rounded skeleton-pulse' style={{ width: 20, height: 20 }}></div></div></td>
     <td>
       <div className='d-flex align-items-center gap-3'>
         <div className='bg-secondary rounded-circle skeleton-pulse' style={{ width: 44, height: 44 }}></div>
@@ -46,8 +53,9 @@ const SkeletonRow: React.FC = () => (
     </td>
     <td><div className='bg-secondary rounded skeleton-pulse' style={{ width: 110, height: 14 }}></div></td>
     <td><div className='bg-secondary rounded skeleton-pulse' style={{ width: 90, height: 14 }}></div></td>
+    <td><div className='bg-secondary rounded skeleton-pulse' style={{ width: 90, height: 14 }}></div></td>
     <td><div className='bg-secondary rounded skeleton-pulse' style={{ width: 80, height: 26, borderRadius: 20 }}></div></td>
-    <td className='text-end'><div className='bg-secondary rounded skeleton-pulse' style={{ width: 32, height: 32 }}></div></td>
+    <td className='text-end'><div className='bg-secondary rounded skeleton-pulse' style={{ width: 80, height: 32 }}></div></td>
   </tr>
 );
 
@@ -55,6 +63,8 @@ const SkeletonRow: React.FC = () => (
 // MAIN COMPONENT
 // ==========================================
 const EmployeeList: React.FC = () => {
+  const { openAlertModal, openTwoBtnAlertModal } = useAlertModal();
+
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -63,14 +73,29 @@ const EmployeeList: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [perPage, setPerPage] = useState(10);
 
+  // Modal States
+  const [showAddEditModal, setShowAddEditModal] = useState(false);
+  const [isEdit, setIsEdit] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Salary History Modal
+  const [showSalaryHistory, setShowSalaryHistory] = useState(false);
+  const [salaryHistoryList, setSalaryHistoryList] = useState<EmployeeSalaryHistory[]>([]);
+  const [salaryHistoryName, setSalaryHistoryName] = useState('');
+  const [salaryHistoryLoading, setSalaryHistoryLoading] = useState(false);
+
+  // Multi-select
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
   const fetchData = useCallback(async (search = '') => {
     setLoading(true);
     setError(null);
     try {
       const res = await getEmployeeList(search);
       if (res && res.success) {
-        const items = res.data?.items || [];
-        setEmployees(items);
+        const items = res.data?.items || res.data || [];
+        setEmployees(Array.isArray(items) ? items : []);
       } else {
         setEmployees([]);
         setError('ไม่สามารถโหลดข้อมูลพนักงานได้');
@@ -107,7 +132,6 @@ const EmployeeList: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const visible = filtered.slice((page - 1) * perPage, page * perPage);
 
-  // Status counts for filter pills
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { all: employees.length };
     employees.forEach((e) => {
@@ -120,7 +144,128 @@ const EmployeeList: React.FC = () => {
   const handleRefresh = () => {
     setQuery('');
     setStatusFilter('all');
+    setSelectedIds([]);
     fetchData();
+  };
+
+  // ==========================================
+  // CRUD HANDLERS
+  // ==========================================
+  const handleOpenAdd = () => {
+    setIsEdit(false);
+    setEditingEmployee(null);
+    setShowAddEditModal(true);
+  };
+
+  const handleOpenEdit = (emp: Employee) => {
+    setIsEdit(true);
+    setEditingEmployee(emp);
+    setShowAddEditModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowAddEditModal(false);
+    setEditingEmployee(null);
+    setSaving(false);
+  };
+
+  const handleSubmitEmployee = async (formData: EmployeeFormData) => {
+    setSaving(true);
+    try {
+      let res;
+      if (isEdit) {
+        res = await updateEmployee(formData);
+      } else {
+        res = await createEmployee(formData);
+      }
+
+      if (res && res.success) {
+        openAlertModal(
+          isEdit ? 'แก้ไขข้อมูลพนักงานสำเร็จ' : 'เพิ่มพนักงานสำเร็จ',
+          () => { },
+          true
+        );
+        handleCloseModal();
+        fetchData();
+      } else {
+        openAlertModal(res?.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่', () => { }, false);
+      }
+    } catch {
+      openAlertModal('เกิดข้อผิดพลาดในการเชื่อมต่อ', () => { }, false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteSingle = (emp: Employee) => {
+    openTwoBtnAlertModal(
+      `ต้องการลบพนักงาน "${emp.employee_first_name} ${emp.employee_last_name}" หรือไม่?`,
+      async () => {
+        try {
+          const res = await deleteEmployee([emp.employee_id]);
+          if (res && res.success) {
+            openAlertModal('ลบพนักงานสำเร็จ', () => { }, true);
+            fetchData();
+            setSelectedIds((prev) => prev.filter((id) => id !== emp.employee_id));
+          } else {
+            openAlertModal(res?.error || 'ไม่สามารถลบได้', () => { }, false);
+          }
+        } catch {
+          openAlertModal('เกิดข้อผิดพลาด', () => { }, false);
+        }
+      },
+      () => { }
+    );
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.length === 0) return;
+    openTwoBtnAlertModal(
+      `ต้องการลบพนักงานที่เลือก ${selectedIds.length} คน หรือไม่?`,
+      async () => {
+        try {
+          const res = await deleteEmployee(selectedIds);
+          if (res && res.success) {
+            openAlertModal(`ลบพนักงาน ${selectedIds.length} คนสำเร็จ`, () => { }, true);
+            setSelectedIds([]);
+            fetchData();
+          } else {
+            openAlertModal(res?.error || 'ไม่สามารถลบได้', () => { }, false);
+          }
+        } catch {
+          openAlertModal('เกิดข้อผิดพลาด', () => { }, false);
+        }
+      },
+      () => { }
+    );
+  };
+
+  // Multi-select handlers
+  const toggleSelectAll = () => {
+    if (selectedIds.length === visible.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(visible.map((e) => e.employee_id));
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  // ==========================================
+  // SALARY HISTORY
+  // ==========================================
+  const handleOpenSalaryHistory = (emp: Employee) => {
+    setSalaryHistoryName(`${emp.employee_first_name} ${emp.employee_last_name}`);
+    setSalaryHistoryLoading(true);
+    setShowSalaryHistory(true);
+    // TODO: เรียก API ดึงประวัติเงินเดือน เมื่อมี endpoint
+    // ตอนนี้ set เป็น empty array ก่อน
+    setSalaryHistoryList([]);
+    setSalaryHistoryLoading(false);
   };
 
   // ==========================================
@@ -156,6 +301,15 @@ const EmployeeList: React.FC = () => {
           </span>
         </div>
         <div className='d-flex align-items-center gap-3'>
+          {selectedIds.length > 0 && (
+            <button
+              className='btn btn-sm btn-light-danger fw-bold px-4'
+              onClick={handleDeleteSelected}
+            >
+              <i className='bi bi-trash3 me-2'></i>
+              ลบที่เลือก ({selectedIds.length})
+            </button>
+          )}
           <button
             className='btn btn-sm btn-light-primary fw-bold px-4'
             onClick={handleRefresh}
@@ -163,6 +317,13 @@ const EmployeeList: React.FC = () => {
           >
             <i className={`bi ${loading ? 'bi-arrow-repeat spinner-rotate' : 'bi-arrow-clockwise'} me-2`}></i>
             รีเฟรช
+          </button>
+          <button
+            className='btn btn-sm btn-primary fw-bold px-5'
+            onClick={handleOpenAdd}
+          >
+            <i className='bi bi-plus-lg me-2'></i>
+            เพิ่มพนักงาน
           </button>
         </div>
       </div>
@@ -263,11 +424,23 @@ const EmployeeList: React.FC = () => {
                 <table className='table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer'>
                   <thead>
                     <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
+                      <th style={{ width: 50 }}>
+                        <div className='form-check form-check-sm form-check-custom'>
+                          <input
+                            className='form-check-input'
+                            type='checkbox'
+                            checked={visible.length > 0 && selectedIds.length === visible.length}
+                            onChange={toggleSelectAll}
+                            disabled={loading || visible.length === 0}
+                          />
+                        </div>
+                      </th>
                       <th className='min-w-200px'>พนักงาน</th>
                       <th className='min-w-130px'>เบอร์โทร</th>
                       <th className='min-w-150px'>อีเมล</th>
+                      <th className='min-w-120px'>เงินเดือน</th>
                       <th className='min-w-100px text-center'>สถานะ</th>
-                      <th className='text-end min-w-80px'>จัดการ</th>
+                      <th className='text-end min-w-120px'>จัดการ</th>
                     </tr>
                   </thead>
                   <tbody className='text-gray-600 fw-semibold'>
@@ -275,7 +448,7 @@ const EmployeeList: React.FC = () => {
                       Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
                     ) : visible.length === 0 ? (
                       <tr>
-                        <td colSpan={5}>
+                        <td colSpan={7}>
                           <div className='d-flex flex-column align-items-center justify-content-center py-15'>
                             <i className='bi bi-person-slash fs-3x text-gray-300 mb-4'></i>
                             <span className='text-gray-500 fw-semibold fs-6'>
@@ -291,12 +464,31 @@ const EmployeeList: React.FC = () => {
                       </tr>
                     ) : (
                       visible.map((emp) => {
-                        const avatarColor = getAvatarColor(emp.employee_id);
+                        const avatarColor = getAvatarColor(emp.employeeId);
                         const statusCfg = getStatusConfig(emp.status);
-                        const initials = `${(emp.employee_first_name || '').charAt(0)}${(emp.employee_last_name || '').charAt(0)}`.toUpperCase();
+                        const initials = `${(emp. employeeFirstName || '').charAt(0)}${(emp.employeeLastName || '').charAt(0)}`.toUpperCase();
+                        const isSelected = selectedIds.includes(emp.employeeId);
 
                         return (
-                          <tr key={emp.employee_id} style={{ transition: 'background 0.15s' }}>
+                          <tr
+                            key={emp.employeeId}
+                            style={{
+                              transition: 'background 0.15s',
+                              backgroundColor: isSelected ? '#f1faff' : undefined,
+                            }}
+                          >
+                            {/* Checkbox */}
+                            <td>
+                              <div className='form-check form-check-sm form-check-custom'>
+                                <input
+                                  className='form-check-input'
+                                  type='checkbox'
+                                  checked={isSelected}
+                                  onChange={() => toggleSelect(emp.employeeId)}
+                                />
+                              </div>
+                            </td>
+
                             {/* Employee Name + Avatar */}
                             <td>
                               <div className='d-flex align-items-center'>
@@ -307,11 +499,11 @@ const EmployeeList: React.FC = () => {
                                 </div>
                                 <div className='d-flex flex-column'>
                                   <span className='text-gray-800 fw-bold fs-6'>
-                                    {emp.employee_first_name} {emp.employee_last_name}
+                                    {emp.employeeFirstName} {emp.employeeLastName}
                                   </span>
                                   <span className='text-muted fw-semibold fs-8'>
                                     <i className='bi bi-credit-card-2-front me-1'></i>
-                                    {emp.citizen_id || '-'}
+                                    {emp.citizenId || '-'}
                                   </span>
                                 </div>
                               </div>
@@ -321,7 +513,7 @@ const EmployeeList: React.FC = () => {
                             <td>
                               <div className='d-flex align-items-center text-gray-700'>
                                 <i className='bi bi-telephone me-2 text-muted fs-7'></i>
-                                {emp.phone_number || '-'}
+                                {emp.phoneNumber || '-'}
                               </div>
                             </td>
 
@@ -331,6 +523,18 @@ const EmployeeList: React.FC = () => {
                                 <i className='bi bi-envelope me-2 text-muted fs-7'></i>
                                 <span className='text-truncate' style={{ maxWidth: 200 }}>{emp.email || '-'}</span>
                               </div>
+                            </td>
+
+                            {/* Salary */}
+                            <td>
+                              <span className='fw-bold text-gray-800'>
+                                {emp.salaryBase != null && emp.salaryBase > 0 ? (
+                                  <>
+                                    <i className='bi bi-cash-stack me-1 text-success fs-7'></i>
+                                    {formatSalary(emp.salaryBase)}
+                                  </>
+                                ) : '-'}
+                              </span>
                             </td>
 
                             {/* Status */}
@@ -343,12 +547,29 @@ const EmployeeList: React.FC = () => {
 
                             {/* Actions */}
                             <td className='text-end'>
-                              <button
-                                className='btn btn-sm btn-icon btn-bg-light btn-color-primary btn-active-color-white btn-active-primary'
-                                title='ดูรายละเอียด'
-                              >
-                                <i className='bi bi-eye fs-5'></i>
-                              </button>
+                              <div className='d-flex justify-content-end gap-1'>
+                                <button
+                                  className='btn btn-sm btn-icon btn-bg-light btn-color-primary btn-active-color-white btn-active-primary'
+                                  title='แก้ไข'
+                                  onClick={() => handleOpenEdit(emp)}
+                                >
+                                  <i className='bi bi-pencil-square fs-5'></i>
+                                </button>
+                                <button
+                                  className='btn btn-sm btn-icon btn-bg-light btn-color-info btn-active-color-white btn-active-info'
+                                  title='ประวัติเงินเดือน'
+                                  onClick={() => handleOpenSalaryHistory(emp)}
+                                >
+                                  <i className='bi bi-clock-history fs-5'></i>
+                                </button>
+                                <button
+                                  className='btn btn-sm btn-icon btn-bg-light btn-color-danger btn-active-color-white btn-active-danger'
+                                  title='ลบ'
+                                  onClick={() => handleDeleteSingle(emp)}
+                                >
+                                  <i className='bi bi-trash3 fs-5'></i>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -425,6 +646,17 @@ const EmployeeList: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* ==================== MODALS ==================== */}
+      {showAddEditModal && (
+        <AddEditEmployeeModal
+          isEdit={isEdit}
+          employee={editingEmployee}
+          handleSubmit={handleSubmitEmployee}
+          handleClose={handleCloseModal}
+          saving={saving}
+        />
+      )}
     </div>
   );
 };
