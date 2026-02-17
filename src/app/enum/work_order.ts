@@ -1,5 +1,5 @@
 export const work_order_statuses : String[] = [
-    "Complete",
+    "Completed",
     "Ready",
     "Working"
 ]
