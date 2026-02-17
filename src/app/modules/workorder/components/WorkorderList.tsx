@@ -8,13 +8,13 @@ import { getWorkOrderList } from '../../../services/workorder';
 import { useTableParams } from '../../../hooks/useTableParams';
 import { useSearchParams } from 'react-router-dom';
 import TablePaginator from '../../../custom_components/TablePaginator'; // สมมติว่ามี Component นี้อยู่แล้ว
-import { work_order_statuses } from '../../../enum/work_order';
+import { WORK_ORDER_STATUS_OPTIONS } from '../../../enum/work_order';
 
 // 1. ปรับ Interface ให้ตรงกับข้อมูลจริงใน ER Diagram
 interface WorkorderData {
     work_order_id: number;
     doc_num: string;
-    sales_item:{
+    sales_item: {
         item_name: string;
         item_description: string;
     };
@@ -47,7 +47,8 @@ const WorkorderList: React.FC = () => {
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
     const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("filter") || "");
 
-
+    const workingCount = workorders.filter(w => w.status === 'Working').length;
+    const completedCount = workorders.filter(w => w.status === 'Completed').length;
     useTableParams({
         currentPage,
         setCurrentPage,
@@ -62,7 +63,7 @@ const WorkorderList: React.FC = () => {
         setDataLoading(true);
         setLoading();
         try {
-            const result = await getWorkOrderList(currentPage, pageConfig, keyword);
+            const result = await getWorkOrderList(currentPage, pageConfig, keyword, statusFilter);
             if (result && result.success) {
                 setWorkorders(result.data.items);
                 setTotalPages(result.data.total_pages);
@@ -81,13 +82,19 @@ const WorkorderList: React.FC = () => {
 
     useEffect(() => {
         fetchWorkorders();
-    }, [currentPage, keyword, pageConfig]);
+    }, [currentPage, keyword, pageConfig, statusFilter]);
 
     const getStatusBadge = (status: string) => {
-        const s = status?.toLowerCase();
-        if (s === 'finished' || s === 'completed') return 'badge-light-success';
-        if (s === 'working' || s === 'picking') return 'badge-light-warning';
-        if (s === 'designing') return 'badge-light-primary';
+        const s = (status || '').toString().normalize('NFC');
+        if (s.includes('เสร็จ')) {
+            return 'badge-light-success';
+        }
+        if (/ก.*ลัง/.test(s) || /ด.*เนิน/.test(s)) {
+            return 'badge-light-warning';
+        }
+        if (s.includes('พร้อม')) {
+            return 'badge-light-primary';
+        }
         return 'badge-light-secondary';
     };
 
@@ -112,7 +119,7 @@ const WorkorderList: React.FC = () => {
             {/* KPI Cards Section */}
             <div className='row g-5 g-xl-10 mb-10'>
                 <div className='col-md-4'>
-                    <div className='card card-flush shadow-sm h-100 py-5 px-6 border-0 bg-white'>
+                    <div className='card card-flush shadow-sm h-100 py-5 px-6 border-0 bg-white hover-elevate-up transition-300'>
                         <div className='d-flex align-items-center'>
                             <div className='symbol symbol-50px me-5'>
                                 <span className='symbol-label bg-light-primary'>
@@ -121,17 +128,49 @@ const WorkorderList: React.FC = () => {
                             </div>
                             <div className='d-flex flex-column'>
                                 <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{workorders.length}</span>
-                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>Active on current page</span>
+                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>รายการคำสั่งทั้งหมด</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Card 2: Working Orders  */}
+                <div className='col-md-4'>
+                    <div className='card card-flush shadow-sm h-100 py-5 px-6 border-0 bg-white hover-elevate-up transition-300'>
+                        <div className='d-flex align-items-center'>
+                            <div className='symbol symbol-50px me-5'>
+                                <span className='symbol-label bg-light-warning'>
+                                    <i className='bi bi-gear-wide-connected text-warning fs-2x'></i>
+                                </span>
+                            </div>
+                            <div className='d-flex flex-column'>
+                                <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{workingCount}</span>
+                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>กำลังดำเนินงาน</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Card 3: Completed Orders */}
+                <div className='col-md-4'>
+                    <div className='card card-flush shadow-sm h-100 py-5 px-6 border-0 bg-white hover-elevate-up transition-300'>
+                        <div className='d-flex align-items-center'>
+                            <div className='symbol symbol-50px me-5'>
+                                <span className='symbol-label bg-light-success'>
+                                    <i className='bi bi-check-circle-fill text-success fs-2x'></i>
+                                </span>
+                            </div>
+                            <div className='d-flex flex-column'>
+                                <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{completedCount}</span>
+                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>การดำเนินงานเสร็จสิ้น</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Table Management Card */}
             <div className='card card-flush shadow-sm border-0'>
                 <div className='card-header align-items-center py-5 gap-2 gap-md-5'>
-                    {/* ส่วนซ้าย: ช่องค้นหา */}
                     <div className='card-title'>
                         <div className='d-flex align-items-center position-relative my-1'>
                             <i className='ki-duotone ki-magnifier fs-3 position-absolute ms-4'>
@@ -140,7 +179,7 @@ const WorkorderList: React.FC = () => {
                             <input
                                 type='text'
                                 className='form-control form-control-solid w-250px ps-12'
-                                placeholder='Search by DocNum...'
+                                placeholder='ค้นหาจากรหัสใบสั่งงาน'
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && setKeyword(searchTerm)}
@@ -149,34 +188,20 @@ const WorkorderList: React.FC = () => {
                     </div>
 
                     {/* ส่วนขวา: Dropdown กรองสถานะ (Toolbar) */}
-                    <div className='card-toolbar'>
-                        <div className='d-flex justify-content-end align-items-center gap-3'>
-                            <div className='fw-bold text-gray-700'>Status:</div>
-                            <select
-                                className='form-select form-select-solid w-150px'
-                                value={statusFilter} // สมมติว่ามี State นี้
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                            >
-                                {work_order_statuses.map((status) => {
-                                    return (
-                                        <option value={`${status}`}>{status}</option>
-                                    )
-                                })}
-                                
-                            </select>
-
-                            {/* <button
-                                className='btn btn-icon btn-light-primary btn-sm'
-                                onClick={() => {
-                                    setSearchTerm("");
-                                    setKeyword("");
-                                    setStatusFilter("All");
-                                }}
-                            >
-                                <i className='bi bi-arrow-clockwise fs-3'></i>
-                            </button> */}
-                        </div>
-                    </div>
+                    <select
+                        className='form-select form-select-solid w-150px'
+                        value={statusFilter}
+                        onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+                    >
+                        <option value=''>ทั้งหมด</option>
+                        {WORK_ORDER_STATUS_OPTIONS.map((option) => {
+                            return (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            )
+                        })}
+                    </select>
                 </div>
 
                 <div className='card-body pt-0'>
@@ -184,13 +209,13 @@ const WorkorderList: React.FC = () => {
                         <table className='table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer'>
                             <thead>
                                 <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
-                                    <th className='min-w-150px'>DOCNUM</th>
-                                    <th className='min-w-125px'>PRODUCT</th>
-                                    <th className='min-w-100px'>DETAIL</th>
-                                    <th className='min-w-150px text-center'>CURRENT PHASE</th>
-                                    <th className='min-w-125px text-center'>CREATED DATE</th>
-                                    <th className='min-w-125px text-center'>STATUS</th>
-                                    <th className='text-end min-w-50px'>ACTIONS</th>
+                                    <th className='min-w-100px'>รหัสใบสั่งงาน</th>
+                                    <th className='min-w-125px'>สินค้า</th>
+                                    <th className='min-w-100px'>รายละเอียด</th>
+                                    <th className='min-w-150px text-center'>ช่วงการดำเนินงานล่าสุด</th>
+                                    <th className='min-w-125px text-center'>วันที่สร้าง</th>
+                                    <th className='min-w-125px text-center'>สถานะ</th>
+                                    <th className='text-end min-w-50px'>จัดการใบสั่งงาน</th>
                                 </tr>
                             </thead>
                             <tbody className='text-gray-600 fw-semibold'>
@@ -243,10 +268,7 @@ const WorkorderList: React.FC = () => {
                                             </td>
 
                                             <td className='text-center'>
-                                                <span className={`badge ${item.status === 'Pending' ? 'badge-light-warning' :
-                                                    item.status === 'Active' ? 'badge-light-primary' :
-                                                        'badge-light-secondary'
-                                                    } fw-bold px-4 py-3`}>
+                                                <span className={`badge ${getStatusBadge(item.status)} fw-bold px-4 py-3`}>
                                                     {item.status || 'Waiting'}
                                                 </span>
                                             </td>
