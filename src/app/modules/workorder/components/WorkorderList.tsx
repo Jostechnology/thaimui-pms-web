@@ -47,7 +47,8 @@ const WorkorderList: React.FC = () => {
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
     const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("filter") || "");
 
-
+    const workingCount = workorders.filter(w => w.status === 'Working').length;
+    const completedCount = workorders.filter(w => w.status === 'Completed').length;
     useTableParams({
         currentPage,
         setCurrentPage,
@@ -112,7 +113,7 @@ const WorkorderList: React.FC = () => {
             {/* KPI Cards Section */}
             <div className='row g-5 g-xl-10 mb-10'>
                 <div className='col-md-4'>
-                    <div className='card card-flush shadow-sm h-100 py-5 px-6 border-0 bg-white'>
+                    <div className='card card-flush shadow-sm h-100 py-5 px-6 border-0 bg-white hover-elevate-up transition-300'>
                         <div className='d-flex align-items-center'>
                             <div className='symbol symbol-50px me-5'>
                                 <span className='symbol-label bg-light-primary'>
@@ -121,17 +122,49 @@ const WorkorderList: React.FC = () => {
                             </div>
                             <div className='d-flex flex-column'>
                                 <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{workorders.length}</span>
-                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>Active on current page</span>
+                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>รายการคำสั่งทั้งหมด</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Card 2: Working Orders  */}
+                <div className='col-md-4'>
+                    <div className='card card-flush shadow-sm h-100 py-5 px-6 border-0 bg-white hover-elevate-up transition-300'>
+                        <div className='d-flex align-items-center'>
+                            <div className='symbol symbol-50px me-5'>
+                                <span className='symbol-label bg-light-warning'>
+                                    <i className='bi bi-gear-wide-connected text-warning fs-2x'></i>
+                                </span>
+                            </div>
+                            <div className='d-flex flex-column'>
+                                <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{workingCount}</span>
+                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>กำลังดำเนินงาน</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Card 3: Completed Orders */}
+                <div className='col-md-4'>
+                    <div className='card card-flush shadow-sm h-100 py-5 px-6 border-0 bg-white hover-elevate-up transition-300'>
+                        <div className='d-flex align-items-center'>
+                            <div className='symbol symbol-50px me-5'>
+                                <span className='symbol-label bg-light-success'>
+                                    <i className='bi bi-check-circle-fill text-success fs-2x'></i>
+                                </span>
+                            </div>
+                            <div className='d-flex flex-column'>
+                                <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{completedCount}</span>
+                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>การดำเนินงานเสร็จสิ้น</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Table Management Card */}
             <div className='card card-flush shadow-sm border-0'>
                 <div className='card-header align-items-center py-5 gap-2 gap-md-5'>
-                    {/* ส่วนซ้าย: ช่องค้นหา */}
                     <div className='card-title'>
                         <div className='d-flex align-items-center position-relative my-1'>
                             <i className='ki-duotone ki-magnifier fs-3 position-absolute ms-4'>
@@ -140,7 +173,7 @@ const WorkorderList: React.FC = () => {
                             <input
                                 type='text'
                                 className='form-control form-control-solid w-250px ps-12'
-                                placeholder='Search by DocNum...'
+                                placeholder='ค้นหาจากรหัสใบสั่งงาน'
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && setKeyword(searchTerm)}
@@ -151,7 +184,7 @@ const WorkorderList: React.FC = () => {
                     {/* ส่วนขวา: Dropdown กรองสถานะ (Toolbar) */}
                     <div className='card-toolbar'>
                         <div className='d-flex justify-content-end align-items-center gap-3'>
-                            <div className='fw-bold text-gray-700'>Status:</div>
+                            <div className='fw-bold text-gray-700'>สถานะ :</div>
                             <select
                                 className='form-select form-select-solid w-150px'
                                 value={statusFilter}
@@ -184,13 +217,13 @@ const WorkorderList: React.FC = () => {
                         <table className='table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer'>
                             <thead>
                                 <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
-                                    <th className='min-w-150px'>DOCNUM</th>
-                                    <th className='min-w-125px'>PRODUCT</th>
-                                    <th className='min-w-100px'>DETAIL</th>
-                                    <th className='min-w-150px text-center'>CURRENT PHASE</th>
-                                    <th className='min-w-125px text-center'>CREATED DATE</th>
-                                    <th className='min-w-125px text-center'>STATUS</th>
-                                    <th className='text-end min-w-50px'>ACTIONS</th>
+                                    <th className='min-w-150px'>รหัสใบสั่งงาน</th>
+                                    <th className='min-w-125px'>สินค้า</th>
+                                    <th className='min-w-100px'>รายละเอียด</th>
+                                    <th className='min-w-150px text-center'>ช่วงการดำเนินงานล่าสุด</th>
+                                    <th className='min-w-125px text-center'>วันที่สร้าง</th>
+                                    <th className='min-w-125px text-center'>สถานะ</th>
+                                    <th className='text-end min-w-50px'>จัดการใบสั่งงาน</th>
                                 </tr>
                             </thead>
                             <tbody className='text-gray-600 fw-semibold'>

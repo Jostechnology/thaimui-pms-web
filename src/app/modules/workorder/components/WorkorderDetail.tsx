@@ -413,7 +413,7 @@ const WorkorderDetail: React.FC = () => {
                     onClick={handleSaveAllChanges}
                     disabled={totalChanges === 0}
                 >
-                    Save Changes
+                    บันทึกการเปลี่ยนแปลง
                     {totalChanges > 0 && <span className="badge badge-circle badge-white text-white ms-2">{totalChanges}</span>}
                 </button>
             </div>
