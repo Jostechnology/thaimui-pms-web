@@ -162,7 +162,7 @@ const WorkorderDetail: React.FC = () => {
         const newPhase: Phase = {
             id: newId,
             title: `ขั้นตอนใหม่`,
-            status: 'รอดำเนินการ',
+            status: 'รอดําเนินการ',
             staffs: [],
             items: [],
             isEditing: true,
@@ -220,7 +220,7 @@ const WorkorderDetail: React.FC = () => {
 
     const hasActivePhase = phases.some(p => !p.isNew && (p.status === 'กําลังดําเนินการ' || p.status === 'หยุดชั่วคราว'));
     const firstPendingPhaseId = !hasActivePhase
-        ? (phases.find(p => !p.isNew && p.status === 'รอดำเนินการ')?.id ?? null)
+        ? (phases.find(p => !p.isNew && p.status === 'รอดําเนินการ')?.id ?? null)
         : null;
 
     const handlePhaseStatusUpdate = async (phaseId: number, newStatus: string, breakType?: string) => {
@@ -437,7 +437,7 @@ const WorkorderDetail: React.FC = () => {
                                             </span>
                                         )}
                                         <div className='d-flex gap-2 align-items-center'>
-                                            <span className='text-muted fw-bold fs-8'>สถานะ: {phase.status || 'รอดำเนินการ'}</span>
+                                            <span className='text-muted fw-bold fs-8'>สถานะ: {phase.status || 'รอดําเนินการ'}</span>
                                             {phase.isNew && <span className='badge badge-light-primary fs-9'>New</span>}
                                             {!phase.isNew && editIDList.includes(phase.id) && <span className='badge badge-light-warning fs-9'>Edited</span>}
                                         </div>
