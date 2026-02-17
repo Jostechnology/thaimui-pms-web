@@ -123,6 +123,12 @@ export const subRoutesConfig: SubRouteType[] = [
         title: "",
         permission:[]
     },
+    {
     
-    
+        module_code:"EMPLOYEE_SAL",
+        main_module_code: "EMPLOYEE",
+        path:"/employee/employee_salary_history",
+        title: "",
+        permission:[]
+    }
 ]
