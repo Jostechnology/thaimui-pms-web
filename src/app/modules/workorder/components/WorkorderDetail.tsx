@@ -70,7 +70,7 @@ const WorkorderDetail: React.FC = () => {
     const [empLoading, setEmpLoading] = useState<boolean>(false);
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [currentWorkOrder, setCurrentWorkOrder] = useState<WorkorderData | null>(null);
-    
+
     // UI States
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
@@ -100,7 +100,7 @@ const WorkorderDetail: React.FC = () => {
                 isNew: false // ข้อมูลจาก DB = ไม่ใช่ของใหม่
             }));
             setPhases(loadedPhases);
-            
+
             // Reset tracking lists เมื่อโหลดข้อมูลใหม่
             setDeleteIDList([]);
             setEditIDList([]);
@@ -130,7 +130,7 @@ const WorkorderDetail: React.FC = () => {
         try {
             const res = await getEmployeeList(search);
             if (res && res.success && res.data && Array.isArray(res.data.items)) {
-                setAllEmployees(res.data.items); 
+                setAllEmployees(res.data.items);
             } else {
                 setAllEmployees([]);
             }
@@ -178,7 +178,7 @@ const WorkorderDetail: React.FC = () => {
 
     const handleDeletePhase = (phaseId: number) => {
         const phaseToDelete = phases.find(p => p.id === phaseId);
-        
+
         // ลบออกจาก UI
         setPhases(phases.filter(p => p.id !== phaseId));
 
@@ -225,7 +225,90 @@ const WorkorderDetail: React.FC = () => {
         }
     };
 
-    // --- 5. The MASTER SAVE Logic ---
+    // --- 5. Phase Status Actions ---
+    const hasActivePhase = phases.some(p => !p.isNew && (p.status === 'InProgress' || p.status === 'Paused'));
+    const firstPendingPhaseId = !hasActivePhase
+        ? (phases.find(p => !p.isNew && p.status === 'Pending')?.id ?? null)
+        : null;
+
+    const handlePhaseStatusUpdate = async (phaseId: number, newStatus: string, breakType?: string) => {
+        const phase = phases.find(p => p.id === phaseId);
+        if (!phase) return;
+
+        setLoading();
+        try {
+            const payload: any = { work_phase_id: phaseId, phase_status: newStatus };
+            if (breakType) payload.break_type = breakType;
+
+            const result = await updateWorkPhase([payload]);
+            if (result && result.success) {
+                Swal.fire({
+                    title: 'อัปเดตสถานะสำเร็จ',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false,
+                }).then(() => fetchWorkorderData());
+            } else {
+                Swal.fire('เกิดข้อผิดพลาด', result?.message || 'ไม่สามารถอัปเดตสถานะได้', 'error');
+            }
+        } catch (error) {
+            console.error(error);
+            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อ API ได้', 'error');
+        } finally {
+            setUnLoading();
+        }
+    };
+
+    const handleStartPhase = async (phaseId: number) => {
+        const phase = phases.find(p => p.id === phaseId);
+        if (!phase) return;
+        const confirm = await Swal.fire({
+            title: 'เริ่มทำขั้นตอนนี้?',
+            text: `ยืนยันเริ่มทำ "${phase.title}"`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'เริ่มเลย',
+            cancelButtonText: 'ยกเลิก',
+        });
+        if (!confirm.isConfirmed) return;
+        handlePhaseStatusUpdate(phaseId, 'InProgress');
+    };
+
+    const handlePausePhase = async (phaseId: number) => {
+        const result = await Swal.fire({
+            title: 'พักงาน',
+            text: 'เลือกประเภทการพัก',
+            icon: 'info',
+            input: 'select',
+            inputOptions: { 'Lunch': 'พักเที่ยง', 'Short Break': 'พักเบรก', 'Other': 'อื่นๆ' },
+            inputValue: 'Short Break',
+            showCancelButton: true,
+            confirmButtonColor: '#fd7e14',
+            confirmButtonText: 'พักงาน',
+            cancelButtonText: 'ยกเลิก',
+        });
+        if (result.isConfirmed) handlePhaseStatusUpdate(phaseId, 'Paused', result.value);
+    };
+
+    const handleResumePhase = (phaseId: number) => {
+        handlePhaseStatusUpdate(phaseId, 'InProgress');
+    };
+
+    const handleCompletePhase = async (phaseId: number) => {
+        const confirm = await Swal.fire({
+            title: 'เสร็จสิ้น?',
+            text: 'ยืนยันว่าขั้นตอนนี้เสร็จสิ้นแล้ว ไม่สามารถย้อนกลับได้',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#198754',
+            confirmButtonText: 'ยืนยันเสร็จสิ้น',
+            cancelButtonText: 'ยกเลิก',
+        });
+        if (!confirm.isConfirmed) return;
+        handlePhaseStatusUpdate(phaseId, 'Completed');
+    };
+
+    // --- 6. The MASTER SAVE Logic ---
     const handleSaveAllChanges = async () => {
         // แยกกองข้อมูล
         const createList = phases.filter(p => p.isNew);
@@ -311,19 +394,19 @@ const WorkorderDetail: React.FC = () => {
                     <div className='d-flex flex-column'>
                         <h1 className='text-gray-900 fw-bold fs-2 mb-0'>{currentWorkOrder?.doc_num || 'LOADING...'}</h1>
                         {currentWorkOrder && (
-                             <span className={`badge ${currentWorkOrder.status === 'Ready' ? 'badge-light-success' : 'badge-light-primary'} fw-bold fs-8 px-3 py-1 mt-1 w-fit`}>
+                            <span className={`badge ${currentWorkOrder.status === 'Ready' ? 'badge-light-success' : 'badge-light-primary'} fw-bold fs-8 px-3 py-1 mt-1 w-fit`}>
                                 {currentWorkOrder.status}
-                             </span>
+                            </span>
                         )}
                     </div>
                 </div>
                 {/* Global Save Button */}
-                <button 
-                    className='btn btn-sm btn-primary fw-bold px-6' 
+                <button
+                    className='btn btn-sm btn-primary fw-bold px-6'
                     onClick={handleSaveAllChanges}
                     disabled={totalChanges === 0}
                 >
-                    Save Changes 
+                    Save Changes
                     {totalChanges > 0 && <span className="badge badge-circle badge-white text-primary ms-2">{totalChanges}</span>}
                 </button>
             </div>
@@ -341,23 +424,23 @@ const WorkorderDetail: React.FC = () => {
             ) : (
                 <div className='position-relative'>
                     <div className='position-absolute start-0 top-0 h-100 border-start border-gray-300 border-2 ms-5 z-index-0'></div>
-                    
+
                     {phases.map((phase, index) => (
                         <div key={phase.id} className='d-flex align-items-start mb-10 position-relative z-index-1'>
                             <div className='symbol symbol-40px me-5 mt-1'>
                                 <div className={`symbol-label fw-bold shadow-sm ${phase.isNew ? 'bg-primary text-white' : 'bg-light-success text-success'}`}>{index + 1}</div>
                             </div>
-                            
+
                             <div className={`card shadow-sm w-100 ${phase.isNew ? 'border border-dashed border-primary' : ''}`}>
                                 <div className='card-header border-0 pt-5'>
                                     <div className='card-title flex-column'>
                                         {phase.isEditing ? (
-                                            <input 
-                                                className='form-control form-control-sm fw-bold fs-4 text-gray-900 border-primary mb-1' 
-                                                value={phase.title} 
-                                                autoFocus 
-                                                onBlur={() => toggleEditPhase(phase.id)} 
-                                                onChange={(e) => updatePhaseTitle(phase.id, e.target.value)} 
+                                            <input
+                                                className='form-control form-control-sm fw-bold fs-4 text-gray-900 border-primary mb-1'
+                                                value={phase.title}
+                                                autoFocus
+                                                onBlur={() => toggleEditPhase(phase.id)}
+                                                onChange={(e) => updatePhaseTitle(phase.id, e.target.value)}
                                             />
                                         ) : (
                                             <span className='card-label fw-bold text-gray-900 fs-4 cursor-pointer mb-1' onClick={() => toggleEditPhase(phase.id)}>
@@ -371,7 +454,43 @@ const WorkorderDetail: React.FC = () => {
                                             {!phase.isNew && editIDList.includes(phase.id) && <span className='badge badge-light-warning fs-9'>Edited</span>}
                                         </div>
                                     </div>
-                                    <div className='card-toolbar'>
+                                    <div className='card-toolbar d-flex gap-2'>
+                                        {/* เริ่มทำ — เฉพาะ phase แรกที่ Pending และไม่มี phase ที่กำลังทำอยู่ */}
+                                        {firstPendingPhaseId === phase.id && (
+                                            <button
+                                                className='btn btn-sm btn-primary fw-bold'
+                                                onClick={() => handleStartPhase(phase.id)}
+                                            >
+                                                <i className='bi bi-play-fill me-1'></i> เริ่มทำ
+                                            </button>
+                                        )}
+                                        {/* พักงาน — เฉพาะ phase ที่กำลัง InProgress */}
+                                        {!phase.isNew && phase.status === 'InProgress' && (
+                                            <button
+                                                className='btn btn-sm btn-warning fw-bold'
+                                                onClick={() => handlePausePhase(phase.id)}
+                                            >
+                                                <i className='bi bi-pause-fill me-1'></i> พักงาน
+                                            </button>
+                                        )}
+                                        {/* ทำงานต่อ — เฉพาะ phase ที่ Paused */}
+                                        {!phase.isNew && phase.status === 'Paused' && (
+                                            <button
+                                                className='btn btn-sm btn-primary fw-bold'
+                                                onClick={() => handleResumePhase(phase.id)}
+                                            >
+                                                <i className='bi bi-play-fill me-1'></i> ทำงานต่อ
+                                            </button>
+                                        )}
+                                        {/* เสร็จสิ้น — เฉพาะ phase ที่ InProgress หรือ Paused */}
+                                        {!phase.isNew && (phase.status === 'InProgress' || phase.status === 'Paused') && (
+                                            <button
+                                                className='btn btn-sm btn-success fw-bold'
+                                                onClick={() => handleCompletePhase(phase.id)}
+                                            >
+                                                <i className='bi bi-check-lg me-1'></i> เสร็จสิ้น
+                                            </button>
+                                        )}
                                         <button className='btn btn-icon btn-sm btn-light-danger' onClick={() => handleDeletePhase(phase.id)}><i className='bi bi-trash'></i></button>
                                     </div>
                                 </div>
@@ -402,13 +521,13 @@ const WorkorderDetail: React.FC = () => {
                                                     }}></i>
                                                 </div>
                                             ))
-                                        ) : ( <span className='text-muted fs-8 italic'>ยังไม่ได้ระบุพนักงาน</span> )}
+                                        ) : (<span className='text-muted fs-8 italic'>ยังไม่ได้ระบุพนักงาน</span>)}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     ))}
-                    
+
                     <div className='d-flex align-items-center position-relative z-index-1 ms-10 ps-2'>
                         <button onClick={handleAddPhase} className='btn btn-outline btn-outline-dashed btn-outline-primary btn-active-light-primary w-100 py-4 fw-bold'><i className='bi bi-plus-lg me-2 fs-3'></i> เพิ่มขั้นตอนถัดไป</button>
                     </div>
@@ -420,29 +539,29 @@ const WorkorderDetail: React.FC = () => {
                 <Modal.Header closeButton><Modal.Title className='fw-bold'>มอบหมายงานพนักงาน</Modal.Title></Modal.Header>
                 <Modal.Body>
                     <div className='d-flex align-items-center position-relative my-5'>
-                         <i className='ki-duotone ki-magnifier fs-3 position-absolute ms-5'><span className='path1'></span><span className='path2'></span></i>
+                        <i className='ki-duotone ki-magnifier fs-3 position-absolute ms-5'><span className='path1'></span><span className='path2'></span></i>
                         <input type='text' className='form-control form-control-solid w-100 ps-13' placeholder='ค้นหาชื่อพนักงาน...' value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
                     <div className='table-responsive' style={{ maxHeight: '400px' }}>
                         <table className='table table-row-dashed align-middle gs-0 gy-4'>
                             <thead><tr className='fw-bold text-muted text-uppercase fs-7'><th>พนักงาน</th><th>สถานะ</th><th className='text-end'>เลือก</th></tr></thead>
                             <tbody>
-                                {empLoading ? (<tr><td colSpan={3} className='text-center py-10'>กำลังโหลด...</td></tr>) : 
-                                allEmployees && allEmployees.length > 0 ? (allEmployees.map((emp) => {
-                                    const isAlreadyAssigned = phases.find(p => p.id === activePhaseId)?.staffs?.some(s => s.id === emp.employee_id);
-                                    return (
-                                        <tr key={emp.employee_id}>
-                                            <td>
-                                                <div className='d-flex align-items-center'>
-                                                    <div className='symbol symbol-45px me-5'><span className='symbol-label bg-light-primary text-primary fw-bold'>{emp.employee_first_name?.charAt(0)}</span></div>
-                                                    <div className='d-flex flex-column'><span className='text-gray-900 fw-bold fs-6'>{emp.employee_first_name} {emp.employee_last_name}</span><span className='text-muted fw-semibold fs-7'>ID: {emp.employee_id}</span></div>
-                                                </div>
-                                            </td>
-                                            <td><span className={`badge ${emp.status === 'ว่างงาน' ? 'badge-light-success' : 'badge-light-danger'} fw-bold`}>{emp.status}</span></td>
-                                            <td className='text-end'>{isAlreadyAssigned ? (<button className='btn btn-sm btn-light-danger fw-bold' disabled style={{ cursor: 'not-allowed' }}>เลือกแล้ว</button>) : (<button className='btn btn-sm btn-primary fw-bold' onClick={() => assignStaff(emp)}>เลือก</button>)}</td>
-                                        </tr>
-                                    );
-                                })) : (<tr><td colSpan={3} className='text-center py-10'>ไม่พบข้อมูล</td></tr>)}
+                                {empLoading ? (<tr><td colSpan={3} className='text-center py-10'>กำลังโหลด...</td></tr>) :
+                                    allEmployees && allEmployees.length > 0 ? (allEmployees.map((emp) => {
+                                        const isAlreadyAssigned = phases.find(p => p.id === activePhaseId)?.staffs?.some(s => s.id === emp.employee_id);
+                                        return (
+                                            <tr key={emp.employee_id}>
+                                                <td>
+                                                    <div className='d-flex align-items-center'>
+                                                        <div className='symbol symbol-45px me-5'><span className='symbol-label bg-light-primary text-primary fw-bold'>{emp.employee_first_name?.charAt(0)}</span></div>
+                                                        <div className='d-flex flex-column'><span className='text-gray-900 fw-bold fs-6'>{emp.employee_first_name} {emp.employee_last_name}</span><span className='text-muted fw-semibold fs-7'>ID: {emp.employee_id}</span></div>
+                                                    </div>
+                                                </td>
+                                                <td><span className={`badge ${emp.status === 'ว่างงาน' ? 'badge-light-success' : 'badge-light-danger'} fw-bold`}>{emp.status}</span></td>
+                                                <td className='text-end'>{isAlreadyAssigned ? (<button className='btn btn-sm btn-light-danger fw-bold' disabled style={{ cursor: 'not-allowed' }}>เลือกแล้ว</button>) : (<button className='btn btn-sm btn-primary fw-bold' onClick={() => assignStaff(emp)}>เลือก</button>)}</td>
+                                            </tr>
+                                        );
+                                    })) : (<tr><td colSpan={3} className='text-center py-10'>ไม่พบข้อมูล</td></tr>)}
                             </tbody>
                         </table>
                     </div>
