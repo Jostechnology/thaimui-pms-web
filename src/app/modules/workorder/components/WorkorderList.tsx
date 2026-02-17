@@ -8,13 +8,13 @@ import { getWorkOrderList } from '../../../services/workorder';
 import { useTableParams } from '../../../hooks/useTableParams';
 import { useSearchParams } from 'react-router-dom';
 import TablePaginator from '../../../custom_components/TablePaginator'; // สมมติว่ามี Component นี้อยู่แล้ว
-import { work_order_statuses } from '../../../enum/work_order';
+import { WORK_ORDER_STATUS_OPTIONS } from '../../../enum/work_order';
 
 // 1. ปรับ Interface ให้ตรงกับข้อมูลจริงใน ER Diagram
 interface WorkorderData {
     work_order_id: number;
     doc_num: string;
-    sales_item:{
+    sales_item: {
         item_name: string;
         item_description: string;
     };
@@ -85,10 +85,16 @@ const WorkorderList: React.FC = () => {
     }, [currentPage, keyword, pageConfig, statusFilter]);
 
     const getStatusBadge = (status: string) => {
-        const s = (status || '').toLowerCase();
-        if (s === 'completed') return 'badge-light-success';
-        if (s === 'working' || s === 'picking' || s === 'pending') return 'badge-light-warning';
-        if (s === 'ready' || s === 'active') return 'badge-light-primary';
+        const s = (status || '').toString().normalize('NFC');
+        if (s.includes('เสร็จ')) {
+            return 'badge-light-success';
+        }
+        if (/ก.*ลัง/.test(s) || /ด.*เนิน/.test(s)) {
+            return 'badge-light-warning';
+        }
+        if (s.includes('พร้อม')) {
+            return 'badge-light-primary';
+        }
         return 'badge-light-secondary';
     };
 
@@ -182,34 +188,20 @@ const WorkorderList: React.FC = () => {
                     </div>
 
                     {/* ส่วนขวา: Dropdown กรองสถานะ (Toolbar) */}
-                    <div className='card-toolbar'>
-                        <div className='d-flex justify-content-end align-items-center gap-3'>
-                            <div className='fw-bold text-gray-700'>สถานะ :</div>
-                            <select
-                                className='form-select form-select-solid w-150px'
-                                value={statusFilter}
-                                onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-                            >
-                                <option value=''>All</option>
-                                {work_order_statuses.map((status) => {
-                                    return (
-                                        <option key={String(status)} value={String(status)}>{status}</option>
-                                    )
-                                })}
-                            </select>
-
-                            {/* <button
-                                className='btn btn-icon btn-light-primary btn-sm'
-                                onClick={() => {
-                                    setSearchTerm("");
-                                    setKeyword("");
-                                    setStatusFilter("All");
-                                }}
-                            >
-                                <i className='bi bi-arrow-clockwise fs-3'></i>
-                            </button> */}
-                        </div>
-                    </div>
+                    <select
+                        className='form-select form-select-solid w-150px'
+                        value={statusFilter}
+                        onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+                    >
+                        <option value=''>ทั้งหมด</option>
+                        {WORK_ORDER_STATUS_OPTIONS.map((option) => {
+                            return (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            )
+                        })}
+                    </select>
                 </div>
 
                 <div className='card-body pt-0'>
@@ -217,7 +209,7 @@ const WorkorderList: React.FC = () => {
                         <table className='table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer'>
                             <thead>
                                 <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
-                                    <th className='min-w-150px'>รหัสใบสั่งงาน</th>
+                                    <th className='min-w-100px'>รหัสใบสั่งงาน</th>
                                     <th className='min-w-125px'>สินค้า</th>
                                     <th className='min-w-100px'>รายละเอียด</th>
                                     <th className='min-w-150px text-center'>ช่วงการดำเนินงานล่าสุด</th>
