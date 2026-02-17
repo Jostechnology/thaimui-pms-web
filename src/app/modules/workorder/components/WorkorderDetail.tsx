@@ -272,14 +272,14 @@ const WorkorderDetail: React.FC = () => {
             text: 'เลือกประเภทการพัก',
             icon: 'info',
             input: 'select',
-            inputOptions: { 'Lunch': 'พักเที่ยง', 'Short Break': 'พักเบรก', 'Other': 'อื่นๆ' },
+            inputOptions: { 'พักกลางวัน': 'พักเที่ยง', 'พักเบรค': 'พักเบรก', 'อื่นๆ': 'อื่นๆ' },
             inputValue: 'Short Break',
             showCancelButton: true,
             confirmButtonColor: '#fd7e14',
             confirmButtonText: 'พักงาน',
             cancelButtonText: 'ยกเลิก',
         });
-        if (result.isConfirmed) handlePhaseStatusUpdate(phaseId, 'Paused', result.value);
+        if (result.isConfirmed) handlePhaseStatusUpdate(phaseId, 'หยุดชั่วคราว', result.value);
     };
 
     const handleResumePhase = (phaseId: number) => {
@@ -297,7 +297,7 @@ const WorkorderDetail: React.FC = () => {
             cancelButtonText: 'ยกเลิก',
         });
         if (!confirm.isConfirmed) return;
-        handlePhaseStatusUpdate(phaseId, 'Completed');
+        handlePhaseStatusUpdate(phaseId, 'เสร็จสิ้น');
     };
 
     // --- 6. The MASTER SAVE Logic ---
