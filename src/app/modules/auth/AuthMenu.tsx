@@ -52,7 +52,16 @@ export const mainRoutesConfig: MainRouteType[] = [
         icon: "bi bi-people",
         subMenu: [],
         permission: []
-    }
+    },
+    {
+        module_code: "QC",
+        path: "/quality_control",
+        title: "",
+        fontIcon: "bi-search",
+        icon: "bi bi-search",
+        subMenu: [],
+        permission: []
+    },
 ]
 
 export const subRoutesConfig: SubRouteType[] = [
@@ -106,7 +115,20 @@ export const subRoutesConfig: SubRouteType[] = [
         path:"/workorder/workorders_list",
         title: "",
         permission:[]
+    },
+    {
+        module_code:"QC_WORKORDERS",
+        main_module_code: "QC",
+        path:"/quality_control/qc_workorders_list",
+        title: "",
+        permission:[]
+    },
+    {
+    
+        module_code:"EMPLOYEE_SAL",
+        main_module_code: "EMPLOYEE",
+        path:"/employee/employee_salary_history",
+        title: "",
+        permission:[]
     }
-    
-    
 ]

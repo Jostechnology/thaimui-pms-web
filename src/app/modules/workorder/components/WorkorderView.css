@@ -1,0 +1,561 @@
+/* =============================================
+   WorkOrder View — Custom Styles
+   ============================================= */
+
+/* --- KPI Cards --- */
+.wo-kpi-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+    border: 1px solid #f1f1f4;
+    transition: box-shadow 0.2s;
+}
+
+.wo-kpi-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.wo-kpi-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.wo-kpi-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #7e8299;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.wo-kpi-big {
+    font-size: 42px;
+    font-weight: 800;
+    color: #181c32;
+    line-height: 1;
+}
+
+.wo-kpi-change {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.wo-kpi-sub {
+    font-size: 12px;
+}
+
+/* Live dot */
+.wo-live-dot {
+    width: 10px;
+    height: 10px;
+    background: #f1416c;
+    border-radius: 50%;
+    animation: wo-pulse 1.5s infinite;
+}
+
+@keyframes wo-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(1.3);
+    }
+}
+
+/* Timer */
+.wo-timer-value {
+    font-size: 48px;
+    font-weight: 800;
+    color: #181c32;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+}
+
+/* Progress bars */
+.wo-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: #f1f1f4;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.wo-progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+}
+
+.wo-progress-blue {
+    background: linear-gradient(90deg, #3699ff, #0095e8);
+}
+
+.wo-progress-green {
+    background: linear-gradient(90deg, #50cd89, #28a745);
+}
+
+/* Avatar stack */
+.wo-avatar-stack {
+    display: flex;
+    align-items: center;
+}
+
+.wo-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3699ff, #0095e8);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    border: 2px solid #fff;
+    margin-left: -8px;
+    cursor: default;
+}
+
+.wo-avatar:first-child {
+    margin-left: 0;
+}
+
+.wo-avatar:nth-child(2) {
+    background: linear-gradient(135deg, #7239ea, #5014d0);
+}
+
+.wo-avatar:nth-child(3) {
+    background: linear-gradient(135deg, #ffc700, #f0a800);
+    color: #181c32;
+}
+
+.wo-avatar:nth-child(4) {
+    background: linear-gradient(135deg, #50cd89, #28a745);
+}
+
+.wo-avatar-more {
+    background: #e4e6ef !important;
+    color: #7e8299 !important;
+    font-size: 12px;
+}
+
+/* --- Status badges --- */
+.wo-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.3px;
+}
+
+.wo-badge-success {
+    background: #e8fff3;
+    color: #198754;
+}
+
+.wo-badge-primary {
+    background: #e7f1ff;
+    color: #0d6efd;
+}
+
+.wo-badge-info {
+    background: #e0f4ff;
+    color: #0095e8;
+}
+
+.wo-badge-warning {
+    background: #fff8dd;
+    color: #f1a600;
+}
+
+.wo-badge-secondary {
+    background: #f1f1f4;
+    color: #7e8299;
+}
+
+/* --- Cards --- */
+.wo-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+    border: 1px solid #f1f1f4;
+    overflow: hidden;
+}
+
+.wo-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid #f1f1f4;
+}
+
+.wo-card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #181c32;
+    margin: 0;
+}
+
+.wo-card-body {
+    padding: 20px 24px;
+}
+
+/* --- Employee List --- */
+.wo-employee-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.wo-employee-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    transition: background 0.15s;
+}
+
+.wo-employee-item:hover {
+    background: #f9fafb;
+}
+
+.wo-employee-compact {
+    padding: 8px;
+}
+
+.wo-employee-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3699ff, #0095e8);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.wo-avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+}
+
+.wo-employee-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.wo-employee-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #181c32;
+}
+
+.wo-employee-role {
+    font-size: 12px;
+    color: #a1a5b7;
+}
+
+.wo-emp-status {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.wo-emp-active {
+    background: #fff8dd;
+    color: #f1a600;
+}
+
+.wo-emp-idle {
+    background: #e8fff3;
+    color: #198754;
+}
+
+/* --- Timeline --- */
+.wo-timeline-container {
+    overflow-x: auto;
+}
+
+.wo-timeline-header {
+    display: flex;
+    align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f1f4;
+    margin-bottom: 8px;
+}
+
+.wo-timeline-label-col {
+    width: 140px;
+    min-width: 140px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #a1a5b7;
+    text-transform: uppercase;
+    padding-right: 12px;
+}
+
+.wo-timeline-bar-col {
+    flex: 1;
+    min-width: 400px;
+}
+
+.wo-timeline-hours {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #b5b5c3;
+    font-weight: 500;
+}
+
+.wo-timeline-row {
+    display: flex;
+    align-items: center;
+    padding: 6px 0;
+}
+
+.wo-timeline-track {
+    position: relative;
+    height: 32px;
+    background: #f9fafb;
+    border-radius: 6px;
+    width: 100%;
+}
+
+.wo-timeline-bar {
+    position: absolute;
+    top: 2px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    min-width: 60px;
+    transition: all 0.3s;
+}
+
+.wo-bar-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wo-bar-badge {
+    background: rgba(255, 255, 255, 0.3);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
+.wo-phase-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wo-phase-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.wo-phase-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #3f4254;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 110px;
+}
+
+/* --- Phase List Cards --- */
+.wo-phase-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.wo-phase-card {
+    border: 1px solid #f1f1f4;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.wo-phase-card:hover {
+    border-color: #d3d3e0;
+}
+
+.wo-phase-active {
+    border-color: #3699ff;
+    box-shadow: 0 0 0 1px #3699ff20;
+}
+
+.wo-phase-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+}
+
+.wo-phase-card-body {
+    padding: 0 16px 14px;
+}
+
+.wo-phase-number {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.wo-phase-status-badge {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.wo-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f4f6fa;
+    padding: 4px 12px 4px 4px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #3f4254;
+}
+
+.wo-chip-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3699ff, #0095e8);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* --- Item detail --- */
+.wo-item-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.wo-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f9f9f9;
+}
+
+.wo-item-row:last-child {
+    border-bottom: none;
+}
+
+.wo-item-label {
+    font-size: 13px;
+    color: #a1a5b7;
+    font-weight: 500;
+}
+
+.wo-item-value {
+    font-size: 14px;
+    color: #181c32;
+    text-align: right;
+}
+
+/* Cost summary */
+.wo-cost-summary {
+    background: #f9fafb;
+    border-radius: 10px;
+    padding: 16px;
+}
+
+.wo-cost-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 14px;
+    color: #3f4254;
+}
+
+.wo-cost-total {
+    border-top: 2px solid #e4e6ef;
+    margin-top: 4px;
+    padding-top: 12px;
+    font-size: 15px;
+}
+
+/* Current phase */
+.wo-current-phase-name {
+    font-size: 22px;
+    font-weight: 800;
+    color: #181c32;
+}
+
+.wo-mini-stat {
+    font-size: 13px;
+    color: #7e8299;
+    display: flex;
+    align-items: center;
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+    .wo-timer-value {
+        font-size: 36px;
+    }
+
+    .wo-kpi-big {
+        font-size: 32px;
+    }
+
+    .wo-timeline-label-col {
+        width: 100px;
+        min-width: 100px;
+    }
+
+    .wo-phase-name {
+        max-width: 80px;
+    }
+}
