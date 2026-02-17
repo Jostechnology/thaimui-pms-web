@@ -106,7 +106,12 @@ export const subRoutesConfig: SubRouteType[] = [
         path:"/workorder/workorders_list",
         title: "",
         permission:[]
+    },
+    {
+        module_code:"EMPLOYEE_SAL",
+        main_module_code: "EMPLOYEE",
+        path:"/employee/employee_salary_history",
+        title: "",
+        permission:[]
     }
-    
-    
 ]
