@@ -322,6 +322,13 @@ const WorkorderDetail: React.FC = () => {
             return;
         }
 
+        // New: Ensure every creating/updating phase has at least one assigned staff
+        const phasesMissingStaff = validateList.filter(p => !p.staffs || p.staffs.length === 0).map(p => p.title || `ID:${p.id}`);
+        if (phasesMissingStaff.length > 0) {
+            Swal.fire('กรุณากำหนดพนักงาน', `กรุณากำหนดพนักงานสำหรับขั้นตอน: ${phasesMissingStaff.join(', ')}`, 'warning');
+            return;
+        }
+
         setLoading();
         try {
             const promises = [];
@@ -402,12 +409,12 @@ const WorkorderDetail: React.FC = () => {
                 </div>
                 {/* Global Save Button */}
                 <button
-                    className='btn btn-sm btn-primary fw-bold px-6'
+                    className='btn btn-sm btn-success fw-bold px-6'
                     onClick={handleSaveAllChanges}
                     disabled={totalChanges === 0}
                 >
                     Save Changes
-                    {totalChanges > 0 && <span className="badge badge-circle badge-white text-primary ms-2">{totalChanges}</span>}
+                    {totalChanges > 0 && <span className="badge badge-circle badge-white text-white ms-2">{totalChanges}</span>}
                 </button>
             </div>
 
@@ -491,7 +498,9 @@ const WorkorderDetail: React.FC = () => {
                                                 <i className='bi bi-check-lg me-1'></i> เสร็จสิ้น
                                             </button>
                                         )}
-                                        <button className='btn btn-icon btn-sm btn-light-danger' onClick={() => handleDeletePhase(phase.id)}><i className='bi bi-trash'></i></button>
+                                        {phase.status !== 'Completed' && (
+                                            <button className='btn btn-icon btn-sm btn-light-danger' onClick={() => handleDeletePhase(phase.id)}><i className='bi bi-trash'></i></button>
+                                        )}
                                     </div>
                                 </div>
                                 <div className='card-body pt-0'>
@@ -507,7 +516,9 @@ const WorkorderDetail: React.FC = () => {
                                     <div className='separator separator-dashed my-4'></div>
                                     <div className='d-flex flex-stack mb-4'>
                                         <span className='text-gray-400 fw-bold fs-8 uppercase'>พนักงานที่ได้รับมอบหมาย</span>
-                                        <button onClick={() => { setActivePhaseId(phase.id); setShowModal(true); }} className='btn btn-sm btn-light-primary fw-bold'><i className='bi bi-person-plus'></i> Assign Staff</button>
+                                        {phase.status !== 'Completed' && (
+                                            <button onClick={() => { setActivePhaseId(phase.id); setShowModal(true); }} className='btn btn-sm btn-light-primary fw-bold'><i className='bi bi-person-plus'></i> Assign Staff</button>
+                                        )}
                                     </div>
                                     {/* Staffs */}
                                     <div className='d-flex flex-wrap gap-2'>
