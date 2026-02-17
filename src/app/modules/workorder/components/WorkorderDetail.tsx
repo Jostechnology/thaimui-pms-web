@@ -279,7 +279,7 @@ const WorkorderDetail: React.FC = () => {
             confirmButtonText: 'พักงาน',
             cancelButtonText: 'ยกเลิก',
         });
-        if (result.isConfirmed) handlePhaseStatusUpdate(phaseId, 'Paused', result.value);
+        if (result.isConfirmed) handlePhaseStatusUpdate(phaseId, 'หยุดชั่วคราว', result.value);
     };
 
     const handleResumePhase = (phaseId: number) => {
@@ -297,7 +297,7 @@ const WorkorderDetail: React.FC = () => {
             cancelButtonText: 'ยกเลิก',
         });
         if (!confirm.isConfirmed) return;
-        handlePhaseStatusUpdate(phaseId, 'Completed');
+        handlePhaseStatusUpdate(phaseId, 'เสร็จสิ้น');
     };
 
     // --- 6. The MASTER SAVE Logic ---
@@ -423,7 +423,10 @@ const WorkorderDetail: React.FC = () => {
                             <div className={`card shadow-sm w-100 ${phase.isNew ? 'border border-dashed border-primary' : ''}`}>
                                 <div className='card-header border-0 pt-5'>
                                     <div className='card-title flex-column'>
-                                        {phase.isEditing ? (
+                                        {phase.status == "เสร็จสิ้น" ?                                            
+                                        <span className='card-label fw-bold text-gray-900 fs-4 cursor-pointer mb-1' onClick={() => toggleEditPhase(phase.id)}>
+                                            {phase.title} 
+                                            </span> : phase.isEditing ? (
                                             <input
                                                 className='form-control form-control-sm fw-bold fs-4 text-gray-900 border-primary mb-1'
                                                 value={phase.title}
@@ -506,10 +509,10 @@ const WorkorderDetail: React.FC = () => {
                                             phase.staffs.map(s => (
                                                 <div key={s.id} className='badge badge-light-secondary d-flex align-items-center py-2 px-3 border border-gray-200'>
                                                     <span className='text-gray-800 fw-bold me-2'>{s.name}</span>
-                                                    <i className='bi bi-x-circle text-danger cursor-pointer' onClick={() => {
+                                                    {phase.status !== 'เสร็จสิ้น' && <i className='bi bi-x-circle text-danger cursor-pointer' onClick={() => {
                                                         setPhases(phases.map(p => p.id === phase.id ? { ...p, staffs: p.staffs.filter(st => st.id !== s.id) } : p));
                                                         markAsEdited(phase.id); // Mark Change when remove staff
-                                                    }}></i>
+                                                    }}></i>}
                                                 </div>
                                             ))
                                         ) : (<span className='text-muted fs-8 italic'>ยังไม่ได้ระบุพนักงาน</span>)}
