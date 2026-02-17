@@ -13,6 +13,7 @@ export const getWorkOrderList = async (
     page: number,
     limit: number,
     search: string = "",
+    statusFilter: string = "",
 ) => {
     try {
         const token = localStorage.getItem('tk-jos');
@@ -21,8 +22,9 @@ export const getWorkOrderList = async (
             page: page.toString(),
             pageConfig: limit.toString(),
         });
-        
-        if (search) params.append("search", search); 
+
+        if (search) params.append("search", search);
+        if (statusFilter) params.append("filter", statusFilter);
         
         const headers = {
             "Authorization": `Bearer ${token}`
