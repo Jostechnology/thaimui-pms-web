@@ -8,7 +8,10 @@ import { qcWorkData } from "../../../libs/defaultFormData";
 import Select from "react-select";
 import { SalesOrderSearch } from "../../../type_interface/SalesOrderType";
 import { Form } from "react-bootstrap";
-import { searchSalesOrderService } from "../../../services/salesOrderService";
+import {
+	getSalesOrderService,
+	searchSalesOrderService,
+} from "../../../services/salesOrderService";
 
 type PageMode = "create" | "view" | "edit";
 
@@ -56,9 +59,13 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				documentNumber: "FR-WH-004",
 				customerCode: "C-101135",
 				customerName: "ALLA PUBLIC CO.,LTD",
-				invoiceNumber: "261100489",
+				docNum: "261100489",
+				donEntry: "99000",
 				customerReceiptNumber: "",
-				inspectionDate: "",
+				salesName : "",
+				salesCode : "",
+				teamCode : "",
+				teamName : "",
 				ptt: false,
 				chevron: false,
 				valeur: false,
@@ -72,13 +79,12 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				testingOthers: false,
 				testingOthersText: "",
 				continueSerial: false,
-				separateSerial: false,
-				combinedSerial: true,
+				serialImprint: false,
+				serialTag: true,
 				serialOthers: false,
 				serialOthersText: "",
 				generalRemark: "ตอก TAG ไม่เอาTAG ทั้ง ม.ไทยญี่ปุ่น",
-				salesOrderCode: "",
-                details : "",
+				details: "",
 				items: [
 					{
 						id: "1",
@@ -230,6 +236,37 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 		};
 	}, [searchSalesOrder]);
 
+	const handleClickedSalesOrder = async (option: any) => {
+		console.log("clicked");
+		if (option) {
+			const doc_entry: number = option.doc_entry;
+			setFormData((prev: any) => ({
+				...prev,
+				donEntry: doc_entry,
+			}));
+
+			const res = await getSalesOrderService(doc_entry);
+			const data = res.data;
+
+			setFormData((prev) => ({
+				...prev,
+				customerCode: data.card_code,
+				customerName: data.card_name,
+				docNum: data.doc_num,
+				docEntry : data.doc_entry,
+				salesCode : data.slp_code,
+				salesName : data.slp_name,
+				teamCode : data.group_code,
+				teamName : data.group_name
+			}));
+
+			setSearchSalesOrder(option.doc_entry);
+		} else {
+			setFormData(qcWorkData);
+			setSearchSalesOrder("");
+		}
+	};
+
 	return (
 		<div className="container-fluid py-4">
 			<div className="card">
@@ -276,11 +313,21 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 								</div>
 								<div className="col-md-4">
 									<label className="form-label">พนักงานขาย</label>
-									<input type="text" className="form-control" disabled />
+									<input 
+										type="text" 
+										className="form-control" 
+										value={formData.salesName}
+										disabled 
+									/>
 								</div>
 								<div className="col-md-4">
 									<label className="form-label">ทีม</label>
-									<input type="text" className="form-control" disabled />
+									<input
+										type="text" 
+										className="form-control" 
+										value={formData.teamName}
+										disabled 
+									/>
 								</div>
 
 								<div className="col-md-2">
@@ -340,7 +387,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 										getOptionValue={(option) => option.doc_entry}
 										value={
 											salesOrders.find(
-												(op) => op.doc_entry === formData.salesOrderCode,
+												(op) => op.doc_entry === formData.donEntry,
 											) || null
 										}
 										onInputChange={(inputValue, actionMeta) => {
@@ -348,20 +395,11 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 												setSearchSalesOrder(inputValue);
 											}
 										}}
+										// triggered when clicked
 										onChange={(option: any) => {
-											if (option) {
-												setFormData((prev: any) => ({
-													...prev,
-													salesOrderCode: option.doc_entry,
-												}));
-
-												setSearchSalesOrder(option.doc_entry);
-											} else {
-												setFormData(qcWorkData);
-												setSearchSalesOrder("");
-											}
+											handleClickedSalesOrder(option);
 										}}
-										placeholder="ค้นหาทะเบียนรถ..."
+										placeholder="ค้นหาใบสั่งขาย..."
 										isClearable
 									/>
 								</div>
@@ -579,7 +617,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 													}
 													disabled={isReadOnly}
 												/>
-												<label className="form-check-label">คล้องวางแห่ง</label>
+												<label className="form-check-label">คล้องวางแห</label>
 											</div>
 										</div>
 										<div className="col-md-3">
@@ -587,9 +625,9 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 												<input
 													className="form-check-input"
 													type="checkbox"
-													checked={formData.separateSerial}
+													checked={formData.serialImprint}
 													onChange={() =>
-														handleCheckboxChange("separateSerial")
+														handleCheckboxChange("serialImprint")
 													}
 													disabled={isReadOnly}
 												/>
@@ -603,9 +641,9 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 												<input
 													className="form-check-input"
 													type="checkbox"
-													checked={formData.combinedSerial}
+													checked={formData.serialTag}
 													onChange={() =>
-														handleCheckboxChange("combinedSerial")
+														handleCheckboxChange("serialTag")
 													}
 													disabled={isReadOnly}
 												/>
@@ -659,7 +697,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 								</div>
 							</div>
 
-                            <div className="row mb-3">
+							<div className="row mb-3">
 								<div className="col-md-12">
 									<label className="form-label fw-bold">รายละเอียดการเทส</label>
 									<textarea
