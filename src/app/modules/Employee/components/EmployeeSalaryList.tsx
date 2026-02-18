@@ -72,20 +72,14 @@ const EmployeeSalaryList: React.FC = () => {
     
     // เปิด Modal ปรับเงินเดือน (Calculator Icon)
     const handleOpenAdjustModal = (emp: EmployeeData) => {
-        // เตรียมข้อมูลให้ตรงกับ format ที่ SalaryAdjustmentModal ต้องการ
-        setSelectedEmp({
-            id: emp.employee_id,
-            name: `${emp.employee_first_name} ${emp.employee_last_name}`,
-            // ดักจับทั้ง 2 ชื่อ field เพื่อความชัวร์
-            currentSalary: emp.base_salary || emp.salary_base || 0 
-        });
+        console.log("Open Adjust:", emp); // Debug
+        setSelectedEmp(emp); // เก็บตัวเต็ม
         setShowAdjustModal(true);
     };
 
-    // เปิด Modal สรุปยอดเงิน (Cash Icon)
     const handleOpenSummaryModal = (emp: EmployeeData) => {
-        // ส่งไปทั้ง Object เลย เพราะ SalarySummaryModal ไปแกะต่อเอง
-        setSelectedEmp(emp); 
+        console.log("Open Summary:", emp); // Debug
+        setSelectedEmp(emp); // เก็บตัวเต็ม
         setShowSummaryModal(true);
     };
 
@@ -246,18 +240,18 @@ const EmployeeSalaryList: React.FC = () => {
                 </div>
             </div>
 
-            {/* --- Modals Section --- */}
-            {/* ใส่ Modal ไว้ตรงนี้ เพื่อให้มันทำงานได้ (ก่อนหน้านี้คุณลืมใส่ AdjustModal) */}
-            
             <SalaryAdjustmentModal
                 show={showAdjustModal}
                 onHide={() => { 
                     setShowAdjustModal(false); 
-                    fetchData(); // โหลดข้อมูลใหม่หลังจากปรับเงินเดือนเสร็จ
+                    fetchData(); 
                 }}
-                employee={selectedEmp}
+                employee={selectedEmp ? {
+                    id: selectedEmp.employee_id,
+                    name: `${selectedEmp.employee_first_name} ${selectedEmp.employee_last_name}`,
+                    currentSalary: selectedEmp.base_salary || selectedEmp.salary_base || 0 
+                } : null}
             />
-
             <SalarySummaryModal
                 show={showSummaryModal}
                 onHide={() => setShowSummaryModal(false)}
