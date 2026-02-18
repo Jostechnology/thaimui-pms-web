@@ -8,12 +8,19 @@ const WorkorderPage = lazy(() => import("../modules/workorder/WorkorderPage"));
 const SettingPage = lazy(() => import("../modules/menu_setting/SettingPage"));
 const EmployeePage = lazy(() => import("../modules/Employee/employeePage"));
 const WorkorderDashboard = lazy(() => import("../modules/workorder/components/WorkorderDashboard"));
+const QualityControlPage = lazy(() => import("../modules/quality_control/QualityControlPage"));
 const PrivateRoutes = () => {
-
   return (
     <Routes>
-
       <Route element={<MasterLayout />}>
+        <Route
+          path="main"
+          element={
+            <SuspensedView>
+              <WorkorderDashboard />
+            </SuspensedView>
+          }
+        />
 
         <Route path="main" element={<div></div>} />
         <Route path="setting/*" element={
@@ -37,15 +44,40 @@ const PrivateRoutes = () => {
           </SuspensedView>
         } />
 
+        <Route
+          path="employee/*"
+          element={
+            <SuspensedView>
+              <EmployeePage />
+            </SuspensedView>
+          }
+        />
 
+        <Route
+          path="workorder/*"
+          element={
+            <SuspensedView>
+              <WorkorderPage />
+            </SuspensedView>
+          }
+        />
+
+        <Route
+          path="quality_control/*"
+            element={
+              <SuspensedView>
+                <QualityControlPage />
+              </SuspensedView>
+            }
+        />
       </Route>
     </Routes>
-
   );
 };
 
 const SuspensedView: FC<WithChildren> = ({ children }) => {
   const baseColor = getCSSVariableValue("--bs-primary");
+
   TopBarProgress.config({
     barColors: {
       "0": baseColor,
@@ -53,6 +85,7 @@ const SuspensedView: FC<WithChildren> = ({ children }) => {
     barThickness: 1,
     shadowBlur: 5,
   });
+
   return <Suspense fallback={<TopBarProgress />}>{children}</Suspense>;
 };
 
