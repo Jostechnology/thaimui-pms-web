@@ -57,3 +57,9 @@ export interface DashboardKPI {
     waiting: number;
     overdue: number;
 }
+
+export enum WorkOrderStatusEnum{
+    พร้อม = 'พร้อม',
+    กำลังดําเนินการ = 'กำลังดําเนินการ',
+    เสร็จสิ้น = 'เสร็จสิ้น'
+}

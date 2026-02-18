@@ -1,10 +1,11 @@
 import { front_api } from "./apiConfig";
 
-export const getEmployeeList = async (search: string = "") => {
+export const getEmployeeList = async (search: string = "", status: string = "") => {
     try {
         const token = localStorage.getItem('tk-jos');
         const params = new URLSearchParams();
         if (search) params.append("search", search);
+        if (status && status !== "all") params.append("status", status);
 
         const response = await front_api(
             "GET",
@@ -22,13 +23,33 @@ export const getEmployeeList = async (search: string = "") => {
         return { success: false, data: [] };
     }
 };
+export const getEmployeeById = async (employee_id: number) => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const response = await front_api(
+            "GET",
+            `/get_employee_id/${employee_id}`,
+            {},
+            {
+                wrapData: false,
+                headers: { "Authorization": `Bearer ${token}` }
+            }
+        );
+
+        if (!response) return { success: false, data: [] };
+        return await response.json();
+    } catch (error) {
+        return { success: false, data: [] };
+    }
+};
+
 
 export const createEmployee = async (data: any) => {
     try {
         const token = localStorage.getItem('tk-jos');
         const response = await front_api(
             "POST",
-            "/create_employee",
+            "/create_employee/",
             data,
             {
                 wrapData: false,
@@ -46,9 +67,10 @@ export const createEmployee = async (data: any) => {
 export const updateEmployee = async (data: any) => {
     try {
         const token = localStorage.getItem('tk-jos');
+        const employee_id = data.employee_id;
         const response = await front_api(
             "PUT",
-            "/update_employee",
+            `/update_employee/${employee_id}`,
             data,
             {
                 wrapData: false,
@@ -63,13 +85,13 @@ export const updateEmployee = async (data: any) => {
     }
 };
 
-export const deleteEmployee = async (employee_ids: number[]) => {
+export const deleteEmployee = async (employee_id: number) => {
     try {
         const token = localStorage.getItem('tk-jos');
         const response = await front_api(
             "DELETE",
-            "/delete_employee",
-            { employee_ids },
+            `/delete_employee/${employee_id}`,
+            {},
             {
                 wrapData: false,
                 headers: { "Authorization": `Bearer ${token}` }
