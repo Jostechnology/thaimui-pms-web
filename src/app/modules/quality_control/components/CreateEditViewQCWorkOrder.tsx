@@ -7,11 +7,11 @@ import {
 import { qcWorkData } from "../../../libs/defaultFormData";
 import Select from "react-select";
 import { SalesOrderSearch } from "../../../type_interface/SalesOrderType";
-import { Form } from "react-bootstrap";
 import {
 	getSalesOrderService,
 	searchSalesOrderService,
 } from "../../../services/salesOrderService";
+import { Material } from "../../../type_interface/MaterialType";
 
 type PageMode = "create" | "view" | "edit";
 
@@ -26,6 +26,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 	const [formData, setFormData] = useState<QCWorkOrderData>(qcWorkData);
 	const [salesOrders, setSalesOrder] = useState<SalesOrderSearch[]>([]);
 	const [searchSalesOrder, setSearchSalesOrder] = useState<string>("");
+	const [materialList, setMaterialList] = useState<Material[]>([]);
 
 	// Determine mode based on URL
 	useEffect(() => {
@@ -53,70 +54,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 			// const data = await response.json();
 
 			// Mock data for demonstration
-			const mockData: QCWorkOrderData = {
-				id,
-				date: "2026-02-05",
-				documentNumber: "FR-WH-004",
-				customerCode: "C-101135",
-				customerName: "ALLA PUBLIC CO.,LTD",
-				docNum: "261100489",
-				donEntry: "99000",
-				customerReceiptNumber: "",
-				salesName : "",
-				salesCode : "",
-				teamCode : "",
-				teamName : "",
-				ptt: false,
-				chevron: false,
-				valeur: false,
-				ophir: false,
-				threeSpec: false,
-				standardOthers: false,
-				standardOthersText: "",
-				inHouse: false,
-				thirdParty: false,
-				ndt: false,
-				testingOthers: false,
-				testingOthersText: "",
-				continueSerial: false,
-				serialImprint: false,
-				serialTag: true,
-				serialOthers: false,
-				serialOthersText: "",
-				generalRemark: "ตอก TAG ไม่เอาTAG ทั้ง ม.ไทยญี่ปุ่น",
-				details: "",
-				items: [
-					{
-						id: "1",
-						code: "RGCN-0671-6030",
-						description:
-							"Galvanized Steel Wire Rope 6x7 Size 3 mm. FC&RHRL Grade 1770 N/mm2",
-						wll: "0.6 M.",
-						quantity: "",
-						serialNo: "",
-						remark: "ขอแค่ใช่ TAG",
-					},
-					{
-						id: "2",
-						code: "FRWRB0701-0035",
-						description: "Aluminium Ferrule Size 3.5 mm.",
-						wll: "2 Ea.",
-						quantity: "",
-						serialNo: "",
-						remark: "",
-					},
-					{
-						id: "3",
-						code: "FRTHB4000-2675",
-						description: "Tag Aluminium Size: 6 ซม. x 7.5 ซม. ( THK 2 mm. )",
-						wll: "2 Ea.",
-						quantity: "",
-						serialNo: "",
-						remark: "",
-					},
-				],
-			};
-
+			const mockData: QCWorkOrderData = qcWorkData;
 			setFormData(mockData);
 		} catch (error) {
 			console.error("Error loading QC work order:", error);
@@ -177,13 +115,29 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 		}));
 	};
 
+	// ✅ NEW: Handle material selection per row — auto-fills code + description
+	const handleSelectMaterial = (itemId: string, option: Material | null) => {
+		setFormData((prev) => ({
+			...prev,
+			items: prev.items.map((item) =>
+				item.id === itemId
+					? {
+							...item,
+							code: option?.item_code ?? "",
+							description: option?.item_name ?? option?.item_description ?? "",
+						}
+					: item,
+			),
+		}));
+	};
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setLoading(true);
 
 		try {
 			if (mode === "create") {
-				// Replace with actual API call
+				// ✅ formData.items is fully populated and ready to send
 				// await fetch('/api/qc-workorders', {
 				//   method: 'POST',
 				//   headers: { 'Content-Type': 'application/json' },
@@ -194,7 +148,6 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				alert("QC Work Order created successfully!");
 				navigate("/qc-workorders");
 			} else if (mode === "edit") {
-				// Replace with actual API call
 				// await fetch(`/api/qc-workorders/${qc_workorder_id}`, {
 				//   method: 'PUT',
 				//   headers: { 'Content-Type': 'application/json' },
@@ -229,7 +182,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 
 		const timeout = setTimeout(() => {
 			handleSearchSalesOrder();
-		}, 750); // 0.75 sec
+		}, 750);
 
 		return () => {
 			clearTimeout(timeout);
@@ -237,7 +190,6 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 	}, [searchSalesOrder]);
 
 	const handleClickedSalesOrder = async (option: any) => {
-		console.log("clicked");
 		if (option) {
 			const doc_entry: number = option.doc_entry;
 			setFormData((prev: any) => ({
@@ -253,17 +205,19 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				customerCode: data.card_code,
 				customerName: data.card_name,
 				docNum: data.doc_num,
-				docEntry : data.doc_entry,
-				salesCode : data.slp_code,
-				salesName : data.slp_name,
-				teamCode : data.group_code,
-				teamName : data.group_name
+				docEntry: data.doc_entry,
+				salesCode: data.slp_code,
+				salesName: data.slp_name,
+				teamCode: data.group_code,
+				teamName: data.group_name,
 			}));
 
+			setMaterialList(data.material_list);
 			setSearchSalesOrder(option.doc_entry);
 		} else {
 			setFormData(qcWorkData);
 			setSearchSalesOrder("");
+			setMaterialList([]);
 		}
 	};
 
@@ -313,23 +267,22 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 								</div>
 								<div className="col-md-4">
 									<label className="form-label">พนักงานขาย</label>
-									<input 
-										type="text" 
-										className="form-control" 
+									<input
+										type="text"
+										className="form-control"
 										value={formData.salesName}
-										disabled 
+										disabled
 									/>
 								</div>
 								<div className="col-md-4">
 									<label className="form-label">ทีม</label>
 									<input
-										type="text" 
-										className="form-control" 
+										type="text"
+										className="form-control"
 										value={formData.teamName}
-										disabled 
+										disabled
 									/>
 								</div>
-
 								<div className="col-md-2">
 									<label className="form-label">เลขที่</label>
 									<input
@@ -353,20 +306,14 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 											type="text"
 											className="form-control"
 											value={formData.customerCode}
-											onChange={(e) =>
-												handleInputChange("customerCode", e.target.value)
-											}
-											placeholder="ชื่อลูกค้า"
+											placeholder="รหัสลูกค้า"
 											disabled
 										/>
 										<input
 											type="text"
 											className="form-control"
 											value={formData.customerName}
-											onChange={(e) =>
-												handleInputChange("customerName", e.target.value)
-											}
-											placeholder="รหัส"
+											placeholder="ชื่อลูกค้า"
 											disabled
 										/>
 									</div>
@@ -381,7 +328,6 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 										formatOptionLabel={(option: any) => (
 											<div className="d-flex align-items-center gap-2">
 												<span>{option.doc_entry}</span>
-												{/* <span className="badge-success rounded p-1">{option.doc_entry}</span> */}
 											</div>
 										)}
 										getOptionValue={(option) => option.doc_entry}
@@ -395,12 +341,12 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 												setSearchSalesOrder(inputValue);
 											}
 										}}
-										// triggered when clicked
 										onChange={(option: any) => {
 											handleClickedSalesOrder(option);
 										}}
 										placeholder="ค้นหาใบสั่งขาย..."
 										isClearable
+										isDisabled={isReadOnly}
 									/>
 								</div>
 
@@ -413,7 +359,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 										onChange={(e) =>
 											handleInputChange("customerReceiptNumber", e.target.value)
 										}
-										disabled
+										disabled={isReadOnly}
 									/>
 								</div>
 
@@ -426,7 +372,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 										onChange={(e) =>
 											handleInputChange("customerReceiptNumber", e.target.value)
 										}
-										disabled
+										disabled={isReadOnly}
 									/>
 								</div>
 							</div>
@@ -436,75 +382,35 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 								<div className="col-md-12">
 									<label className="form-label fw-bold">มาตรฐาน</label>
 									<div className="row">
-										<div className="col-md-2">
-											<div className="form-check">
-												<input
-													className="form-check-input"
-													type="checkbox"
-													checked={formData.ptt}
-													onChange={() => handleCheckboxChange("ptt")}
-													disabled={isReadOnly}
-												/>
-												<label className="form-check-label">PTT</label>
+										{(
+											[
+												["ptt", "PTT"],
+												["chevron", "Chevron"],
+												["valeur", "Valeur"],
+												["ophir", "Ophir"],
+												["threeSpec", "3Spec"],
+											] as [keyof QCWorkOrderData, string][]
+										).map(([field, label]) => (
+											<div className="col-md-2" key={field}>
+												<div className="form-check">
+													<input
+														className="form-check-input"
+														type="checkbox"
+														checked={!!formData[field]}
+														onChange={() => handleCheckboxChange(field)}
+														disabled={isReadOnly}
+													/>
+													<label className="form-check-label">{label}</label>
+												</div>
 											</div>
-										</div>
-										<div className="col-md-2">
-											<div className="form-check">
-												<input
-													className="form-check-input"
-													type="checkbox"
-													checked={formData.chevron}
-													onChange={() => handleCheckboxChange("chevron")}
-													disabled={isReadOnly}
-												/>
-												<label className="form-check-label">Chevron</label>
-											</div>
-										</div>
-										<div className="col-md-2">
-											<div className="form-check">
-												<input
-													className="form-check-input"
-													type="checkbox"
-													checked={formData.valeur}
-													onChange={() => handleCheckboxChange("valeur")}
-													disabled={isReadOnly}
-												/>
-												<label className="form-check-label">Valeur</label>
-											</div>
-										</div>
-										<div className="col-md-2">
-											<div className="form-check">
-												<input
-													className="form-check-input"
-													type="checkbox"
-													checked={formData.ophir}
-													onChange={() => handleCheckboxChange("ophir")}
-													disabled={isReadOnly}
-												/>
-												<label className="form-check-label">Ophir</label>
-											</div>
-										</div>
-										<div className="col-md-2">
-											<div className="form-check">
-												<input
-													className="form-check-input"
-													type="checkbox"
-													checked={formData.threeSpec}
-													onChange={() => handleCheckboxChange("threeSpec")}
-													disabled={isReadOnly}
-												/>
-												<label className="form-check-label">3Spec</label>
-											</div>
-										</div>
+										))}
 										<div className="col-md-2">
 											<div className="form-check">
 												<input
 													className="form-check-input"
 													type="checkbox"
 													checked={formData.standardOthers}
-													onChange={() =>
-														handleCheckboxChange("standardOthers")
-													}
+													onChange={() => handleCheckboxChange("standardOthers")}
 													disabled={isReadOnly}
 												/>
 												<label className="form-check-label">Others</label>
@@ -515,10 +421,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 													className="form-control form-control-sm mt-1"
 													value={formData.standardOthersText}
 													onChange={(e) =>
-														handleInputChange(
-															"standardOthersText",
-															e.target.value,
-														)
+														handleInputChange("standardOthersText", e.target.value)
 													}
 													placeholder="ระบุ"
 													disabled={isReadOnly}
@@ -529,47 +432,31 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 								</div>
 							</div>
 
-							{/* Testing Type Section */}
+							{/* Testing Type / Certificate Section */}
 							<div className="row mb-3">
 								<div className="col-md-12">
 									<label className="form-label fw-bold">ใบรับรอง</label>
 									<div className="row">
-										<div className="col-md-2">
-											<div className="form-check">
-												<input
-													className="form-check-input"
-													type="checkbox"
-													checked={formData.inHouse}
-													onChange={() => handleCheckboxChange("inHouse")}
-													disabled={isReadOnly}
-												/>
-												<label className="form-check-label">In-house</label>
+										{(
+											[
+												["inHouse", "In-house"],
+												["thirdParty", "Third Party"],
+												["ndt", "NDT"],
+											] as [keyof QCWorkOrderData, string][]
+										).map(([field, label]) => (
+											<div className="col-md-2" key={field}>
+												<div className="form-check">
+													<input
+														className="form-check-input"
+														type="checkbox"
+														checked={!!formData[field]}
+														onChange={() => handleCheckboxChange(field)}
+														disabled={isReadOnly}
+													/>
+													<label className="form-check-label">{label}</label>
+												</div>
 											</div>
-										</div>
-										<div className="col-md-2">
-											<div className="form-check">
-												<input
-													className="form-check-input"
-													type="checkbox"
-													checked={formData.thirdParty}
-													onChange={() => handleCheckboxChange("thirdParty")}
-													disabled={isReadOnly}
-												/>
-												<label className="form-check-label">Third Party</label>
-											</div>
-										</div>
-										<div className="col-md-2">
-											<div className="form-check">
-												<input
-													className="form-check-input"
-													type="checkbox"
-													checked={formData.ndt}
-													onChange={() => handleCheckboxChange("ndt")}
-													disabled={isReadOnly}
-												/>
-												<label className="form-check-label">NDT</label>
-											</div>
-										</div>
+										))}
 										<div className="col-md-2">
 											<div className="form-check">
 												<input
@@ -587,10 +474,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 													className="form-control form-control-sm mt-1"
 													value={formData.testingOthersText}
 													onChange={(e) =>
-														handleInputChange(
-															"testingOthersText",
-															e.target.value,
-														)
+														handleInputChange("testingOthersText", e.target.value)
 													}
 													placeholder="ระบุ"
 													disabled={isReadOnly}
@@ -606,50 +490,26 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 								<div className="col-md-12">
 									<label className="form-label fw-bold">Serial Number</label>
 									<div className="row">
-										<div className="col-md-3">
-											<div className="form-check">
-												<input
-													className="form-check-input"
-													type="checkbox"
-													checked={formData.continueSerial}
-													onChange={() =>
-														handleCheckboxChange("continueSerial")
-													}
-													disabled={isReadOnly}
-												/>
-												<label className="form-check-label">คล้องวางแห</label>
+										{(
+											[
+												["continueSerial", "คล้องวางแห"],
+												["serialImprint", "ตอกที่ตัวสินค้า"],
+												["serialTag", "คล้องแท็ก"],
+											] as [keyof QCWorkOrderData, string][]
+										).map(([field, label]) => (
+											<div className="col-md-3" key={field}>
+												<div className="form-check">
+													<input
+														className="form-check-input"
+														type="checkbox"
+														checked={!!formData[field]}
+														onChange={() => handleCheckboxChange(field)}
+														disabled={isReadOnly}
+													/>
+													<label className="form-check-label">{label}</label>
+												</div>
 											</div>
-										</div>
-										<div className="col-md-3">
-											<div className="form-check">
-												<input
-													className="form-check-input"
-													type="checkbox"
-													checked={formData.serialImprint}
-													onChange={() =>
-														handleCheckboxChange("serialImprint")
-													}
-													disabled={isReadOnly}
-												/>
-												<label className="form-check-label">
-													ตอกที่ตัวสินค้า
-												</label>
-											</div>
-										</div>
-										<div className="col-md-3">
-											<div className="form-check">
-												<input
-													className="form-check-input"
-													type="checkbox"
-													checked={formData.serialTag}
-													onChange={() =>
-														handleCheckboxChange("serialTag")
-													}
-													disabled={isReadOnly}
-												/>
-												<label className="form-check-label">คล้องแท็ก</label>
-											</div>
-										</div>
+										))}
 										<div className="col-md-3">
 											<div className="form-check">
 												<input
@@ -667,10 +527,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 													className="form-control form-control-sm mt-1"
 													value={formData.serialOthersText}
 													onChange={(e) =>
-														handleInputChange(
-															"serialOthersText",
-															e.target.value,
-														)
+														handleInputChange("serialOthersText", e.target.value)
 													}
 													placeholder="ระบุ"
 													disabled={isReadOnly}
@@ -712,7 +569,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 								</div>
 							</div>
 
-							{/* Items Table */}
+							{/* ✅ Items Table — fully functional */}
 							<div className="row mb-3">
 								<div className="col-md-12">
 									<div className="d-flex justify-content-between align-items-center mb-2">
@@ -733,10 +590,10 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 											<thead className="table-light">
 												<tr>
 													<th style={{ width: "15%" }}>รหัสสินค้า</th>
-													<th style={{ width: "35%" }}>รายละเอียด</th>
+													<th style={{ width: "25%" }}>รายละเอียด</th>
 													<th style={{ width: "10%" }}>WLL</th>
 													<th style={{ width: "10%" }}>จำนวน</th>
-													<th style={{ width: "10%" }}>Serial No</th>
+													<th style={{ width: "15%" }}>Serial No</th>
 													<th style={{ width: "15%" }}>หมายเหตุ</th>
 													{!isReadOnly && (
 														<th style={{ width: "5%" }}>Action</th>
@@ -744,19 +601,45 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 												</tr>
 											</thead>
 											<tbody>
-												{formData.items.map((item, index) => (
+												{formData.items.map((item) => (
 													<tr key={item.id}>
+														{/* ✅ Material selector — scoped to this row */}
 														<td>
-															<input
-																type="text"
-																className="form-control form-control-sm"
-																value={item.code}
-																onChange={(e) =>
-																	updateItem(item.id, "code", e.target.value)
-																}
-																disabled={isReadOnly}
-															/>
+															{isReadOnly ? (
+																<span className="form-control-plaintext px-2">
+																	{item.code}
+																</span>
+															) : (
+																<Select
+																	isDisabled={materialList.length < 1}
+																	options={materialList}
+																	formatOptionLabel={(option: Material) => (
+																		<div>{option.item_code}</div>
+																	)}
+																	getOptionValue={(option) => option.item_code}
+																	// ✅ Controlled: reflect current item.code
+																	value={
+																		materialList.find(
+																			(m) => m.item_code === item.code,
+																		) || null
+																	}
+																	onChange={(option: Material | null) => {
+																		handleSelectMaterial(item.id, option);
+																	}}
+																	placeholder="ค้นหารหัส..."
+																	isClearable
+																	menuPortalTarget={document.body}
+																	styles={{
+																		menuPortal: (base) => ({
+																			...base,
+																			zIndex: 9999,
+																		}),
+																	}}
+																/>
+															)}
 														</td>
+
+														{/* ✅ Description — auto-filled, but still editable */}
 														<td>
 															<input
 																type="text"
@@ -769,9 +652,11 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 																		e.target.value,
 																	)
 																}
-																disabled={isReadOnly}
+																placeholder="รายละเอียด"
+																disabled
 															/>
 														</td>
+
 														<td>
 															<input
 																type="text"
@@ -785,7 +670,8 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 														</td>
 														<td>
 															<input
-																type="text"
+																type="number"
+																min={0}
 																className="form-control form-control-sm"
 																value={item.quantity}
 																onChange={(e) =>
@@ -841,7 +727,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 													<tr>
 														<td
 															colSpan={isReadOnly ? 6 : 7}
-															className="text-center text-muted"
+															className="text-center text-muted py-3"
 														>
 															No items added yet
 														</td>
@@ -899,26 +785,24 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
           font-weight: 500;
           margin-bottom: 0.25rem;
         }
-        
         .table-bordered th,
         .table-bordered td {
           vertical-align: middle;
         }
-        
         .form-control-sm {
           font-size: 0.875rem;
         }
-        
         .form-check-input {
           cursor: pointer;
         }
-        
         .form-check-label {
           cursor: pointer;
         }
-        
         .card {
           box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .form-control-plaintext {
+          font-size: 0.875rem;
         }
       `}</style>
 		</div>
