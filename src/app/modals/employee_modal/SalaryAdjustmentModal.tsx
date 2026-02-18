@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 
-// Interface สำหรับ Props ที่รับเข้ามา
 interface SalaryAdjustmentModalProps {
     show: boolean;
     onHide: () => void;
@@ -14,13 +13,11 @@ interface SalaryAdjustmentModalProps {
 }
 
 const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onHide, employee }) => {
-    // States
-    const [percent, setPercent] = useState<string>(''); // เก็บเป็น string เพื่อให้ลบจนว่างได้
+    const [percent, setPercent] = useState<string>('');
     const [newSalary, setNewSalary] = useState<string>('');
     const [effectiveDate, setEffectiveDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [reason, setReason] = useState<string>('');
 
-    // Reset ค่าเมื่อเปิด Modal ใหม่
     useEffect(() => {
         if (employee) {
             setNewSalary(employee.currentSalary.toString());
@@ -30,24 +27,21 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
         }
     }, [employee, show]);
 
-    // Format Currency Helper
     const formatCurrency = (val: number) => {
         return val.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     };
 
-    // Logic: คำนวณเมื่อเปลี่ยน %
     const handlePercentChange = (val: string) => {
         setPercent(val);
         const p = parseFloat(val);
         if (!isNaN(p) && employee) {
             const calculated = employee.currentSalary * (1 + (p / 100));
-            setNewSalary(calculated.toFixed(0)); // ปัดเศษ
+            setNewSalary(calculated.toFixed(0));
         } else if (val === '' && employee) {
             setNewSalary(employee.currentSalary.toString());
         }
     };
 
-    // Logic: คำนวณเมื่อเปลี่ยนยอดเงิน (Reverse Calculate)
     const handleNewSalaryChange = (val: string) => {
         setNewSalary(val);
         const n = parseFloat(val);
@@ -68,7 +62,6 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
             cancelButtonText: 'ยกเลิก'
         }).then((result) => {
             if (result.isConfirmed) {
-                // TODO: Call API Here
                 Swal.fire('สำเร็จ!', 'บันทึกการปรับเงินเดือนเรียบร้อย', 'success');
                 onHide();
             }
@@ -97,7 +90,7 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
                         <div 
                             className="rounded-3 p-8 mb-8 text-center position-relative overflow-hidden shadow-sm"
                             style={{ 
-                                background: 'linear-gradient(135deg, #E0C3FC 0%, #8EC5FC 100%)', // สีพาสเทลม่วง-ฟ้า ตามภาพ
+                                background: 'linear-gradient(135deg, #E0C3FC 0%, #8EC5FC 100%)',
                                 border: '1px solid rgba(255,255,255,0.5)'
                             }}
                         >

@@ -47,7 +47,7 @@ const WorkorderList: React.FC = () => {
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
     const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("filter") || "");
 
-    const workingCount = workorders.filter(w => w.status === 'กำลังดำเนินการ').length;
+    const workingCount = workorders.filter(w => w.status === 'กําลังดําเนินการ').length;
     const completedCount = workorders.filter(w => w.status === 'เสร็จสิ้น').length;
     useTableParams({
         currentPage,

@@ -1,113 +1,100 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Modal } from 'react-bootstrap';
 
-interface Props {
+interface SalarySummaryModalProps {
     show: boolean;
     onHide: () => void;
-    employee: any;
+    employee: any; 
 }
 
-const SalarySummaryModal: React.FC<Props> = ({ show, onHide, employee }) => {
-    const [activeTab, setActiveTab] = useState<'income' | 'advance'>('income');
+const SalarySummaryModal: React.FC<SalarySummaryModalProps> = ({ show, onHide, employee }) => {
+    if (!employee) return null;
+    const formatCurrency = (amount: number) => {
+        return (amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
 
-    const formatCurrency = (amount: number) => amount?.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    const incomeItems = [
+        { label: 'เงินเดือนพื้นฐาน', amount: employee.base_salary || 0 },
+        { label: 'ค่าตำแหน่ง', amount: 0 },
+        { label: 'เบี้ยขยัน', amount: 0 },
+    ];
+
+    const deductionItems = [
+        { label: 'ประกันสังคม', amount: 750 },
+        { label: 'ภาษี ณ ที่จ่าย', amount: 0 },
+        { label: 'สาย/ขาดงาน', amount: 0 },
+    ];
+
+    const totalIncome = incomeItems.reduce((acc, item) => acc + item.amount, 0);
+    const totalDeduction = deductionItems.reduce((acc, item) => acc + item.amount, 0);
+    const netIncome = totalIncome - totalDeduction;
 
     return (
-        <Modal show={show} onHide={onHide} size="lg" centered>
-            <Modal.Header closeButton>
-                <Modal.Title className="fw-bold">สรุปรายได้: {employee?.employee_name}</Modal.Title>
+        <Modal show={show} onHide={onHide} centered size="lg">
+            <Modal.Header closeButton className="border-0 pb-0">
+                <Modal.Title className="fw-bold fs-3">
+                    <i className="bi bi-receipt-cutoff me-2 text-primary"></i>
+                    รายละเอียดเงินเดือน: <span className="text-gray-800">{employee.employee_first_name} {employee.employee_last_name}</span>
+                </Modal.Title>
             </Modal.Header>
-            <Modal.Body className="bg-light-light p-8">
-                {/* --- 4 Summary Cards --- */}
-                <div className="row g-5 mb-8">
-                    {/* ฐานเงินเดือน */}
+
+            <Modal.Body className="pt-5 pb-10">
+                <div className="row g-5">
+                    {/* ฝั่งรายได้ */}
                     <div className="col-md-6">
-                        <div className="card shadow-sm border-0 h-100">
-                            <div className="card-body py-4 px-5">
-                                <span className="text-gray-500 fw-semibold fs-7 d-block">ฐานเงินเดือน</span>
-                                <span className="text-gray-900 fw-bold fs-2">{formatCurrency(employee?.base_salary || 0)} บาท</span>
+                        <div className="card h-100 border border-dashed border-success bg-light-success bg-opacity-10">
+                            <div className="card-header min-h-50px border-0 px-4">
+                                <h4 className="card-title fw-bold text-success fs-5">รายได้ (Income)</h4>
+                            </div>
+                            <div className="card-body p-4 pt-0">
+                                {incomeItems.map((item, idx) => (
+                                    <div key={idx} className="d-flex justify-content-between mb-3 border-bottom border-gray-300 border-dashed pb-2">
+                                        <span className="text-gray-600">{item.label}</span>
+                                        <span className="fw-bold text-gray-800">{formatCurrency(item.amount)}</span>
+                                    </div>
+                                ))}
+                                <div className="d-flex justify-content-between mt-4">
+                                    <span className="fw-bold text-success fs-6">รวมรายได้</span>
+                                    <span className="fw-bolder text-success fs-5">{formatCurrency(totalIncome)}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    {/* รายได้วิ่งงาน */}
+
+                    {/* ฝั่งรายการหัก */}
                     <div className="col-md-6">
-                        <div className="card shadow-sm border-0 h-100">
-                            <div className="card-body py-4 px-5">
-                                <span className="text-gray-500 fw-semibold fs-7 d-block">รายได้จากการวิ่งงาน</span>
-                                <span className="text-gray-900 fw-bold fs-2">{formatCurrency(employee?.performance_income || 0)} บาท</span>
+                        <div className="card h-100 border border-dashed border-danger bg-light-danger bg-opacity-10">
+                            <div className="card-header min-h-50px border-0 px-4">
+                                <h4 className="card-title fw-bold text-danger fs-5">รายการหัก (Deduction)</h4>
                             </div>
-                        </div>
-                    </div>
-                    {/* ยอดหัก */}
-                    <div className="col-md-6">
-                        <div className="card shadow-sm border-0 bg-light-danger h-100">
-                            <div className="card-body py-4 px-5">
-                                <span className="text-danger fw-semibold fs-7 d-block">ยอดหักทั้งหมด</span>
-                                <span className="text-danger fw-bold fs-2">({formatCurrency(employee?.deductions || 0)}) บาท</span>
-                            </div>
-                        </div>
-                    </div>
-                    {/* รายได้สุทธิ */}
-                    <div className="col-md-6">
-                        <div className="card shadow-sm border-0 bg-light-primary h-100">
-                            <div className="card-body py-4 px-5">
-                                <span className="text-primary fw-semibold fs-7 d-block">รายได้สุทธิ</span>
-                                <span className="text-primary fw-bold fs-2">{formatCurrency(employee?.net_income || 0)} บาท</span>
+                            <div className="card-body p-4 pt-0">
+                                {deductionItems.map((item, idx) => (
+                                    <div key={idx} className="d-flex justify-content-between mb-3 border-bottom border-gray-300 border-dashed pb-2">
+                                        <span className="text-gray-600">{item.label}</span>
+                                        <span className="fw-bold text-danger">-{formatCurrency(item.amount)}</span>
+                                    </div>
+                                ))}
+                                <div className="d-flex justify-content-between mt-4">
+                                    <span className="fw-bold text-danger fs-6">รวมรายการหัก</span>
+                                    <span className="fw-bolder text-danger fs-5">-{formatCurrency(totalDeduction)}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* --- Tabs --- */}
-                <div className="card shadow-sm border-0">
-                    <div className="card-header border-0 pt-5">
-                        <ul className="nav nav-stretch nav-line-tabs nav-line-tabs-2x border-transparent fs-5 fw-bold">
-                            <li className="nav-item mt-2">
-                                <button 
-                                    className={`nav-link text-active-primary ms-0 me-10 py-5 ${activeTab === 'income' ? 'active' : ''}`} 
-                                    onClick={() => setActiveTab('income')}
-                                >
-                                    รายละเอียดรายรับ
-                                </button>
-                            </li>
-                            <li className="nav-item mt-2">
-                                <button 
-                                    className={`nav-link text-active-primary ms-0 me-10 py-5 ${activeTab === 'advance' ? 'active' : ''}`}
-                                    onClick={() => setActiveTab('advance')}
-                                >
-                                    รายการเบิกล่วงหน้า
-                                </button>
-                            </li>
-                        </ul>
-                    </div>
-                    <div className="card-body">
-                        {activeTab === 'income' ? (
-                            <div className="d-flex flex-column gap-3">
-                                {/* Mock Data Items */}
-                                <div className="d-flex justify-content-between align-items-center">
-                                    <span className="text-gray-600 fw-bold">รวมค่าเบี้ยเลี้ยง:</span>
-                                    <span className="text-gray-800 fw-bold">0.00 บาท</span>
-                                </div>
-                                <div className="d-flex justify-content-between align-items-center">
-                                    <span className="text-gray-600 fw-bold">รวมค่าเที่ยว:</span>
-                                    <span className="text-gray-800 fw-bold">0.00 บาท</span>
-                                </div>
-                                <div className="d-flex justify-content-between align-items-center">
-                                    <span className="text-gray-600 fw-bold">รวมค่าดรอป:</span>
-                                    <span className="text-gray-800 fw-bold">0.00 บาท</span>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="text-center py-10 text-gray-400">
-                                ไม่มีรายการเบิกล่วงหน้า
-                            </div>
-                        )}
+                {/* สรุปยอดสุทธิ */}
+                <div className="separator separator-dashed my-8"></div>
+                
+                <div className="d-flex flex-center flex-column">
+                    <span className="text-gray-500 fw-bold fs-6 mb-1 text-uppercase tracking-wider">รายได้สุทธิ (Net Income)</span>
+                    <div className="d-flex align-items-center">
+                        <span className="fs-3x fw-bolder text-primary lh-1">{formatCurrency(netIncome)}</span>
+                        <span className="fs-2 fw-bold text-gray-400 ms-2">THB</span>
                     </div>
                 </div>
+
             </Modal.Body>
-            <Modal.Footer>
-                <button className="btn btn-light" onClick={onHide}>ปิด</button>
-            </Modal.Footer>
         </Modal>
     );
 };
