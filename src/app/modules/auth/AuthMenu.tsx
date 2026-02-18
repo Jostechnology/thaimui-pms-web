@@ -66,7 +66,6 @@ export const mainRoutesConfig: MainRouteType[] = [
 
 export const subRoutesConfig: SubRouteType[] = [
 
-
     {
         module_code: "TARN",
         main_module_code: "test",
@@ -117,18 +116,18 @@ export const subRoutesConfig: SubRouteType[] = [
         permission:[]
     },
     {
+        module_code:"EMPLOYEE_SAL",
+        main_module_code: "EMPLOYEE",
+        path:"/employee/employee_salary_history",
+        title: "",
+        permission:[]
+    },
+    {
         module_code:"QC_WORKORDERS",
         main_module_code: "QC",
         path:"/quality_control/qc_workorders_list",
         title: "",
         permission:[]
     },
-    {
-    
-        module_code:"EMPLOYEE_SAL",
-        main_module_code: "EMPLOYEE",
-        path:"/employee/employee_salary_history",
-        title: "",
-        permission:[]
-    }
+ 
 ]

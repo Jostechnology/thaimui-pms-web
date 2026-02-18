@@ -8,7 +8,7 @@ import { getWorkOrderList } from '../../../services/workorder';
 import { useTableParams } from '../../../hooks/useTableParams';
 import { useSearchParams } from 'react-router-dom';
 import TablePaginator from '../../../custom_components/TablePaginator'; // สมมติว่ามี Component นี้อยู่แล้ว
-import { WORK_ORDER_STATUS_OPTIONS } from '../../../enum/work_order';
+import { WorkOrderStatusEnum } from '../../../type_interface/WorkOrderType';
 
 // 1. ปรับ Interface ให้ตรงกับข้อมูลจริงใน ER Diagram
 interface WorkorderData {
@@ -145,7 +145,7 @@ const WorkorderList: React.FC = () => {
                             </div>
                             <div className='d-flex flex-column'>
                                 <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{workingCount}</span>
-                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>กำลังดำเนินการ</span>
+                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>กำลังดําเนินการ</span>
                             </div>
                         </div>
                     </div>
@@ -194,13 +194,11 @@ const WorkorderList: React.FC = () => {
                         onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
                     >
                         <option value=''>ทั้งหมด</option>
-                        {WORK_ORDER_STATUS_OPTIONS.map((option) => {
-                            return (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            )
-                        })}
+                        {Object.values(WorkOrderStatusEnum).map((value) => (
+                            <option key={value} value={value}>
+                                {value}
+                            </option>
+                        ))}
                     </select>
                 </div>
 
