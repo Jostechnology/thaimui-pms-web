@@ -129,4 +129,5 @@ export const subRoutesConfig: SubRouteType[] = [
         title: "",
         permission:[]
     },
+ 
 ]
