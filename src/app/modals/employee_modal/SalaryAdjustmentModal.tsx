@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from 'react-bootstrap';
 import Swal from 'sweetalert2';
+import { getEmployeeSalaryHistory, updateEmployeeSalary } from '../../services/employee';
 
 interface SalaryAdjustmentModalProps {
     show: boolean;
@@ -17,6 +18,8 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
     const [newSalary, setNewSalary] = useState<string>('');
     const [effectiveDate, setEffectiveDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [reason, setReason] = useState<string>('');
+    const [history, setHistory] = useState<any[]>([]);
+    const [historyLoading, setHistoryLoading] = useState<boolean>(false);
 
     useEffect(() => {
         if (employee) {
@@ -26,6 +29,27 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
             setEffectiveDate(new Date().toISOString().split('T')[0]);
         }
     }, [employee, show]);
+
+    useEffect(() => {
+        const fetchHistory = async () => {
+            if (!employee) return setHistory([]);
+            setHistoryLoading(true);
+            try {
+                const res = await getEmployeeSalaryHistory(employee.id);
+                if (res && res.success && res.data && Array.isArray(res.data.items)) {
+                    setHistory(res.data.items);
+                } else {
+                    setHistory([]);
+                }
+            } catch (err) {
+                console.error('Failed to fetch salary history', err);
+                setHistory([]);
+            } finally {
+                setHistoryLoading(false);
+            }
+        };
+        fetchHistory();
+    }, [employee]);
 
     const formatCurrency = (val: number) => {
         return val.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -62,8 +86,25 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
             cancelButtonText: 'ยกเลิก'
         }).then((result) => {
             if (result.isConfirmed) {
-                Swal.fire('สำเร็จ!', 'บันทึกการปรับเงินเดือนเรียบร้อย', 'success');
-                onHide();
+                (async () => {
+                    try {
+                        const payload = {
+                            new_salary: Number(newSalary),
+                            effective_date: `${effectiveDate}T07:00:00`,
+                            remark: reason || ''
+                        };
+                        const res = await updateEmployeeSalary(employee!.id, payload);
+                        if (res && res.success) {
+                            Swal.fire('สำเร็จ!', 'บันทึกการปรับเงินเดือนเรียบร้อย', 'success');
+                            onHide();
+                        } else {
+                            Swal.fire('ผิดพลาด', res?.error || 'ไม่สามารถบันทึกได้', 'error');
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        Swal.fire('ข้อผิดพลาด', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', 'error');
+                    }
+                })();
             }
         });
     };
@@ -189,21 +230,27 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
                                     <div className="fw-semibold fs-7 text-gray-400">ยังไม่มีประวัติการปรับเงินเดือนในระบบ</div>
                                 </div> */}
 
-                                {/* 3. Mock Data Row (ตัวอย่าง): ใช้ Grid col-* ให้ตรงกับ Header เป๊ะๆ */}
-                                <div className="row border-bottom bg-white p-4 fs-7 align-items-center hover:bg-light mx-0">
-                                    <div className="col-3 text-gray-800 fw-bold">18/02/2026</div>
-                                    <div className="col-2 text-end text-muted text-decoration-line-through">85,000</div>
-                                    <div className="col-2 text-end text-success fw-bold">89,000</div>
-                                    <div className="col-3 text-center text-gray-600 text-truncate">ผ่านโปร</div>
-                                    <div className="col-2 text-end text-primary">Admin</div>
-                                </div>
-                                <div className="row border-bottom bg-white p-4 fs-7 align-items-center hover:bg-light mx-0">
-                                    <div className="col-3 text-gray-800 fw-bold">01/01/2026</div>
-                                    <div className="col-2 text-end text-muted text-decoration-line-through">80,000</div>
-                                    <div className="col-2 text-end text-success fw-bold">85,000</div>
-                                    <div className="col-3 text-center text-gray-600 text-truncate">ปรับประจำปี</div>
-                                    <div className="col-2 text-end text-primary">HR</div>
-                                </div>
+                                {/* 3. Render real history rows from backend */}
+                                {historyLoading ? (
+                                    <div className="d-flex justify-content-center p-6">
+                                        <span className="spinner-border text-primary"></span>
+                                    </div>
+                                ) : history.length === 0 ? (
+                                    <div className="d-flex flex-column flex-center h-100 py-10">
+                                        <div className="fw-bold fs-5 text-gray-800 mb-1">ยังไม่มีประวัติการปรับเงินเดือน</div>
+                                        <div className="fw-semibold fs-7 text-gray-400">เมื่อบันทึกข้อมูล จะขึ้นที่นี่</div>
+                                    </div>
+                                ) : (
+                                    history.map((h) => (
+                                        <div key={h.salary_history_id} className="row border-bottom bg-white p-4 fs-7 align-items-center hover:bg-light mx-0">
+                                            <div className="col-3 text-gray-800 fw-bold">{new Date(h.effective_date).toLocaleDateString('th-TH')}</div>
+                                            <div className="col-2 text-end text-muted text-decoration-line-through">{(h.old_salary || 0).toLocaleString()}</div>
+                                            <div className="col-2 text-end text-success fw-bold">{(h.new_salary || 0).toLocaleString()}</div>
+                                            <div className="col-3 text-center text-gray-600 text-truncate">{h.remark || '-'}</div>
+                                            <div className="col-2 text-end text-primary">{h.updated_by || '-'}</div>
+                                        </div>
+                                    ))
+                                )}
                                 
                             </div>
                         </div>

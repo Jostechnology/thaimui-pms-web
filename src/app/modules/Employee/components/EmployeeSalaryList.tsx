@@ -6,7 +6,7 @@ import { useAlertModal } from '../../../context/ModalContext';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import SalaryAdjustmentModal from '../../../modals/employee_modal/SalaryAdjustmentModal';
 import SalarySummaryModal from '../../../modals/employee_modal/SalarySummaryModal';
-import { getEmployeeList } from '../../../services/employee';
+import { getEmployeeSalaryList } from '../../../services/employee';
 
 // Interface ข้อมูลพนักงาน (รองรับทุกเคส)
 export interface EmployeeData {
@@ -46,7 +46,7 @@ const EmployeeSalaryList: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const res = await getEmployeeList(searchTerm);
+            const res = await getEmployeeSalaryList(searchTerm);
             if (res && res.success && res.data && res.data.items) {
                 setEmployees(res.data.items);
             } else {

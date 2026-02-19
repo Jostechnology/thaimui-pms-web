@@ -105,3 +105,68 @@ export const deleteEmployee = async (employee_id: number) => {
         return { success: false };
     }
 };
+
+// Salary-related API helpers
+export const getEmployeeSalaryList = async (search: string = '', status: string = '') => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (status && status !== 'all') params.append('status', status);
+
+        const response = await front_api(
+            'GET',
+            `/get_employee_salary_list?${params.toString()}`,
+            {},
+            {
+                wrapData: false,
+                headers: { 'Authorization': `Bearer ${token}` }
+            }
+        );
+
+        if (!response) return { success: false, data: [] };
+        return await response.json();
+    } catch (error) {
+        return { success: false, data: [] };
+    }
+};
+
+export const getEmployeeSalaryHistory = async (employee_id: number) => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const response = await front_api(
+            'GET',
+            `/get_employee_salary_history/${employee_id}`,
+            {},
+            {
+                wrapData: false,
+                headers: { 'Authorization': `Bearer ${token}` }
+            }
+        );
+
+        if (!response) return { success: false, data: [] };
+        return await response.json();
+    } catch (error) {
+        return { success: false, data: [] };
+    }
+};
+
+export const updateEmployeeSalary = async (employee_id: number, payload: { new_salary: number; effective_date: string; remark?: string }) => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const response = await front_api(
+            'PUT',
+            `/update_employee_salary/${employee_id}`,
+            payload,
+            {
+                wrapData: false,
+                headers: { 'Authorization': `Bearer ${token}` }
+            }
+        );
+
+        if (!response) return { success: false };
+        return await response.json();
+    } catch (error) {
+        return { success: false };
+    }
+};
