@@ -7,6 +7,8 @@ import { useAppLoading } from '../../../context/AppLoadingContext';
 import SalaryAdjustmentModal from '../../../modals/employee_modal/SalaryAdjustmentModal';
 import SalarySummaryModal from '../../../modals/employee_modal/SalarySummaryModal';
 import { getEmployeeSalaryList } from '../../../services/employee';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 // Interface ข้อมูลพนักงาน (รองรับทุกเคส)
 export interface EmployeeData {
@@ -20,32 +22,33 @@ export interface EmployeeData {
     status?: string;
     is_active?: boolean;
     user_id?: number;
-    base_salary?: number;  // บางที API ส่งชื่อนี้
-    salary_base?: number;  // หรือชื่อนี้ (ตามที่คุณพิมพ์มาล่าสุด)
+    base_salary?: number; 
+    salary_base?: number;  
 }
 
 const EmployeeSalaryList: React.FC = () => {
-    // --- State Management ---
     const [employees, setEmployees] = useState<EmployeeData[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [searchTerm, setSearchTerm] = useState<string>("");
     
-    // Pagination & Filter States
-    const [selectedMonth, setSelectedMonth] = useState<string>("February 2026");
+    const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [itemsPerPage, setItemsPerPage] = useState<number>(10);
 
-    // Modal States
     const [showAdjustModal, setShowAdjustModal] = useState(false);
     const [showSummaryModal, setShowSummaryModal] = useState(false);
     
-    // Selected Data for Modals
     const [selectedEmp, setSelectedEmp] = useState<any>(null); 
 
-    // --- API Fetching ---
     const fetchData = async () => {
         setLoading(true);
         try {
+            // let monthParam = "";
+            // if (selectedDate) {
+            //     const year = selectedDate.getFullYear();
+            //     const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            //     monthParam = `${year}-${month}`;
+            // }
             const res = await getEmployeeSalaryList(searchTerm);
             if (res && res.success && res.data && res.data.items) {
                 setEmployees(res.data.items);
@@ -60,37 +63,45 @@ const EmployeeSalaryList: React.FC = () => {
         }
     };
 
-    // Debounce Search (รอพิมพ์เสร็จค่อยค้นหา)
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
             fetchData();
         }, 500);
         return () => clearTimeout(delayDebounceFn);
-    }, [searchTerm]);
+    }, [searchTerm, selectedDate]);
 
-    // --- Handlers ---
-    
-    // เปิด Modal ปรับเงินเดือน (Calculator Icon)
     const handleOpenAdjustModal = (emp: EmployeeData) => {
-        console.log("Open Adjust:", emp); // Debug
-        setSelectedEmp(emp); // เก็บตัวเต็ม
+        console.log("Open Adjust:", emp);
+        setSelectedEmp(emp);
         setShowAdjustModal(true);
     };
 
-    const handleOpenSummaryModal = (emp: EmployeeData) => {
-        console.log("Open Summary:", emp); // Debug
-        setSelectedEmp(emp); // เก็บตัวเต็ม
-        setShowSummaryModal(true);
-    };
+    // const handleOpenSummaryModal = (emp: EmployeeData) => {
+    //     console.log("Open Summary:", emp);
+    //     setSelectedEmp(emp);
+    //     setShowSummaryModal(true);
+    // };
+    // const CustomDateInput = React.forwardRef(({ value, onClick }: any, ref: any) => (
+    //     <div className="d-flex align-items-center position-relative my-1" onClick={onClick} ref={ref}>
+    //         <button className="btn btn-sm btn-light-primary fw-bold me-2">
+    //             <i className="bi bi-calendar3 me-1"></i> เลือกเดือน
+    //         </button>
+    //         <input
+    //             type="text"
+    //             className="form-control form-control-sm form-control-solid w-150px text-center fw-bold cursor-pointer"
+    //             value={value}
+    //             readOnly
+    //             placeholder="Select Month"
+    //         />
+    //     </div>
+    // ));
 
-    // Helper: Format Currency
     const formatCurrency = (amount: number | undefined | null) => {
         return (amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     };
 
     return (
         <div className="card card-flush shadow-sm">
-            {/* --- Header Section --- */}
             <div className="card-header align-items-center py-5 gap-2 gap-md-5">
                 <div className="card-title">
                     <h3 className="card-label fw-bold fs-3 mb-1">
@@ -100,18 +111,15 @@ const EmployeeSalaryList: React.FC = () => {
 
                 <div className="card-toolbar">
                     <div className="d-flex align-items-center gap-2 gap-lg-3">
-                        {/* ปุ่มเลือกเดือน */}
-                        <div className="d-flex align-items-center">
-                            <button className="btn btn-sm btn-light-primary fw-bold me-2">
-                                <i className="bi bi-calendar3 me-1"></i> เลือกเดือน
-                            </button>
-                            <input
-                                type="text"
-                                className="form-control form-control-sm form-control-solid w-150px text-center fw-bold"
-                                value={selectedMonth}
-                                readOnly
+                        {/* <div className="d-flex align-items-center">
+                            <DatePicker
+                                selected={selectedDate}
+                                onChange={(date) => setSelectedDate(date)}
+                                dateFormat="MMMM yyyy" // Display format: "February 2026"
+                                showMonthYearPicker // Show only month and year
+                                customInput={<CustomDateInput />}
                             />
-                        </div>
+                        </div> */}
 
                         {/* ช่องค้นหา */}
                         <div className="d-flex align-items-center position-relative">
@@ -137,8 +145,8 @@ const EmployeeSalaryList: React.FC = () => {
                         <thead>
                             <tr className="text-start text-gray-800 fw-bold fs-7 text-uppercase gs-0 bg-light">
                                 <th className="min-w-100px ps-4 rounded-start">รหัสพนักงาน</th>
-                                <th className="min-w-200px">ชื่อพนักงาน</th>
-                                <th className="min-w-100px text-end">เงินเดือน</th>
+                                <th className="min-w-100px">ชื่อพนักงาน</th>
+                                <th className="min-w-100px">เงินเดือน</th>
                                 <th className="min-w-100px text-center rounded-end">จัดการ</th>
                             </tr>
                         </thead>
@@ -171,20 +179,11 @@ const EmployeeSalaryList: React.FC = () => {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="text-end text-success fw-bold fs-6">
-                                            {/* รองรับทั้ง salary_base และ base_salary */}
+                                        <td className=" text-success fw-bold fs-6">
                                             {formatCurrency(item.base_salary || item.salary_base)}
                                         </td>
                                         <td className="text-center">
                                             <div className="d-flex justify-content-center gap-2">
-                                                <button
-                                                    className="btn btn-icon btn-sm btn-light-primary shadow-sm"
-                                                    title="รายละเอียดการเงิน"
-                                                    // ต้องใส่ () => ... เพื่อไม่ให้รันทันที
-                                                    onClick={() => handleOpenSummaryModal(item)}
-                                                >
-                                                    <i className="bi bi-cash-coin fs-4"></i>
-                                                </button>
                                                 <button
                                                     className="btn btn-icon btn-sm btn-light-warning shadow-sm"
                                                     title="ปรับเงินเดือน"
