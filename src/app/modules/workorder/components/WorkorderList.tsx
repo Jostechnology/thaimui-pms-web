@@ -9,7 +9,7 @@ import { useTableParams } from '../../../hooks/useTableParams';
 import { useSearchParams } from 'react-router-dom';
 import TablePaginator from '../../../custom_components/TablePaginator'; // สมมติว่ามี Component นี้อยู่แล้ว
 import { WorkOrderStatusEnum } from '../../../type_interface/WorkOrderType';
-
+import DatePicker from "react-datepicker";
 // 1. ปรับ Interface ให้ตรงกับข้อมูลจริงใน ER Diagram
 interface WorkorderData {
     work_order_id: number;
@@ -47,6 +47,7 @@ const WorkorderList: React.FC = () => {
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
     const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("filter") || "");
 
+    const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
     const statusThaiMap: Record<string, string> = {
         READY: 'พร้อม',
         IN_PROGRESS: 'กำลังดำเนินงาน',
@@ -69,14 +70,33 @@ const WorkorderList: React.FC = () => {
         keyword,
         setKeyword,
         setPageConfig,
-        setSearchTerm   
+        setSearchTerm
     });
-
+    const CustomDateInput = React.forwardRef(({ value, onClick }: any, ref: any) => (
+        <div className="d-flex align-items-center position-relative" onClick={onClick} ref={ref}>
+            <button className="btn btn-sm btn-light-primary fw-bold" type="button">
+                <i className="bi bi-calendar3"></i>
+            </button>
+            <input
+                type="text"
+                className="form-control form-control-sm form-control-solid w-100px text-center fw-bold cursor-pointer ms-2"
+                value={value}
+                readOnly
+                placeholder="ทุกเดือน"
+            />
+        </div>
+    ));
     const fetchWorkorders = async () => {
         setDataLoading(true);
         setLoading();
         try {
-            const result = await getWorkOrderList(currentPage, pageConfig, keyword, statusFilter);
+            let monthParam = "";
+            if (selectedDate) {
+                const year = selectedDate.getFullYear();
+                const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                monthParam = `${year}-${month}`;
+            }
+            const result = await getWorkOrderList(currentPage, pageConfig, keyword, statusFilter, monthParam);
             if (result && result.success) {
                 setWorkorders(result.data.items);
                 setTotalPages(result.data.total_pages);
@@ -95,7 +115,7 @@ const WorkorderList: React.FC = () => {
 
     useEffect(() => {
         fetchWorkorders();
-    }, [currentPage, keyword, pageConfig, statusFilter]);
+    }, [currentPage, keyword, pageConfig, statusFilter, selectedDate]);
 
     const getStatusBadge = (status: string) => {
         const display = statusThaiMap[status] || (status || '').toString().normalize('NFC');
@@ -201,6 +221,7 @@ const WorkorderList: React.FC = () => {
 
             <div className='card card-flush shadow-sm border-0'>
                 <div className='card-header align-items-center py-5 gap-2 gap-md-5'>
+                    {/* 1. ฝั่งซ้าย: ช่องค้นหา (card-title) */}
                     <div className='card-title'>
                         <div className='d-flex align-items-center position-relative my-1'>
                             <i className='ki-duotone ki-magnifier fs-3 position-absolute ms-4'>
@@ -217,19 +238,43 @@ const WorkorderList: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* ส่วนขวา: Dropdown กรองสถานะ (Toolbar) */}
-                    <select
-                        className='form-select form-select-solid w-150px'
-                        value={statusFilter}
-                        onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-                    >
-                        <option value=''>ทั้งหมด</option>
-                        {Object.values(WorkOrderStatusEnum).map((value) => (
-                            <option key={value} value={value}>
-                                {statusThaiMap[value] || value}
-                            </option>
-                        ))}
-                    </select>
+                    {/* 2. ฝั่งขวา: เครื่องมือกรองข้อมูล (card-toolbar) */}
+                    <div className='card-toolbar d-flex align-items-center gap-3'>
+
+                        {/* 🌟 แทรกที่ 1: ปุ่มเลือกเดือน (DatePicker) ตรงนี้ */}
+                        <div>
+                            <DatePicker
+                                selected={selectedDate}
+                                onChange={(date) => {
+                                    setSelectedDate(date);
+                                    setCurrentPage(1); // รีเซ็ตหน้ากลับไปหน้า 1 เวลาเปลี่ยนเดือน
+                                }}
+                                dateFormat="MMMM yyyy"
+                                showMonthYearPicker
+                                customInput={<CustomDateInput />}
+                                isClearable
+                                placeholderText="เลือกเดือน"
+                            />
+                        </div>
+
+                        {/* 🌟 แทรกที่ 2: Dropdown สถานะงานตัวเดิม */}
+                        <select
+                            className='form-select form-select-solid w-150px'
+                            value={statusFilter}
+                            onChange={(e) => {
+                                setStatusFilter(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <option value=''>สถานะทั้งหมด</option>
+                            {Object.values(WorkOrderStatusEnum).map((value) => (
+                                <option key={value} value={value}>
+                                    {statusThaiMap[value] || value}
+                                </option>
+                            ))}
+                        </select>
+
+                    </div>
                 </div>
 
                 <div className='card-body pt-0'>
