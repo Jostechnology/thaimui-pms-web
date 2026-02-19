@@ -106,13 +106,13 @@ export const deleteEmployee = async (employee_id: number) => {
     }
 };
 
-// Salary-related API helpers
-export const getEmployeeSalaryList = async (search: string = '', status: string = '') => {
+export const getEmployeeSalaryList = async (search: string = '') => {
     try {
         const token = localStorage.getItem('tk-jos');
         const params = new URLSearchParams();
-        if (search) params.append('search', search);
-        if (status && status !== 'all') params.append('status', status);
+        if (search) params.append('search', search)
+        // if (status && status !== 'all') params.append('status', status);
+        
 
         const response = await front_api(
             'GET',
@@ -131,12 +131,15 @@ export const getEmployeeSalaryList = async (search: string = '', status: string 
     }
 };
 
-export const getEmployeeSalaryHistory = async (employee_id: number) => {
+export const getEmployeeSalaryHistory = async (employee_id: number, month?: string) => {
     try {
         const token = localStorage.getItem('tk-jos');
+        const url = month 
+        ? `/get_employee_salary_history/${employee_id}?month=${month}`
+        : `/get_employee_salary_history/${employee_id}`;
         const response = await front_api(
             'GET',
-            `/get_employee_salary_history/${employee_id}`,
+            url,
             {},
             {
                 wrapData: false,
