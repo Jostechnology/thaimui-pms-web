@@ -47,8 +47,21 @@ const WorkorderList: React.FC = () => {
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
     const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("filter") || "");
 
-    const workingCount = workorders.filter(w => w.status === 'กําลังดําเนินการ').length;
-    const completedCount = workorders.filter(w => w.status === 'เสร็จสิ้น').length;
+    const statusThaiMap: Record<string, string> = {
+        READY: 'พร้อม',
+        IN_PROGRESS: 'กำลังดำเนินงาน',
+        COMPLETED: 'เสร็จสิ้น'
+    };
+
+    const phaseStatusThaiMap: Record<string, string> = {
+        PENDING: 'รอดำเนินการ',
+        IN_PROGRESS: 'กำลังดำเนินการ',
+        PAUSED: 'ระงับ/หยุดชั่วคราว',
+        COMPLETED: 'เสร็จสิ้น'
+    };
+
+    const workingCount = workorders.filter(w => w.status === 'IN_PROGRESS').length;
+    const completedCount = workorders.filter(w => w.status === 'COMPLETED').length;
     useTableParams({
         currentPage,
         setCurrentPage,
@@ -56,7 +69,7 @@ const WorkorderList: React.FC = () => {
         keyword,
         setKeyword,
         setPageConfig,
-        setSearchTerm
+        setSearchTerm   
     });
 
     const fetchWorkorders = async () => {
@@ -85,15 +98,32 @@ const WorkorderList: React.FC = () => {
     }, [currentPage, keyword, pageConfig, statusFilter]);
 
     const getStatusBadge = (status: string) => {
-        const s = (status || '').toString().normalize('NFC');
-        if (s.includes('เสร็จ')) {
+        const display = statusThaiMap[status] || (status || '').toString().normalize('NFC');
+        if (display.includes('เสร็จ')) {
             return 'badge-light-success';
         }
-        if (/ก.*ลัง/.test(s) || /ด.*เนิน/.test(s)) {
+        if (/ก.*ลัง/.test(display) || /ด.*เนิน/.test(display)) {
             return 'badge-light-warning';
         }
-        if (s.includes('พร้อม')) {
+        if (display.includes('พร้อม')) {
             return 'badge-light-primary';
+        }
+        return 'badge-light-secondary';
+    };
+
+    const getPhaseBadge = (status: string) => {
+        const display = phaseStatusThaiMap[status] || (status || '').toString().normalize('NFC');
+        if (display.includes('เสร็จ')) {
+            return 'badge-light-success';
+        }
+        if (/ก.*ลัง/.test(display) || /ดำเนิน/.test(display)) {
+            return 'badge-light-warning';
+        }
+        if (display.includes('ระงับ') || display.includes('หยุด')) {
+            return 'badge-light-dark';
+        }
+        if (display.includes('รอ')) {
+            return 'badge-light-secondary';
         }
         return 'badge-light-secondary';
     };
@@ -145,7 +175,7 @@ const WorkorderList: React.FC = () => {
                             </div>
                             <div className='d-flex flex-column'>
                                 <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{workingCount}</span>
-                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>กำลังดําเนินการ</span>
+                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>กำลังดำเนินงาน</span>
                             </div>
                         </div>
                     </div>
@@ -162,7 +192,7 @@ const WorkorderList: React.FC = () => {
                             </div>
                             <div className='d-flex flex-column'>
                                 <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{completedCount}</span>
-                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>การดำเนินงานเสร็จสิ้น</span>
+                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>เสร็จสิ้น</span>
                             </div>
                         </div>
                     </div>
@@ -196,7 +226,7 @@ const WorkorderList: React.FC = () => {
                         <option value=''>ทั้งหมด</option>
                         {Object.values(WorkOrderStatusEnum).map((value) => (
                             <option key={value} value={value}>
-                                {value}
+                                {statusThaiMap[value] || value}
                             </option>
                         ))}
                     </select>
@@ -267,7 +297,7 @@ const WorkorderList: React.FC = () => {
 
                                             <td className='text-center'>
                                                 <span className={`badge ${getStatusBadge(item.status)} fw-bold px-4 py-3`}>
-                                                    {item.status || 'Waiting'}
+                                                    {statusThaiMap[item.status] || item.status || 'Waiting'}
                                                 </span>
                                             </td>
 

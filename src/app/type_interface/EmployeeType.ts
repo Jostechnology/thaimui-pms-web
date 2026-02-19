@@ -27,8 +27,8 @@ export interface EmployeeSalaryHistory {
 }
 
 export enum EmployeeStatus {
-  ว่างงาน = 'ว่างงาน',
-  ทำงานอยู่ = 'ทำงานอยู่',
-  หยุดงาน = 'หยุดงาน',
-  ลางาน = 'ลางาน'
+  UNEMPLOYED = 'Unemployed',
+  ACTIVE = 'Active',
+  ON_LEAVE = 'On Leave',
+  SUSPENDED = 'Suspended'
 }

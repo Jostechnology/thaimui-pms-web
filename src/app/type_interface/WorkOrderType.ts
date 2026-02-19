@@ -59,7 +59,7 @@ export interface DashboardKPI {
 }
 
 export enum WorkOrderStatusEnum{
-    พร้อม = 'พร้อม',
-    กำลังดําเนินการ = 'กำลังดําเนินการ',
-    เสร็จสิ้น = 'เสร็จสิ้น'
+    READY = 'READY',
+    IN_PROGRESS = 'IN_PROGRESS',
+    COMPLETED = 'COMPLETED'
 }
