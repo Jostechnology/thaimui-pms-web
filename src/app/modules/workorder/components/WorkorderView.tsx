@@ -6,99 +6,43 @@ import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import Swal from 'sweetalert2';
 import './WorkorderView.css';
-
-// --- Interfaces ---
-interface Employee {
-    citizen_id: string;
-    employee_first_name: string;
-    employee_id: number;
-    employee_last_name: string;
-    status: string;
-    user_id: number;
-}
-
-interface SalesItem {
-    cost_price: number;
-    doc_num: string;
-    item_code: string;
-    item_description: string;
-    item_name: string;
-    item_num: number;
-    sales_item_id: number;
-    unit_price: number;
-}
-
-interface WorkPhaseBreak {
-    break_id: number;
-    work_phase_id: number;
-    break_start: string;
-    break_end: string | null;
-    break_type: string;
-}
-
-interface WorkPhase {
-    created_date: string;
-    employee_list: Employee[];
-    end_date: string | null;
-    phase_name: string;
-    phase_status: string;
-    start_date: string | null;
-    work_order_id: number;
-    work_phase_id: number;
-    breaks?: WorkPhaseBreak[];
-}
-
-interface WorkOrderData {
-    created_date: string;
-    current_phase: WorkPhase | null;
-    doc_num: string;
-    sales_item: SalesItem | null;
-    status: string;
-    work_order_id: number;
-    work_phases: WorkPhase[];
-}
+import type { WorkOrder, WorkPhase, WorkPhaseBreak } from '../../../type_interface/WorkOrderType';
+import type { Employee } from '../../../type_interface/EmployeeType';
 
 // --- Helper functions ---
 const getPhaseStatusColor = (status: string) => {
     switch (status) {
-        case 'InProgress':
-        case 'In Progress': return '#0d6efd';
-        case 'Completed': return '#198754';
-        case 'Paused': return '#fd7e14';
-        case 'Pending': return '#6c757d';
+        case 'กำลังดําเนินการ': return '#0d6efd';
+        case 'เสร็จสิ้น': return '#198754';
+        case 'หยุดชั่วคราว': return '#fd7e14';
+        case 'รอดําเนินการ': return '#6c757d';
         default: return '#adb5bd';
     }
 };
 
 const getPhaseStatusBg = (status: string) => {
     switch (status) {
-        case 'InProgress':
-        case 'In Progress': return '#e7f1ff';
-        case 'Completed': return '#d1e7dd';
-        case 'Paused': return '#fff3e0';
-        case 'Pending': return '#f8f9fa';
+        case 'กำลังดําเนินการ': return '#e7f1ff';
+        case 'เสร็จสิ้น': return '#d1e7dd';
+        case 'หยุดชั่วคราว': return '#fff3e0';
+        case 'รอดําเนินการ': return '#f8f9fa';
         default: return '#f8f9fa';
     }
 };
 
 const getStatusBadgeClass = (status: string) => {
-    const s = status?.toLowerCase();
-    if (s === 'completed' || s === 'finished') return 'wo-badge-success';
-    if (s === 'inprogress' || s === 'in progress' || s === 'working') return 'wo-badge-primary';
-    if (s === 'paused') return 'wo-badge-warning';
-    if (s === 'ready') return 'wo-badge-info';
-    if (s === 'wait_confirm') return 'wo-badge-warning';
-    if (s === 'pending') return 'wo-badge-secondary';
+    if (status === 'เสร็จสิ้น') return 'wo-badge-success';
+    if (status === 'กำลังดำเนินการ') return 'wo-badge-primary';
+    if (status === 'พร้อม') return 'wo-badge-info';
     return 'wo-badge-secondary';
 };
 
 const getPhaseStatusLabel = (status: string) => {
     switch (status) {
-        case 'InProgress': return 'กำลังดำเนินงาน';
-        case 'Completed': return 'เสร็จสิ้น';
-        case 'Paused': return 'พักงาน';
-        case 'Pending': return 'รอดำเนินการ';
-        case 'Cancel': return 'ยกเลิก';
+        case 'กำลังดําเนินการ': return 'กำลังดำเนินการ';
+        case 'เสร็จสิ้น': return 'เสร็จสิ้น';
+        case 'หยุดชั่วคราว': return 'หยุดชั่วคราว';
+        case 'รอดําเนินการ': return 'รอดำเนินการ';
         default: return status;
     }
 };
@@ -168,16 +112,21 @@ const LiveTimer: React.FC<{ startDate: string | null; breaks?: WorkPhaseBreak[];
 };
 
 // --- Work Order Total Live Timer (sum of all phases' working time) ---
+// เวลารวม = ผลรวม (duration แต่ละ phase - เวลาพัก) ของทุก phase
+// - เสร็จสิ้น: end_date - start_date - breaks (คงที่)
+// - กำลังดําเนินการ: now - start_date - breaks (นับต่อ live)
+// - หยุดชั่วคราว: now - start_date - breaks (break ที่ยังไม่จบใช้ now เป็น end → เวลาทำงานหยุดนับ)
+// - รอดําเนินการ: ข้าม (ยังไม่มี start_date)
 const WorkOrderLiveTimer: React.FC<{ phases: WorkPhase[] }> = ({ phases }) => {
     const [elapsed, setElapsed] = useState('00:00:00');
-    const hasActivePhase = phases.some(p => p.phase_status === 'InProgress');
+    const hasActivePhase = phases.some(p => p.phase_status === 'กําลังดําเนินการ');
 
     useEffect(() => {
         const calcTotal = () => {
             let totalWorkMs = 0;
             const now = Date.now();
             for (const phase of phases) {
-                if (!phase.start_date) continue; // Pending phase, no time yet
+                if (!phase.start_date) continue;
                 const start = new Date(phase.start_date).getTime();
                 const end = phase.end_date ? new Date(phase.end_date).getTime() : now;
                 const phaseMs = Math.max(0, end - start);
@@ -191,10 +140,16 @@ const WorkOrderLiveTimer: React.FC<{ phases: WorkPhase[] }> = ({ phases }) => {
                 `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
             );
         };
+
         calcTotal();
-        const interval = setInterval(calcTotal, 1000);
-        return () => clearInterval(interval);
-    }, [phases]);
+
+        // ถ้ามี phase ที่กำลังดำเนินการอยู่ → นับเวลาต่อทุกวินาที
+        // ถ้าทุก phase เสร็จ/พัก/รอ → ไม่ต้อง interval (เวลาไม่เปลี่ยน)
+        if (hasActivePhase) {
+            const interval = setInterval(calcTotal, 1000);
+            return () => clearInterval(interval);
+        }
+    }, [phases, hasActivePhase]);
 
     return <span className={`wo-timer-value`}>{elapsed}</span>;
 };
@@ -206,7 +161,7 @@ const WorkorderView: React.FC = () => {
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
 
-    const [workOrder, setWorkOrder] = useState<WorkOrderData | null>(null);
+    const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
     const [dataLoading, setDataLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -260,7 +215,7 @@ const WorkorderView: React.FC = () => {
 
     const completedPhases = useMemo(() => {
         if (!workOrder) return 0;
-        return workOrder.work_phases.filter(p => p.phase_status === 'Completed').length;
+        return workOrder.work_phases.filter(p => p.phase_status === 'เสร็จสิ้น').length;
     }, [workOrder]);
 
     const totalPhases = useMemo(() => workOrder?.work_phases.length || 0, [workOrder]);
@@ -334,17 +289,17 @@ const WorkorderView: React.FC = () => {
                     <div className="wo-kpi-card">
                         <div className="wo-kpi-header">
                             <span className="wo-kpi-label">ระยะเวลาดำเนินการทั้งหมด (LIVE)</span>
-                            {workOrder.work_phases.some(p => p.phase_status === 'InProgress') && (
+                            {workOrder.work_phases.some(p => p.phase_status === 'กําลังดําเนินการ') && (
                                 <span className="wo-live-dot" />
                             )}
-                            {workOrder.current_phase?.phase_status === 'Paused' && (
+                            {workOrder.current_phase?.phase_status === 'หยุดชั่วคราว' && (
                                 <span className="wo-live-dot" style={{ background: '#fd7e14' }} />
                             )}
                         </div>
                         <WorkOrderLiveTimer phases={workOrder.work_phases} />
                         <div className="wo-kpi-sub mt-2">
                             <small className="text-muted">เริ่ม: {formatDateTime(workOrder.created_date)}</small>
-                            {workOrder.current_phase?.phase_status === 'Paused' && (
+                            {workOrder.current_phase?.phase_status === 'หยุดชั่วคราว' && (
                                 <small className="text-warning ms-2">⏸ พักชั่วคราว</small>
                             )}
                         </div>
@@ -486,7 +441,7 @@ const WorkorderView: React.FC = () => {
                                                             backgroundColor: getPhaseStatusColor(phase.phase_status),
                                                             left: `${Math.min((idx * 12) + 2, 85)}%`,
                                                             width: `${Math.max(15, 30 - idx * 3)}%`,
-                                                            opacity: phase.phase_status === 'Pending' ? 0.5 : 1,
+                                                            opacity: phase.phase_status === 'รอดําเนินการ' ? 0.5 : 1,
                                                         }}
                                                     >
                                                         <span className="wo-bar-text">
@@ -582,7 +537,7 @@ const WorkorderView: React.FC = () => {
                                             )}
 
                                             {/* Status Label */}
-                                            {phase.phase_status === 'Completed' && (
+                                            {phase.phase_status === 'เสร็จสิ้น' && (
                                                 <div className="d-flex align-items-center gap-2 px-3 pb-3 pt-2 border-top">
                                                     <span className="d-inline-flex align-items-center text-success fw-semibold fs-7">
                                                         <i className="bi bi-check-circle-fill me-1" /> เสร็จสิ้นแล้ว

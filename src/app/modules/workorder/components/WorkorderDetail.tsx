@@ -272,7 +272,7 @@ const WorkorderDetail: React.FC = () => {
             text: 'เลือกประเภทการพัก',
             icon: 'info',
             input: 'select',
-            inputOptions: { 'พักกลางวัน': 'พักเที่ยง', 'พักเบรค': 'พักเบรก', 'อื่นๆ': 'อื่นๆ' },
+            inputOptions: { 'พักกลางวัน': 'พักเที่ยง', 'พักเบรค': 'พักเบรค', 'อื่นๆ': 'อื่นๆ' },
             inputValue: 'Short Break',
             showCancelButton: true,
             confirmButtonColor: '#fd7e14',
