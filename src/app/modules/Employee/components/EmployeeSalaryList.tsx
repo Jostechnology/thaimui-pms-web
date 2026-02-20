@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
-import { useAlertModal } from '../../../context/ModalContext'; 
+import { useAlertModal } from '../../../context/ModalContext';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import SalaryAdjustmentModal from '../../../modals/employee_modal/SalaryAdjustmentModal';
 import SalarySummaryModal from '../../../modals/employee_modal/SalarySummaryModal';
@@ -22,23 +22,23 @@ export interface EmployeeData {
     status?: string;
     is_active?: boolean;
     user_id?: number;
-    base_salary?: number; 
-    salary_base?: number;  
+    base_salary?: number;
+    salary_base?: number;
 }
 
 const EmployeeSalaryList: React.FC = () => {
     const [employees, setEmployees] = useState<EmployeeData[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [searchTerm, setSearchTerm] = useState<string>("");
-    
+
     const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [itemsPerPage, setItemsPerPage] = useState<number>(10);
 
     const [showAdjustModal, setShowAdjustModal] = useState(false);
     const [showSummaryModal, setShowSummaryModal] = useState(false);
-    
-    const [selectedEmp, setSelectedEmp] = useState<any>(null); 
+
+    const [selectedEmp, setSelectedEmp] = useState<any>(null);
 
     const fetchData = async () => {
         setLoading(true);
@@ -104,7 +104,7 @@ const EmployeeSalaryList: React.FC = () => {
 
     const getThaiStatus = (status?: string | null) => {
         if (!status) return '-';
-        // กรณี backend ส่งค่าเป็นชื่อค่า enum ตัวอย่าง: 'Unemployed'
+        // กรณี backend ส่งค่าเป็นชื่อค่า enum ตัวอย่าง: 'UNEMPLOYED'
         if ((EmployeeStatusLabel as any)[status]) return (EmployeeStatusLabel as any)[status];
         // กรณี backend ส่งค่าเป็นคีย์ของ enum เช่น 'UNEMPLOYED'
         if ((EmployeeStatus as any)[status]) {
@@ -240,7 +240,7 @@ const EmployeeSalaryList: React.FC = () => {
                                 <option value="50">50</option>
                             </select>
                         </div>
-                        
+
                         <ul className="pagination">
                             <li className={`page-item previous ${currentPage === 1 ? 'disabled' : ''}`}>
                                 <button className="page-link" onClick={() => setCurrentPage(p => Math.max(1, p - 1))}><i className="previous"></i></button>
@@ -258,20 +258,20 @@ const EmployeeSalaryList: React.FC = () => {
 
             <SalaryAdjustmentModal
                 show={showAdjustModal}
-                onHide={() => { 
-                    setShowAdjustModal(false); 
-                    fetchData(); 
+                onHide={() => {
+                    setShowAdjustModal(false);
+                    fetchData();
                 }}
                 employee={selectedEmp ? {
                     id: selectedEmp.employee_id,
                     name: `${selectedEmp.employee_first_name} ${selectedEmp.employee_last_name}`,
-                    currentSalary: selectedEmp.base_salary || selectedEmp.salary_base || 0 
+                    currentSalary: selectedEmp.base_salary || selectedEmp.salary_base || 0
                 } : null}
             />
             <SalarySummaryModal
                 show={showSummaryModal}
                 onHide={() => setShowSummaryModal(false)}
-                employee={selectedEmp} 
+                employee={selectedEmp}
             />
         </div>
     );

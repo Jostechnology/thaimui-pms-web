@@ -27,15 +27,15 @@ export interface EmployeeSalaryHistory {
 }
 
 export enum EmployeeStatus {
-  UNEMPLOYED = 'Unemployed',
+  UNEMPLOYED = 'UNEMPLOYED',
   ACTIVE = 'Active',
-  ON_LEAVE = 'On Leave',
-  SUSPENDED = 'Suspended'
+  ONLEAVE = 'ONLEAVE',
+  SUSPENDED = 'SUSPENDED'
 }
 
 export const EmployeeStatusLabel: Record<EmployeeStatus, string> = {
   [EmployeeStatus.UNEMPLOYED]: 'ว่างงาน',
   [EmployeeStatus.ACTIVE]: 'ทำงานอยู่',
-  [EmployeeStatus.ON_LEAVE]: 'หยุดงาน',
+  [EmployeeStatus.ONLEAVE]: 'หยุดงาน',
   [EmployeeStatus.SUSPENDED]: 'ลางาน'
 };

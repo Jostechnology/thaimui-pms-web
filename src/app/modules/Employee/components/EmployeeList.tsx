@@ -80,7 +80,7 @@ const EmployeeList: React.FC = () => {
   const getThaiStatus = (s?: string) => {
     if (!s && s !== '') return '';
     const raw = String(s || '').trim();
-    // ถ้า backend ส่งค่าเป็นค่า enum value เช่น 'Unemployed' ให้แมปเป็นฉลากไทย
+    // ถ้า backend ส่งค่าเป็นค่า enum value เช่น 'UNEMPLOYED' ให้แมปเป็นฉลากไทย
     if ((EmployeeStatusLabel as any)[raw]) return (EmployeeStatusLabel as any)[raw];
     // ถ้า backend ส่งค่าเป็นคีย์ของ enum เช่น 'UNEMPLOYED'
     if ((EmployeeStatus as any)[raw]) {

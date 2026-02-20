@@ -81,7 +81,7 @@ const WorkorderDetail: React.FC = () => {
 
     const phaseStatusThaiMap: Record<string, string> = {
         PENDING: 'รอดําเนินการ',
-        IN_PROGRESS: 'กําลังดําเนินการ',
+        INPROGRESS: 'กําลังดําเนินการ',
         PAUSED: 'หยุดชั่วคราว',
         COMPLETED: 'เสร็จสิ้น'
     };
@@ -91,7 +91,7 @@ const WorkorderDetail: React.FC = () => {
         // If contains Thai keywords, map directly
         if (/[ก-๙]/.test(s)) {
             if (s.includes('รอ')) return 'PENDING';
-            if (s.includes('กําลัง') || s.includes('ดําเนิน')) return 'IN_PROGRESS';
+            if (s.includes('กําลัง') || s.includes('ดําเนิน')) return 'INPROGRESS';
             if (s.includes('หยุด')) return 'PAUSED';
             if (s.includes('เสร็จ')) return 'COMPLETED';
             return s.toString().toUpperCase().replace(/\s+/g, '_');
@@ -106,7 +106,7 @@ const WorkorderDetail: React.FC = () => {
 
     const toBackendPhaseKey = (s?: string | null) => {
         const key = normalizePhaseKey(s);
-        if (['PENDING', 'IN_PROGRESS', 'PAUSED', 'COMPLETED'].includes(key)) return key;
+        if (['PENDING', 'INPROGRESS', 'PAUSED', 'COMPLETED'].includes(key)) return key;
         return key || '';
     };
 
@@ -261,10 +261,10 @@ const WorkorderDetail: React.FC = () => {
     const hasActivePhase = phases.some(p => {
         if (p.isNew) return false;
         const k = normalizePhaseKey(p.status);
-        return k === 'IN_PROGRESS' || k === 'PAUSED';
+        return k === 'INPROGRESS' || k === 'PAUSED';
     });
 
-    const firstPendingPhaseId = !hasActivePhase
+    const firstPENDINGPhaseId = !hasActivePhase
         ? (phases.find(p => !p.isNew && normalizePhaseKey(p.status) === 'PENDING')?.id ?? null)
         : null;
 
@@ -317,7 +317,7 @@ const WorkorderDetail: React.FC = () => {
             text: 'เลือกประเภทการพัก',
             icon: 'info',
             input: 'select',
-            inputOptions: { 'พักกลางวัน': 'พักเที่ยง', 'พักเบรค': 'พักเบรค', 'อื่นๆ': 'อื่นๆ' },
+            inputOptions: { 'LUNCHBREAK': 'พักเที่ยง', 'RESTBREAK': 'พักเบรค', 'OTHER': 'อื่นๆ' },
             inputValue: 'Short Break',
             showCancelButton: true,
             confirmButtonColor: '#fd7e14',
@@ -468,22 +468,22 @@ const WorkorderDetail: React.FC = () => {
                             <div className={`card shadow-sm w-100 ${phase.isNew ? 'border border-dashed border-primary' : ''}`}>
                                 <div className='card-header border-0 pt-5'>
                                     <div className='card-title flex-column'>
-                                        {phase.status == "เสร็จสิ้น" ?                                            
-                                        <span className='card-label fw-bold text-gray-900 fs-4 cursor-pointer mb-1' onClick={() => toggleEditPhase(phase.id)}>
-                                            {phase.title} 
-                                            </span> : phase.isEditing ? (
-                                            <input
-                                                className='form-control form-control-sm fw-bold fs-4 text-gray-900 border-primary mb-1'
-                                                value={phase.title}
-                                                autoFocus
-                                                onBlur={() => toggleEditPhase(phase.id)}
-                                                onChange={(e) => updatePhaseTitle(phase.id, e.target.value)}
-                                            />
-                                        ) : (
+                                        {phase.status == "เสร็จสิ้น" ?
                                             <span className='card-label fw-bold text-gray-900 fs-4 cursor-pointer mb-1' onClick={() => toggleEditPhase(phase.id)}>
-                                                {phase.title} <i className='bi bi-pencil fs-7 ms-2 text-gray-400'></i>
-                                            </span>
-                                        )}
+                                                {phase.title}
+                                            </span> : phase.isEditing ? (
+                                                <input
+                                                    className='form-control form-control-sm fw-bold fs-4 text-gray-900 border-primary mb-1'
+                                                    value={phase.title}
+                                                    autoFocus
+                                                    onBlur={() => toggleEditPhase(phase.id)}
+                                                    onChange={(e) => updatePhaseTitle(phase.id, e.target.value)}
+                                                />
+                                            ) : (
+                                                <span className='card-label fw-bold text-gray-900 fs-4 cursor-pointer mb-1' onClick={() => toggleEditPhase(phase.id)}>
+                                                    {phase.title} <i className='bi bi-pencil fs-7 ms-2 text-gray-400'></i>
+                                                </span>
+                                            )}
                                         <div className='d-flex gap-2 align-items-center'>
                                             <span className='text-muted fw-bold fs-8'>สถานะ: {getPhaseDisplay(phase.status)}</span>
                                             {phase.isNew && <span className='badge badge-light-primary fs-9'>New</span>}
@@ -491,7 +491,7 @@ const WorkorderDetail: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className='card-toolbar d-flex gap-2'>
-                                        {firstPendingPhaseId === phase.id && (
+                                        {firstPENDINGPhaseId === phase.id && (
                                             <button
                                                 className='btn btn-sm btn-primary fw-bold'
                                                 onClick={() => handleStartPhase(phase.id)}
@@ -500,7 +500,7 @@ const WorkorderDetail: React.FC = () => {
                                             </button>
                                         )}
                                         {/* พักงาน — เฉพาะ phase ที่กำลัง InProgress */}
-                                        {!phase.isNew && normalizePhaseKey(phase.status) === 'IN_PROGRESS'  && (
+                                        {!phase.isNew && normalizePhaseKey(phase.status) === 'INPROGRESS' && (
                                             <button
                                                 className='btn btn-sm btn-warning fw-bold'
                                                 onClick={() => handlePausePhase(phase.id)}
@@ -508,7 +508,7 @@ const WorkorderDetail: React.FC = () => {
                                                 <i className='bi bi-pause-fill me-1'></i> พักงาน
                                             </button>
                                         )}
-                                        {/* ทำงานต่อ — เฉพาะ phase ที่ Paused */}
+                                        {/* ทำงานต่อ — เฉพาะ phase ที่ PAUSED */}
                                         {!phase.isNew && normalizePhaseKey(phase.status) === 'PAUSED' && (
                                             <button
                                                 className='btn btn-sm btn-primary fw-bold'
@@ -517,8 +517,8 @@ const WorkorderDetail: React.FC = () => {
                                                 <i className='bi bi-play-fill me-1'></i> ทำงานต่อ
                                             </button>
                                         )}
-                                        {/* เสร็จสิ้น — เฉพาะ phase ที่ InProgress หรือ Paused */}
-                                        {!phase.isNew && (['IN_PROGRESS','PAUSED'].includes(normalizePhaseKey(phase.status))) && (
+                                        {/* เสร็จสิ้น — เฉพาะ phase ที่ InProgress หรือ PAUSED */}
+                                        {!phase.isNew && (['INPROGRESS', 'PAUSED'].includes(normalizePhaseKey(phase.status))) && (
                                             <button
                                                 className='btn btn-sm btn-success fw-bold'
                                                 onClick={() => handleCompletePhase(phase.id)}

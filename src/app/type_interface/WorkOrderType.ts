@@ -1,33 +1,19 @@
 import type { Employee } from './EmployeeType';
 
 
-export type WorkOrderStatus =
-    | 'พร้อม'
-    | 'กำลังดำเนินการ'
-    | 'เสร็จสิ้น';
-
-
-export type WorkPhaseStatus =
-    | 'รอดําเนินการ'
-    | 'กําลังดําเนินการ'
-    | 'หยุดชั่วคราว'
-    | 'เสร็จสิ้น';
-
-
-export type BreakType = 'พักกลางวัน' | 'พักเบรค' | 'อื่นๆ';
 export interface WorkPhaseBreak {
     break_id: number;
     work_phase_id: number;
     break_start: string;
     break_end: string | null;
-    break_type: BreakType;
+    break_type: BreakTypeEnum;
 }
 
 export interface WorkPhase {
     work_phase_id: number;
     work_order_id: number;
     phase_name: string;
-    phase_status: WorkPhaseStatus;
+    phase_status: WorkPhaseStatusEnum;
     start_date: string | null;
     end_date: string | null;
     created_date: string;
@@ -52,7 +38,7 @@ export interface WorkOrder {
     work_order_id: number;
     doc_num: string;
     created_date: string;
-    status: WorkOrderStatus;
+    status: WorkOrderStatusEnum;
     current_phase: WorkPhase | null;
     work_phases: WorkPhase[];
     sales_item: SalesItem | null;
@@ -60,7 +46,7 @@ export interface WorkOrder {
 
 
 export interface StatusCount {
-    status: WorkOrderStatus;
+    status: WorkOrderStatusEnum;
     count: number;
     color: string;
 }
@@ -69,19 +55,30 @@ export interface EmployeeWorkload {
     employee_id: number;
     employee_name: string;
     active_tasks: number;
-    completed_tasks: number;
+    COMPLETED_tasks: number;
 }
 
 export interface DashboardKPI {
     total: number;
     active: number;
-    completed: number;
+    COMPLETED: number;
     waiting: number;
     overdue: number;
 }
 
-export enum WorkOrderStatusEnum{
+export enum WorkOrderStatusEnum {
     READY = 'READY',
-    IN_PROGRESS = 'IN_PROGRESS',
+    INPROGRESS = 'INPROGRESS',
     COMPLETED = 'COMPLETED'
+}
+export enum WorkPhaseStatusEnum {
+    PENDING = 'PENDING',
+    INPROGRESS = 'INPROGRESS',
+    PAUSED = 'PAUSED',
+    COMPLETED = 'COMPLETED'
+}
+export enum BreakTypeEnum {
+    LUNCHBREAK = 'LUNCHBREAK',
+    RESTBREAK = 'RESTBREAK',
+    OTHER = 'OTHER'
 }

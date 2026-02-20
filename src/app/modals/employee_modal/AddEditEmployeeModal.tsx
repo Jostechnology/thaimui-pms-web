@@ -89,7 +89,7 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
 
             let res;
             if (isEditMode) {
-                // The update API expects employee_id in the payload or URL depending on implementation.
+                // The update API expects employee_id in the payload or URL dePENDING on implementation.
                 // Based on service: updateEmployee takes data. Let's check service implementation again to be sure key is passing correctly.
                 // Service: updateEmployee(data) -> PUT /update_employee -> Controller: update_employee(data) -> Service: update_employee(data.get("employee_id"), data) is NOT how backend is written
                 // Backend: update_employee(data) -> data = request.get_json() -> update_employee(data).

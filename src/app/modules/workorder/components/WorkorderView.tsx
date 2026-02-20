@@ -6,43 +6,43 @@ import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import Swal from 'sweetalert2';
 import './WorkorderView.css';
-import type { WorkOrder, WorkPhase, WorkPhaseBreak } from '../../../type_interface/WorkOrderType';
+import { WorkPhaseStatusEnum, type WorkOrder, type WorkPhase, type WorkPhaseBreak } from '../../../type_interface/WorkOrderType';
 import type { Employee } from '../../../type_interface/EmployeeType';
 
 // --- Helper functions ---
 const getPhaseStatusColor = (status: string) => {
     switch (status) {
-        case 'กำลังดําเนินการ': return '#0d6efd';
-        case 'เสร็จสิ้น': return '#198754';
-        case 'หยุดชั่วคราว': return '#fd7e14';
-        case 'รอดําเนินการ': return '#6c757d';
+        case WorkPhaseStatusEnum.INPROGRESS: return '#0d6efd';
+        case WorkPhaseStatusEnum.COMPLETED: return '#198754';
+        case WorkPhaseStatusEnum.PAUSED: return '#fd7e14';
+        case WorkPhaseStatusEnum.PENDING: return '#6c757d';
         default: return '#adb5bd';
     }
 };
 
 const getPhaseStatusBg = (status: string) => {
     switch (status) {
-        case 'กำลังดําเนินการ': return '#e7f1ff';
-        case 'เสร็จสิ้น': return '#d1e7dd';
-        case 'หยุดชั่วคราว': return '#fff3e0';
-        case 'รอดําเนินการ': return '#f8f9fa';
+        case WorkPhaseStatusEnum.INPROGRESS: return '#e7f1ff';
+        case WorkPhaseStatusEnum.COMPLETED: return '#d1e7dd';
+        case WorkPhaseStatusEnum.PAUSED: return '#fff3e0';
+        case WorkPhaseStatusEnum.PENDING: return '#f8f9fa';
         default: return '#f8f9fa';
     }
 };
 
 const getStatusBadgeClass = (status: string) => {
-    if (status === 'เสร็จสิ้น') return 'wo-badge-success';
-    if (status === 'กำลังดำเนินการ') return 'wo-badge-primary';
-    if (status === 'พร้อม') return 'wo-badge-info';
+    if (status === WorkPhaseStatusEnum.COMPLETED) return 'wo-badge-success';
+    if (status === WorkPhaseStatusEnum.INPROGRESS) return 'wo-badge-primary';
+    if (status === WorkPhaseStatusEnum.PENDING) return 'wo-badge-info';
     return 'wo-badge-secondary';
 };
 
 const getPhaseStatusLabel = (status: string) => {
     switch (status) {
-        case 'กำลังดําเนินการ': return 'กำลังดำเนินการ';
-        case 'เสร็จสิ้น': return 'เสร็จสิ้น';
-        case 'หยุดชั่วคราว': return 'หยุดชั่วคราว';
-        case 'รอดําเนินการ': return 'รอดำเนินการ';
+        case WorkPhaseStatusEnum.INPROGRESS: return 'กำลังดำเนินการ';
+        case WorkPhaseStatusEnum.COMPLETED: return 'เสร็จสิ้น';
+        case WorkPhaseStatusEnum.PAUSED: return 'หยุดชั่วคราว';
+        case WorkPhaseStatusEnum.PENDING: return 'รอดำเนินการ';
         default: return status;
     }
 };
@@ -137,7 +137,7 @@ const getPhaseBarInfo = (phase: WorkPhase, selectedDate: Date): PhaseBarInfo | n
 };
 
 // --- Live Timer Component (subtracts break time) ---
-const LiveTimer: React.FC<{ startDate: string | null; breaks?: WorkPhaseBreak[]; isPaused?: boolean }> = ({ startDate, breaks, isPaused }) => {
+const LiveTimer: React.FC<{ startDate: string | null; breaks?: WorkPhaseBreak[]; isPAUSED?: boolean }> = ({ startDate, breaks, isPAUSED }) => {
     const [elapsed, setElapsed] = useState('00:00:00');
 
     useEffect(() => {
@@ -159,9 +159,9 @@ const LiveTimer: React.FC<{ startDate: string | null; breaks?: WorkPhaseBreak[];
         update();
         const interval = setInterval(update, 1000);
         return () => clearInterval(interval);
-    }, [startDate, breaks, isPaused]);
+    }, [startDate, breaks, isPAUSED]);
 
-    return <span className={`wo-timer-value ${isPaused ? 'text-warning' : ''}`} style={isPaused ? { animation: 'wo-pulse 1.5s ease-in-out infinite' } : {}}>{elapsed}</span>;
+    return <span className={`wo-timer-value ${isPAUSED ? 'text-warning' : ''}`} style={isPAUSED ? { animation: 'wo-pulse 1.5s ease-in-out infinite' } : {}}>{elapsed}</span>;
 };
 
 // --- Work Order Total Live Timer (sum of all phases' working time) ---
@@ -172,7 +172,7 @@ const LiveTimer: React.FC<{ startDate: string | null; breaks?: WorkPhaseBreak[];
 // - รอดําเนินการ: ข้าม (ยังไม่มี start_date)
 const WorkOrderLiveTimer: React.FC<{ phases: WorkPhase[] }> = ({ phases }) => {
     const [elapsed, setElapsed] = useState('00:00:00');
-    const hasActivePhase = phases.some(p => p.phase_status === 'กําลังดําเนินการ');
+    const hasActivePhase = phases.some(p => p.phase_status === WorkPhaseStatusEnum.INPROGRESS);
 
     useEffect(() => {
         const calcTotal = () => {
@@ -218,6 +218,7 @@ const WorkorderView: React.FC = () => {
     const [dataLoading, setDataLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
+    const [clickedBarPixel, setClickedBarPixel] = useState<{ barCenterPx: number; trackWidthPx: number } | null>(null);
 
     const fetchData = async () => {
         setLoading();
@@ -276,13 +277,13 @@ const WorkorderView: React.FC = () => {
 
     const totalEmployeeCount = useMemo(() => allEmployees.length, [allEmployees]);
 
-    const completedPhases = useMemo(() => {
+    const COMPLETEDPhases = useMemo(() => {
         if (!workOrder) return 0;
-        return workOrder.work_phases.filter(p => p.phase_status === 'เสร็จสิ้น').length;
+        return workOrder.work_phases.filter(p => p.phase_status === WorkPhaseStatusEnum.COMPLETED).length;
     }, [workOrder]);
 
     const totalPhases = useMemo(() => workOrder?.work_phases.length || 0, [workOrder]);
-    const progressPercent = useMemo(() => totalPhases > 0 ? Math.round((completedPhases / totalPhases) * 100) : 0, [completedPhases, totalPhases]);
+    const progressPercent = useMemo(() => totalPhases > 0 ? Math.round((COMPLETEDPhases / totalPhases) * 100) : 0, [COMPLETEDPhases, totalPhases]);
 
     // Navigate date
     const handlePrevDate = () => setSelectedDate(prev => { const d = new Date(prev); d.setDate(d.getDate() - 1); return d; });
@@ -364,17 +365,17 @@ const WorkorderView: React.FC = () => {
                     <div className="wo-kpi-card">
                         <div className="wo-kpi-header">
                             <span className="wo-kpi-label">ระยะเวลาดำเนินการทั้งหมด (LIVE)</span>
-                            {workOrder.work_phases.some(p => p.phase_status === 'กําลังดําเนินการ') && (
+                            {workOrder.work_phases.some(p => p.phase_status === WorkPhaseStatusEnum.INPROGRESS) && (
                                 <span className="wo-live-dot" />
                             )}
-                            {workOrder.current_phase?.phase_status === 'หยุดชั่วคราว' && (
+                            {workOrder.current_phase?.phase_status === WorkPhaseStatusEnum.PAUSED && (
                                 <span className="wo-live-dot" style={{ background: '#fd7e14' }} />
                             )}
                         </div>
                         <WorkOrderLiveTimer phases={workOrder.work_phases} />
                         <div className="wo-kpi-sub mt-2">
                             <small className="text-muted">เริ่ม: {formatDateTime(workOrder.created_date)}</small>
-                            {workOrder.current_phase?.phase_status === 'หยุดชั่วคราว' && (
+                            {workOrder.current_phase?.phase_status === WorkPhaseStatusEnum.PAUSED && (
                                 <small className="text-warning ms-2">⏸ พักชั่วคราว</small>
                             )}
                         </div>
@@ -416,7 +417,7 @@ const WorkorderView: React.FC = () => {
                         <div className="d-flex align-items-baseline gap-2">
                             <span className="wo-kpi-big">{progressPercent}%</span>
                             <span className={`wo-kpi-change ${progressPercent > 50 ? 'text-success' : 'text-warning'}`}>
-                                {completedPhases}/{totalPhases} ขั้นตอน
+                                {COMPLETEDPhases}/{totalPhases} ขั้นตอน
                             </span>
                         </div>
                         <div className="wo-progress-bar mt-3">
@@ -517,11 +518,17 @@ const WorkorderView: React.FC = () => {
                                                                 backgroundColor: getPhaseStatusColor(phase.phase_status),
                                                                 left: `${barInfo.leftPercent}%`,
                                                                 width: `${barInfo.widthPercent}%`,
-                                                                opacity: phase.phase_status === 'รอดําเนินการ' ? 0.5 : 1,
+                                                                opacity: phase.phase_status === WorkPhaseStatusEnum.PENDING ? 0.5 : 1,
                                                                 cursor: 'pointer',
                                                             }}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
+                                                                const barEl = e.currentTarget;
+                                                                const trackEl = barEl.parentElement!;
+                                                                const barRect = barEl.getBoundingClientRect();
+                                                                const trackRect = trackEl.getBoundingClientRect();
+                                                                const barCenterPx = (barRect.left + barRect.width / 2) - trackRect.left;
+                                                                setClickedBarPixel({ barCenterPx, trackWidthPx: trackRect.width });
                                                                 setSelectedPhaseId(prev => prev === phase.work_phase_id ? null : phase.work_phase_id);
                                                             }}
                                                         >
@@ -543,9 +550,13 @@ const WorkorderView: React.FC = () => {
                                                         const barCenter = barInfo ? barInfo.leftPercent + barInfo.widthPercent / 2 : 50;
                                                         // Clamp popover so it doesn't overflow left/right
                                                         const popoverLeft = Math.max(5, Math.min(barCenter - 15, 65));
-                                                        const arrowLeft = Math.max(12, Math.min(barCenter - popoverLeft, 85));
+                                                        // Calculate arrow position in pixels so it points at the bar center
+                                                        const trackW = clickedBarPixel?.trackWidthPx || 1;
+                                                        const popoverLeftPx = (popoverLeft / 100) * trackW;
+                                                        const barCenterPx = clickedBarPixel?.barCenterPx ?? ((barCenter / 100) * trackW);
+                                                        const arrowLeftPx = Math.max(12, Math.min(barCenterPx - popoverLeftPx, 300));
                                                         return (
-                                                            <div className="wo-timeline-popover" style={{ left: `${popoverLeft}%`, '--arrow-left': `${arrowLeft}%` } as React.CSSProperties} onClick={(e) => e.stopPropagation()}>
+                                                            <div className="wo-timeline-popover" style={{ left: `${popoverLeft}%`, '--arrow-left': `${arrowLeftPx}px` } as React.CSSProperties} onClick={(e) => e.stopPropagation()}>
                                                                 <div className="wo-timeline-popover-header">
                                                                     <span className="fw-bold">{phase.phase_name}</span>
                                                                     <button className="btn btn-sm btn-icon btn-light" style={{ width: 24, height: 24 }} onClick={() => setSelectedPhaseId(null)}>
@@ -670,7 +681,7 @@ const WorkorderView: React.FC = () => {
                                             )}
 
                                             {/* Status Label */}
-                                            {phase.phase_status === 'เสร็จสิ้น' && (
+                                            {phase.phase_status === WorkPhaseStatusEnum.COMPLETED && (
                                                 <div className="d-flex align-items-center gap-2 px-3 pb-3 pt-2 border-top">
                                                     <span className="d-inline-flex align-items-center text-success fw-semibold fs-7">
                                                         <i className="bi bi-check-circle-fill me-1" /> เสร็จสิ้นแล้ว
