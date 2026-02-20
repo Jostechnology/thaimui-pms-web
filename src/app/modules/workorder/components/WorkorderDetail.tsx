@@ -8,7 +8,6 @@ import { getWorkOrderById, createWorkPhase, updateWorkPhase, deleteWorkPhase } f
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 
-// --- Interfaces ---
 interface Employee {
     citizen_id: string;
     employee_first_name: string;
@@ -151,10 +150,10 @@ const WorkorderDetail: React.FC = () => {
         }
     };
 
-    const fetchEmployees = async (search: string) => {
+    const fetchEmployees = async () => {
         setEmpLoading(true);
         try {
-            const res = await getEmployeeList(search);
+            const res = await getEmployeeList('');
             if (res && res.success && res.data && Array.isArray(res.data.items)) {
                 setAllEmployees(res.data.items);
             } else {
@@ -167,12 +166,23 @@ const WorkorderDetail: React.FC = () => {
         }
     };
 
+    // Filter employees locally instead of re-fetching on every search
+    const filteredEmployees = React.useMemo(() => {
+        if (!searchTerm) return allEmployees;
+        const q = searchTerm.toLowerCase();
+        return allEmployees.filter(emp => {
+            const fullName = `${emp.employee_first_name} ${emp.employee_last_name}`.toLowerCase();
+            return fullName.includes(q) || String(emp.employee_id).includes(q) || (emp.citizen_id && emp.citizen_id.includes(q));
+        });
+    }, [allEmployees, searchTerm]);
+
     useEffect(() => {
         if (showModal) {
-            const delay = setTimeout(() => fetchEmployees(searchTerm), 300);
-            return () => clearTimeout(delay);
+            if (allEmployees.length === 0) {
+                fetchEmployees();
+            }
         }
-    }, [searchTerm, showModal]);
+    }, [showModal]);
 
     useEffect(() => {
         fetchWorkorderData();
@@ -181,7 +191,6 @@ const WorkorderDetail: React.FC = () => {
     // --- 3. Change Tracking Helpers ---
     const markAsEdited = (phaseId: number) => {
         const phase = phases.find(p => p.id === phaseId);
-        // ถ้าเป็นของเก่า (!isNew) และยังไม่ได้อยู่ในรายการแก้ไข -> เพิ่มเข้าไป
         if (phase && !phase.isNew && !editIDList.includes(phaseId)) {
             setEditIDList(prev => [...prev, phaseId]);
         }
@@ -574,7 +583,7 @@ const WorkorderDetail: React.FC = () => {
                             <thead><tr className='fw-bold text-muted text-uppercase fs-7'><th>พนักงาน</th><th>สถานะ</th><th className='text-end'>เลือก</th></tr></thead>
                             <tbody>
                                 {empLoading ? (<tr><td colSpan={3} className='text-center py-10'>กำลังโหลด...</td></tr>) :
-                                    allEmployees && allEmployees.length > 0 ? (allEmployees.map((emp) => {
+                                    filteredEmployees && filteredEmployees.length > 0 ? (filteredEmployees.map((emp) => {
                                         const isAlreadyAssigned = phases.find(p => p.id === activePhaseId)?.staffs?.some(s => s.id === emp.employee_id);
                                         return (
                                             <tr key={emp.employee_id}>

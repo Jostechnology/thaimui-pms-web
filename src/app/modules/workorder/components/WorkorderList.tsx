@@ -79,7 +79,7 @@ const WorkorderList: React.FC = () => {
             </button>
             <input
                 type="text"
-                className="form-control form-control-sm form-control-solid w-100px text-center fw-bold cursor-pointer ms-2"
+                className="form-control form-control-sm form-control-solid w-150px text-center fw-bold cursor-pointer ms-2"
                 value={value}
                 readOnly
                 placeholder="ทุกเดือน"
@@ -221,7 +221,6 @@ const WorkorderList: React.FC = () => {
 
             <div className='card card-flush shadow-sm border-0'>
                 <div className='card-header align-items-center py-5 gap-2 gap-md-5'>
-                    {/* 1. ฝั่งซ้าย: ช่องค้นหา (card-title) */}
                     <div className='card-title'>
                         <div className='d-flex align-items-center position-relative my-1'>
                             <i className='ki-duotone ki-magnifier fs-3 position-absolute ms-4'>
@@ -238,16 +237,13 @@ const WorkorderList: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* 2. ฝั่งขวา: เครื่องมือกรองข้อมูล (card-toolbar) */}
                     <div className='card-toolbar d-flex align-items-center gap-3'>
-
-                        {/* 🌟 แทรกที่ 1: ปุ่มเลือกเดือน (DatePicker) ตรงนี้ */}
                         <div>
                             <DatePicker
                                 selected={selectedDate}
                                 onChange={(date) => {
                                     setSelectedDate(date);
-                                    setCurrentPage(1); // รีเซ็ตหน้ากลับไปหน้า 1 เวลาเปลี่ยนเดือน
+                                    setCurrentPage(1);
                                 }}
                                 dateFormat="MMMM yyyy"
                                 showMonthYearPicker
@@ -256,8 +252,6 @@ const WorkorderList: React.FC = () => {
                                 placeholderText="เลือกเดือน"
                             />
                         </div>
-
-                        {/* 🌟 แทรกที่ 2: Dropdown สถานะงานตัวเดิม */}
                         <select
                             className='form-select form-select-solid w-150px'
                             value={statusFilter}
