@@ -57,3 +57,9 @@ export interface DashboardKPI {
     waiting: number;
     overdue: number;
 }
+
+export enum WorkOrderStatusEnum{
+    READY = 'READY',
+    IN_PROGRESS = 'IN_PROGRESS',
+    COMPLETED = 'COMPLETED'
+}
