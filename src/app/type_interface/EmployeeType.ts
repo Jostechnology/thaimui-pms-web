@@ -32,3 +32,10 @@ export enum EmployeeStatus {
   ON_LEAVE = 'On Leave',
   SUSPENDED = 'Suspended'
 }
+
+export const EmployeeStatusLabel: Record<EmployeeStatus, string> = {
+  [EmployeeStatus.UNEMPLOYED]: 'ว่างงาน',
+  [EmployeeStatus.ACTIVE]: 'ทำงานอยู่',
+  [EmployeeStatus.ON_LEAVE]: 'หยุดงาน',
+  [EmployeeStatus.SUSPENDED]: 'ลางาน'
+};

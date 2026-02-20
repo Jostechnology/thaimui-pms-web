@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEmployeeList, deleteEmployee } from '../../../services/employee';
-import { Employee, EmployeeStatus } from '../../../type_interface/EmployeeType';
+import { Employee, EmployeeStatus, EmployeeStatusLabel } from '../../../type_interface/EmployeeType';
 import { useAlertModal } from '../../../context/ModalContext';
 import AddEditEmployeeModal from '../../../modals/employee_modal/AddEditEmployeeModal';
 
@@ -77,25 +77,25 @@ const EmployeeList: React.FC = () => {
 
   // useEffect(() => setPage(1), [query, statusFilter, perPage]); // Removed as fetchData dependency handles this
 
-  const normalizeStatus = (s?: string) => {
+  const getThaiStatus = (s?: string) => {
     if (!s && s !== '') return '';
     const raw = String(s || '').trim();
-    // map common english variants to thai
-    const map: Record<string, string> = {
-      working: EmployeeStatus['ทำงานอยู่'],
-      completed: EmployeeStatus['ว่างงาน'],
-      resigned: EmployeeStatus['ว่างงาน'],
-      on_leave: EmployeeStatus['ลางาน'],
-    };
-    if (map[raw.toLowerCase()]) return map[raw.toLowerCase()];
-    // if already matches an enum value return it
-    if ((Object.values(EmployeeStatus) as string[]).includes(raw)) return raw;
+    // ถ้า backend ส่งค่าเป็นค่า enum value เช่น 'Unemployed' ให้แมปเป็นฉลากไทย
+    if ((EmployeeStatusLabel as any)[raw]) return (EmployeeStatusLabel as any)[raw];
+    // ถ้า backend ส่งค่าเป็นคีย์ของ enum เช่น 'UNEMPLOYED'
+    if ((EmployeeStatus as any)[raw]) {
+      const enumValue = (EmployeeStatus as any)[raw];
+      return (EmployeeStatusLabel as any)[enumValue] || enumValue;
+    }
+    // case-insensitive match กับค่า enum
+    const found = Object.values(EmployeeStatus).find((v: string) => v.toLowerCase() === raw.toLowerCase());
+    if (found) return (EmployeeStatusLabel as any)[found] || found;
     return raw;
   };
 
   const getStatusBadgeClass = (s?: string) => {
-    const norm = normalizeStatus(s);
-    switch (norm) {
+    const thai = getThaiStatus(s);
+    switch (thai) {
       case 'ทำงานอยู่':
         return 'badge-light-primary';
       case 'ลางาน':
@@ -103,7 +103,6 @@ const EmployeeList: React.FC = () => {
       case 'หยุดงาน':
         return 'badge-light-danger';
       case 'ว่างงาน':
-        return 'badge-light-secondary';
       default:
         return 'badge-light-secondary';
     }
@@ -181,7 +180,7 @@ const EmployeeList: React.FC = () => {
             <div className="d-flex align-items-center gap-2 flex-wrap">
               {[
                 { key: 'all', label: 'ทั้งหมด' },
-                ...Object.values(EmployeeStatus).map((s) => ({ key: s, label: s })),
+                ...Object.values(EmployeeStatus).map((s) => ({ key: s, label: (EmployeeStatusLabel as any)[s] || s })),
               ].map((f) => (
                 <button key={f.key} className={`btn btn-sm fw-bold px-4 py-2 ${statusFilter === f.key ? 'btn-primary' : 'btn-light'}`} onClick={() => setStatusFilter(f.key)} style={{ borderRadius: 20 }}>{f.label}</button>
               ))}
@@ -237,7 +236,7 @@ const EmployeeList: React.FC = () => {
                         <td>{emp.phone_number || '-'}</td>
                         <td>{emp.email || '-'}</td>
                         <td>{emp.salary_base ? formatSalary(emp.salary_base) : '-'}</td>
-                        <td className="text-center"><span className={`badge ${getStatusBadgeClass(emp.status)}`}>{normalizeStatus(emp.status) || '-'}</span></td>
+                        <td className="text-center"><span className={`badge ${getStatusBadgeClass(emp.status)}`}>{getThaiStatus(emp.status) || '-'}</span></td>
                         <td className="text-end">
                           <div className="d-flex justify-content-end gap-1">
                             <button className="btn btn-sm btn-icon btn-bg-light btn-color-info" title="ดูรายละเอียด" onClick={() => navigate(`/employee/employee_detail/${emp.employee_id}`)}><i className="bi bi-eye fs-5"></i></button>
