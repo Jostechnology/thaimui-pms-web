@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate, useParams } from "react-router-dom";
 import { getWorkOrderById } from '../../../services/workorder';
@@ -6,99 +6,43 @@ import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import Swal from 'sweetalert2';
 import './WorkorderView.css';
-
-// --- Interfaces ---
-interface Employee {
-    citizen_id: string;
-    employee_first_name: string;
-    employee_id: number;
-    employee_last_name: string;
-    status: string;
-    user_id: number;
-}
-
-interface SalesItem {
-    cost_price: number;
-    doc_num: string;
-    item_code: string;
-    item_description: string;
-    item_name: string;
-    item_num: number;
-    sales_item_id: number;
-    unit_price: number;
-}
-
-interface WorkPhaseBreak {
-    break_id: number;
-    work_phase_id: number;
-    break_start: string;
-    break_end: string | null;
-    break_type: string;
-}
-
-interface WorkPhase {
-    created_date: string;
-    employee_list: Employee[];
-    end_date: string | null;
-    phase_name: string;
-    phase_status: string;
-    start_date: string | null;
-    work_order_id: number;
-    work_phase_id: number;
-    breaks?: WorkPhaseBreak[];
-}
-
-interface WorkOrderData {
-    created_date: string;
-    current_phase: WorkPhase | null;
-    doc_num: string;
-    sales_item: SalesItem | null;
-    status: string;
-    work_order_id: number;
-    work_phases: WorkPhase[];
-}
+import type { WorkOrder, WorkPhase, WorkPhaseBreak } from '../../../type_interface/WorkOrderType';
+import type { Employee } from '../../../type_interface/EmployeeType';
 
 // --- Helper functions ---
 const getPhaseStatusColor = (status: string) => {
     switch (status) {
-        case 'InProgress':
-        case 'In Progress': return '#0d6efd';
-        case 'Completed': return '#198754';
-        case 'Paused': return '#fd7e14';
-        case 'Pending': return '#6c757d';
+        case 'กำลังดําเนินการ': return '#0d6efd';
+        case 'เสร็จสิ้น': return '#198754';
+        case 'หยุดชั่วคราว': return '#fd7e14';
+        case 'รอดําเนินการ': return '#6c757d';
         default: return '#adb5bd';
     }
 };
 
 const getPhaseStatusBg = (status: string) => {
     switch (status) {
-        case 'InProgress':
-        case 'In Progress': return '#e7f1ff';
-        case 'Completed': return '#d1e7dd';
-        case 'Paused': return '#fff3e0';
-        case 'Pending': return '#f8f9fa';
+        case 'กำลังดําเนินการ': return '#e7f1ff';
+        case 'เสร็จสิ้น': return '#d1e7dd';
+        case 'หยุดชั่วคราว': return '#fff3e0';
+        case 'รอดําเนินการ': return '#f8f9fa';
         default: return '#f8f9fa';
     }
 };
 
 const getStatusBadgeClass = (status: string) => {
-    const s = status?.toLowerCase();
-    if (s === 'completed' || s === 'finished') return 'wo-badge-success';
-    if (s === 'inprogress' || s === 'in progress' || s === 'working') return 'wo-badge-primary';
-    if (s === 'paused') return 'wo-badge-warning';
-    if (s === 'ready') return 'wo-badge-info';
-    if (s === 'wait_confirm') return 'wo-badge-warning';
-    if (s === 'pending') return 'wo-badge-secondary';
+    if (status === 'เสร็จสิ้น') return 'wo-badge-success';
+    if (status === 'กำลังดำเนินการ') return 'wo-badge-primary';
+    if (status === 'พร้อม') return 'wo-badge-info';
     return 'wo-badge-secondary';
 };
 
 const getPhaseStatusLabel = (status: string) => {
     switch (status) {
-        case 'InProgress': return 'กำลังดำเนินงาน';
-        case 'Completed': return 'เสร็จสิ้น';
-        case 'Paused': return 'พักงาน';
-        case 'Pending': return 'รอดำเนินการ';
-        case 'Cancel': return 'ยกเลิก';
+        case 'กำลังดําเนินการ': return 'กำลังดำเนินการ';
+        case 'เสร็จสิ้น': return 'เสร็จสิ้น';
+        case 'หยุดชั่วคราว': return 'หยุดชั่วคราว';
+        case 'รอดําเนินการ': return 'รอดำเนินการ';
         default: return status;
     }
 };
@@ -139,6 +83,59 @@ const formatDateTime = (dateStr: string | null) => {
         ' ' + d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 };
 
+// --- Timeline date helpers ---
+const TIMELINE_START_HOUR = 6;
+const TIMELINE_END_HOUR = 22;
+const TIMELINE_TOTAL_HOURS = TIMELINE_END_HOUR - TIMELINE_START_HOUR; // 14
+
+/** Check if two date ranges overlap */
+const isSameDay = (d1: Date, d2: Date) =>
+    d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+
+/** Get day start/end boundaries for the timeline */
+const getDayBounds = (date: Date) => {
+    const dayStart = new Date(date);
+    dayStart.setHours(TIMELINE_START_HOUR, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(TIMELINE_END_HOUR, 0, 0, 0);
+    return { dayStart, dayEnd };
+};
+
+/** Convert a time to percentage position on timeline (0-100) */
+const timeToPercent = (time: Date, dayStart: Date): number => {
+    const diffMs = time.getTime() - dayStart.getTime();
+    const totalMs = TIMELINE_TOTAL_HOURS * 3600000;
+    return Math.max(0, Math.min(100, (diffMs / totalMs) * 100));
+};
+
+interface PhaseBarInfo {
+    leftPercent: number;
+    widthPercent: number;
+    isActive: boolean;
+}
+
+/** Calculate the bar position for a phase on a given day */
+const getPhaseBarInfo = (phase: WorkPhase, selectedDate: Date): PhaseBarInfo | null => {
+    if (!phase.start_date) return null;
+    const phaseStart = new Date(phase.start_date);
+    const phaseEnd = phase.end_date ? new Date(phase.end_date) : new Date(); // ongoing = now
+    const { dayStart, dayEnd } = getDayBounds(selectedDate);
+
+    // Check if phase overlaps with this day's timeline window
+    if (phaseEnd.getTime() < dayStart.getTime() || phaseStart.getTime() > dayEnd.getTime()) {
+        return null; // no overlap
+    }
+
+    const clampedStart = new Date(Math.max(phaseStart.getTime(), dayStart.getTime()));
+    const clampedEnd = new Date(Math.min(phaseEnd.getTime(), dayEnd.getTime()));
+
+    const leftPercent = timeToPercent(clampedStart, dayStart);
+    const rightPercent = timeToPercent(clampedEnd, dayStart);
+    const widthPercent = Math.max(2, rightPercent - leftPercent); // min 2% so it's visible
+
+    return { leftPercent, widthPercent, isActive: true };
+};
+
 // --- Live Timer Component (subtracts break time) ---
 const LiveTimer: React.FC<{ startDate: string | null; breaks?: WorkPhaseBreak[]; isPaused?: boolean }> = ({ startDate, breaks, isPaused }) => {
     const [elapsed, setElapsed] = useState('00:00:00');
@@ -168,16 +165,21 @@ const LiveTimer: React.FC<{ startDate: string | null; breaks?: WorkPhaseBreak[];
 };
 
 // --- Work Order Total Live Timer (sum of all phases' working time) ---
+// เวลารวม = ผลรวม (duration แต่ละ phase - เวลาพัก) ของทุก phase
+// - เสร็จสิ้น: end_date - start_date - breaks (คงที่)
+// - กำลังดําเนินการ: now - start_date - breaks (นับต่อ live)
+// - หยุดชั่วคราว: now - start_date - breaks (break ที่ยังไม่จบใช้ now เป็น end → เวลาทำงานหยุดนับ)
+// - รอดําเนินการ: ข้าม (ยังไม่มี start_date)
 const WorkOrderLiveTimer: React.FC<{ phases: WorkPhase[] }> = ({ phases }) => {
     const [elapsed, setElapsed] = useState('00:00:00');
-    const hasActivePhase = phases.some(p => p.phase_status === 'InProgress');
+    const hasActivePhase = phases.some(p => p.phase_status === 'กําลังดําเนินการ');
 
     useEffect(() => {
         const calcTotal = () => {
             let totalWorkMs = 0;
             const now = Date.now();
             for (const phase of phases) {
-                if (!phase.start_date) continue; // Pending phase, no time yet
+                if (!phase.start_date) continue;
                 const start = new Date(phase.start_date).getTime();
                 const end = phase.end_date ? new Date(phase.end_date).getTime() : now;
                 const phaseMs = Math.max(0, end - start);
@@ -191,10 +193,16 @@ const WorkOrderLiveTimer: React.FC<{ phases: WorkPhase[] }> = ({ phases }) => {
                 `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
             );
         };
+
         calcTotal();
-        const interval = setInterval(calcTotal, 1000);
-        return () => clearInterval(interval);
-    }, [phases]);
+
+        // ถ้ามี phase ที่กำลังดำเนินการอยู่ → นับเวลาต่อทุกวินาที
+        // ถ้าทุก phase เสร็จ/พัก/รอ → ไม่ต้อง interval (เวลาไม่เปลี่ยน)
+        if (hasActivePhase) {
+            const interval = setInterval(calcTotal, 1000);
+            return () => clearInterval(interval);
+        }
+    }, [phases, hasActivePhase]);
 
     return <span className={`wo-timer-value`}>{elapsed}</span>;
 };
@@ -206,9 +214,10 @@ const WorkorderView: React.FC = () => {
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
 
-    const [workOrder, setWorkOrder] = useState<WorkOrderData | null>(null);
+    const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
     const [dataLoading, setDataLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(new Date());
+    const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
 
     const fetchData = async () => {
         setLoading();
@@ -232,6 +241,15 @@ const WorkorderView: React.FC = () => {
     useEffect(() => {
         fetchData();
     }, [id]);
+
+    // Close popover when clicking outside
+    useEffect(() => {
+        const handleClickOutside = () => setSelectedPhaseId(null);
+        if (selectedPhaseId !== null) {
+            document.addEventListener('click', handleClickOutside);
+            return () => document.removeEventListener('click', handleClickOutside);
+        }
+    }, [selectedPhaseId]);
 
     // --- Computed values ---
     const allEmployees = useMemo(() => {
@@ -260,7 +278,7 @@ const WorkorderView: React.FC = () => {
 
     const completedPhases = useMemo(() => {
         if (!workOrder) return 0;
-        return workOrder.work_phases.filter(p => p.phase_status === 'Completed').length;
+        return workOrder.work_phases.filter(p => p.phase_status === 'เสร็จสิ้น').length;
     }, [workOrder]);
 
     const totalPhases = useMemo(() => workOrder?.work_phases.length || 0, [workOrder]);
@@ -269,6 +287,18 @@ const WorkorderView: React.FC = () => {
     // Navigate date
     const handlePrevDate = () => setSelectedDate(prev => { const d = new Date(prev); d.setDate(d.getDate() - 1); return d; });
     const handleNextDate = () => setSelectedDate(prev => { const d = new Date(prev); d.setDate(d.getDate() + 1); return d; });
+    const handleToday = useCallback(() => setSelectedDate(new Date()), []);
+
+    // Phases that have activity on the selected date
+    const phasesOnDate = useMemo(() => {
+        if (!workOrder) return [];
+        return workOrder.work_phases.map(phase => ({
+            phase,
+            barInfo: getPhaseBarInfo(phase, selectedDate),
+        }));
+    }, [workOrder, selectedDate]);
+
+    const hasActivityOnDate = useMemo(() => phasesOnDate.some(p => p.barInfo !== null), [phasesOnDate]);
 
 
 
@@ -334,17 +364,17 @@ const WorkorderView: React.FC = () => {
                     <div className="wo-kpi-card">
                         <div className="wo-kpi-header">
                             <span className="wo-kpi-label">ระยะเวลาดำเนินการทั้งหมด (LIVE)</span>
-                            {workOrder.work_phases.some(p => p.phase_status === 'InProgress') && (
+                            {workOrder.work_phases.some(p => p.phase_status === 'กําลังดําเนินการ') && (
                                 <span className="wo-live-dot" />
                             )}
-                            {workOrder.current_phase?.phase_status === 'Paused' && (
+                            {workOrder.current_phase?.phase_status === 'หยุดชั่วคราว' && (
                                 <span className="wo-live-dot" style={{ background: '#fd7e14' }} />
                             )}
                         </div>
                         <WorkOrderLiveTimer phases={workOrder.work_phases} />
                         <div className="wo-kpi-sub mt-2">
                             <small className="text-muted">เริ่ม: {formatDateTime(workOrder.created_date)}</small>
-                            {workOrder.current_phase?.phase_status === 'Paused' && (
+                            {workOrder.current_phase?.phase_status === 'หยุดชั่วคราว' && (
                                 <small className="text-warning ms-2">⏸ พักชั่วคราว</small>
                             )}
                         </div>
@@ -446,7 +476,7 @@ const WorkorderView: React.FC = () => {
                                 <button className="btn btn-sm btn-icon btn-light" onClick={handlePrevDate}>
                                     <i className="bi bi-chevron-left" />
                                 </button>
-                                <span className="fw-semibold text-gray-700">
+                                <span className="fw-semibold text-gray-700" style={{ cursor: 'pointer', minWidth: 110, textAlign: 'center' }} onClick={handleToday}>
                                     {selectedDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
                                 </span>
                                 <button className="btn btn-sm btn-icon btn-light" onClick={handleNextDate}>
@@ -462,15 +492,15 @@ const WorkorderView: React.FC = () => {
                                         <div className="wo-timeline-label-col">ขั้นตอน</div>
                                         <div className="wo-timeline-bar-col">
                                             <div className="wo-timeline-hours">
-                                                {Array.from({ length: 8 }, (_, i) => (
-                                                    <span key={i}>{String(8 + i * 2).padStart(2, '0')}:00</span>
+                                                {Array.from({ length: 10 }, (_, i) => (
+                                                    <span key={i}>{String(TIMELINE_START_HOUR + i * 2).padStart(2, '0')}:00</span>
                                                 ))}
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Timeline rows */}
-                                    {workOrder.work_phases.map((phase, idx) => (
+                                    {phasesOnDate.map(({ phase, barInfo }) => (
                                         <div key={phase.work_phase_id} className="wo-timeline-row">
                                             <div className="wo-timeline-label-col">
                                                 <div className="wo-phase-label">
@@ -479,27 +509,85 @@ const WorkorderView: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div className="wo-timeline-bar-col">
-                                                <div className="wo-timeline-track">
-                                                    <div
-                                                        className="wo-timeline-bar"
-                                                        style={{
-                                                            backgroundColor: getPhaseStatusColor(phase.phase_status),
-                                                            left: `${Math.min((idx * 12) + 2, 85)}%`,
-                                                            width: `${Math.max(15, 30 - idx * 3)}%`,
-                                                            opacity: phase.phase_status === 'Pending' ? 0.5 : 1,
-                                                        }}
-                                                    >
-                                                        <span className="wo-bar-text">
-                                                            {getPhaseStatusLabel(phase.phase_status)}
-                                                        </span>
-                                                        {phase.employee_list.length > 0 && (
-                                                            <span className="wo-bar-badge">{phase.employee_list.length} คน</span>
-                                                        )}
-                                                    </div>
+                                                <div className="wo-timeline-track" style={{ position: 'relative' }}>
+                                                    {barInfo ? (
+                                                        <div
+                                                            className="wo-timeline-bar"
+                                                            style={{
+                                                                backgroundColor: getPhaseStatusColor(phase.phase_status),
+                                                                left: `${barInfo.leftPercent}%`,
+                                                                width: `${barInfo.widthPercent}%`,
+                                                                opacity: phase.phase_status === 'รอดําเนินการ' ? 0.5 : 1,
+                                                                cursor: 'pointer',
+                                                            }}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedPhaseId(prev => prev === phase.work_phase_id ? null : phase.work_phase_id);
+                                                            }}
+                                                        >
+                                                            <span className="wo-bar-text">
+                                                                {getPhaseStatusLabel(phase.phase_status)}
+                                                            </span>
+                                                            {phase.employee_list.length > 0 && (
+                                                                <span className="wo-bar-badge">{phase.employee_list.length} คน</span>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="wo-timeline-bar-empty">
+                                                            <span className="text-muted" style={{ fontSize: 11 }}>ไม่มีกิจกรรมวันนี้</span>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Employee Popover */}
+                                                    {selectedPhaseId === phase.work_phase_id && (() => {
+                                                        const barCenter = barInfo ? barInfo.leftPercent + barInfo.widthPercent / 2 : 50;
+                                                        // Clamp popover so it doesn't overflow left/right
+                                                        const popoverLeft = Math.max(5, Math.min(barCenter - 15, 65));
+                                                        const arrowLeft = Math.max(12, Math.min(barCenter - popoverLeft, 85));
+                                                        return (
+                                                            <div className="wo-timeline-popover" style={{ left: `${popoverLeft}%`, '--arrow-left': `${arrowLeft}%` } as React.CSSProperties} onClick={(e) => e.stopPropagation()}>
+                                                                <div className="wo-timeline-popover-header">
+                                                                    <span className="fw-bold">{phase.phase_name}</span>
+                                                                    <button className="btn btn-sm btn-icon btn-light" style={{ width: 24, height: 24 }} onClick={() => setSelectedPhaseId(null)}>
+                                                                        <i className="bi bi-x fs-6" />
+                                                                    </button>
+                                                                </div>
+                                                                <div className="wo-timeline-popover-status" style={{ color: getPhaseStatusColor(phase.phase_status) }}>
+                                                                    {getPhaseStatusLabel(phase.phase_status)}
+                                                                </div>
+                                                                {phase.employee_list.length > 0 ? (
+                                                                    <div className="wo-timeline-popover-list">
+                                                                        <div className="fs-8 text-muted mb-2">พนักงาน ({phase.employee_list.length} คน)</div>
+                                                                        {phase.employee_list.map(emp => (
+                                                                            <div key={emp.employee_id} className="wo-timeline-popover-emp">
+                                                                                <div className="wo-popover-avatar">{emp.employee_first_name.charAt(0)}</div>
+                                                                                <span>{emp.employee_first_name} {emp.employee_last_name}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="text-muted fs-8 py-2">ยังไม่มีพนักงาน</div>
+                                                                )}
+                                                                {phase.start_date && (
+                                                                    <div className="wo-timeline-popover-footer">
+                                                                        <small className="text-muted">เริ่ม: {formatDateTime(phase.start_date)}</small>
+                                                                        {phase.end_date && <small className="text-muted"> • สิ้นสุด: {formatDateTime(phase.end_date)}</small>}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
                                         </div>
                                     ))}
+
+                                    {!hasActivityOnDate && (
+                                        <div className="text-center text-muted py-6">
+                                            <i className="bi bi-calendar-x fs-2x text-gray-300 mb-2 d-block" />
+                                            ไม่มีกิจกรรมในวันที่เลือก
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="text-center text-muted py-10">
@@ -582,7 +670,7 @@ const WorkorderView: React.FC = () => {
                                             )}
 
                                             {/* Status Label */}
-                                            {phase.phase_status === 'Completed' && (
+                                            {phase.phase_status === 'เสร็จสิ้น' && (
                                                 <div className="d-flex align-items-center gap-2 px-3 pb-3 pt-2 border-top">
                                                     <span className="d-inline-flex align-items-center text-success fw-semibold fs-7">
                                                         <i className="bi bi-check-circle-fill me-1" /> เสร็จสิ้นแล้ว

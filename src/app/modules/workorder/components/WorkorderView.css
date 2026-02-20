@@ -189,7 +189,7 @@
     border-radius: 16px;
     box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
     border: 1px solid #f1f1f4;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .wo-card-header {
@@ -291,7 +291,7 @@
 
 /* --- Timeline --- */
 .wo-timeline-container {
-    overflow-x: auto;
+    overflow: visible;
 }
 
 .wo-timeline-header {
@@ -329,6 +329,7 @@
     display: flex;
     align-items: center;
     padding: 6px 0;
+    position: relative;
 }
 
 .wo-timeline-track {
@@ -354,6 +355,12 @@
     white-space: nowrap;
     min-width: 60px;
     transition: all 0.3s;
+    cursor: pointer;
+}
+
+.wo-timeline-bar:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .wo-bar-text {
@@ -368,6 +375,14 @@
     font-size: 10px;
     margin-left: 8px;
     flex-shrink: 0;
+}
+
+.wo-timeline-bar-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    width: 100%;
 }
 
 .wo-phase-label {
@@ -391,6 +406,93 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 110px;
+}
+
+/* Timeline Employee Popover */
+.wo-timeline-popover {
+    position: absolute;
+    top: 38px;
+    z-index: 100;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.13);
+    border: 1px solid #e8e8ef;
+    min-width: 240px;
+    max-width: 320px;
+    padding: 12px 14px;
+    animation: wo-popover-in 0.18s ease;
+}
+
+@keyframes wo-popover-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.wo-timeline-popover::before {
+    content: '';
+    position: absolute;
+    top: -7px;
+    left: var(--arrow-left, 24px);
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border-left: 1px solid #e8e8ef;
+    border-top: 1px solid #e8e8ef;
+    transform: rotate(45deg) translateX(-50%);
+}
+
+.wo-timeline-popover-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.wo-timeline-popover-status {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.wo-timeline-popover-list {
+    border-top: 1px solid #f1f1f4;
+    padding-top: 8px;
+}
+
+.wo-timeline-popover-emp {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    font-size: 13px;
+    color: #3f4254;
+}
+
+.wo-popover-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3699ff 0%, #0d6efd 100%);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.wo-timeline-popover-footer {
+    border-top: 1px solid #f1f1f4;
+    padding-top: 8px;
+    margin-top: 8px;
 }
 
 /* --- Phase List Cards --- */
