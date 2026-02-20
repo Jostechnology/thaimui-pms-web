@@ -8,8 +8,8 @@ import { getWorkOrderList } from '../../../services/workorder';
 import { useTableParams } from '../../../hooks/useTableParams';
 import { useSearchParams } from 'react-router-dom';
 import TablePaginator from '../../../custom_components/TablePaginator'; // สมมติว่ามี Component นี้อยู่แล้ว
-import { WORK_ORDER_STATUS_OPTIONS } from '../../../enum/work_order';
-
+import { WorkOrderStatusEnum } from '../../../type_interface/WorkOrderType';
+import DatePicker from "react-datepicker";
 // 1. ปรับ Interface ให้ตรงกับข้อมูลจริงใน ER Diagram
 interface WorkorderData {
     work_order_id: number;
@@ -47,8 +47,34 @@ const WorkorderList: React.FC = () => {
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
     const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("filter") || "");
 
-    const workingCount = workorders.filter(w => w.status === 'Working').length;
-    const completedCount = workorders.filter(w => w.status === 'Completed').length;
+    const normalizeStatusKey = (s?: string | null) => {
+        if (!s) return '';
+        const str = s.toString();
+        if (/[ก-๙]/.test(str)) {
+            if (str.includes('พร้อม')) return 'READY';
+            if (str.includes('กำลัง') || str.includes('ดำเนิน') || str.includes('ดําเนิน')) return 'IN_PROGRESS';
+            if (str.includes('เสร็จ')) return 'COMPLETED';
+            return str.toUpperCase().replace(/\s+/g, '_');
+        }
+        return str.toUpperCase().replace(/\s+/g, '_');
+    };
+
+    const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+    const statusThaiMap: Record<string, string> = {
+        READY: 'พร้อม',
+        IN_PROGRESS: 'กำลังดำเนินงาน',
+        COMPLETED: 'เสร็จสิ้น'
+    };
+
+    const phaseStatusThaiMap: Record<string, string> = {
+        PENDING: 'รอดำเนินการ',
+        IN_PROGRESS: 'กำลังดำเนินการ',
+        PAUSED: 'ระงับ/หยุดชั่วคราว',
+        COMPLETED: 'เสร็จสิ้น'
+    };
+
+    const workingCount = workorders.filter(w => normalizeStatusKey(w.status) === 'IN_PROGRESS').length;
+    const completedCount = workorders.filter(w => normalizeStatusKey(w.status) === 'COMPLETED').length;
     useTableParams({
         currentPage,
         setCurrentPage,
@@ -58,14 +84,44 @@ const WorkorderList: React.FC = () => {
         setPageConfig,
         setSearchTerm
     });
-
+    const CustomDateInput = React.forwardRef(({ value, onClick }: any, ref: any) => (
+        <div className="d-flex align-items-center position-relative" onClick={onClick} ref={ref}>
+            <button className="btn btn-sm btn-light-primary fw-bold" type="button">
+                <i className="bi bi-calendar3"></i>
+            </button>
+            <input
+                type="text"
+                className="form-control form-control-sm form-control-solid w-150px text-center fw-bold cursor-pointer ms-2"
+                value={value}
+                readOnly
+                placeholder="ทุกเดือน"
+            />
+        </div>
+    ));
     const fetchWorkorders = async () => {
         setDataLoading(true);
         setLoading();
         try {
-            const result = await getWorkOrderList(currentPage, pageConfig, keyword, statusFilter);
+            let monthParam = "";
+            if (selectedDate) {
+                const year = selectedDate.getFullYear();
+                const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                monthParam = `${year}-${month}`;
+            }
+            const result = await getWorkOrderList(currentPage, pageConfig, keyword, statusFilter, monthParam);
             if (result && result.success) {
-                setWorkorders(result.data.items);
+                // SERVER MAY NOT APPLY FILTER — apply client-side fallback filter
+                let items = result.data.items || [];
+                const filterParam = normalizeStatusKey(statusFilter) || '';
+                if (filterParam) {
+                    const filtered = items.filter((it: any) => {
+                        const s1 = normalizeStatusKey(it.status);
+                        const s2 = normalizeStatusKey(it.current_phase?.phase_status);
+                        return s1 === filterParam || s2 === filterParam;
+                    });
+                    items = filtered;
+                }
+                setWorkorders(items);
                 setTotalPages(result.data.total_pages);
             } else {
                 setWorkorders([]);
@@ -82,18 +138,35 @@ const WorkorderList: React.FC = () => {
 
     useEffect(() => {
         fetchWorkorders();
-    }, [currentPage, keyword, pageConfig, statusFilter]);
+    }, [currentPage, keyword, pageConfig, statusFilter, selectedDate]);
 
     const getStatusBadge = (status: string) => {
-        const s = (status || '').toString().normalize('NFC');
-        if (s.includes('เสร็จ')) {
+        const display = statusThaiMap[status] || (status || '').toString().normalize('NFC');
+        if (display.includes('เสร็จ')) {
             return 'badge-light-success';
         }
-        if (/ก.*ลัง/.test(s) || /ด.*เนิน/.test(s)) {
+        if (/ก.*ลัง/.test(display) || /ด.*เนิน/.test(display)) {
             return 'badge-light-warning';
         }
-        if (s.includes('พร้อม')) {
+        if (display.includes('พร้อม')) {
             return 'badge-light-primary';
+        }
+        return 'badge-light-secondary';
+    };
+
+    const getPhaseBadge = (status: string) => {
+        const display = phaseStatusThaiMap[status] || (status || '').toString().normalize('NFC');
+        if (display.includes('เสร็จ')) {
+            return 'badge-light-success';
+        }
+        if (/ก.*ลัง/.test(display) || /ดำเนิน/.test(display)) {
+            return 'badge-light-warning';
+        }
+        if (display.includes('ระงับ') || display.includes('หยุด')) {
+            return 'badge-light-dark';
+        }
+        if (display.includes('รอ')) {
+            return 'badge-light-secondary';
         }
         return 'badge-light-secondary';
     };
@@ -162,7 +235,7 @@ const WorkorderList: React.FC = () => {
                             </div>
                             <div className='d-flex flex-column'>
                                 <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{completedCount}</span>
-                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>การดำเนินงานเสร็จสิ้น</span>
+                                <span className='text-gray-500 fw-semibold fs-6 mt-1'>เสร็จสิ้น</span>
                             </div>
                         </div>
                     </div>
@@ -187,21 +260,38 @@ const WorkorderList: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* ส่วนขวา: Dropdown กรองสถานะ (Toolbar) */}
-                    <select
-                        className='form-select form-select-solid w-150px'
-                        value={statusFilter}
-                        onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-                    >
-                        <option value=''>ทั้งหมด</option>
-                        {WORK_ORDER_STATUS_OPTIONS.map((option) => {
-                            return (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
+                    <div className='card-toolbar d-flex align-items-center gap-3'>
+                        <div>
+                            <DatePicker
+                                selected={selectedDate}
+                                onChange={(date) => {
+                                    setSelectedDate(date);
+                                    setCurrentPage(1);
+                                }}
+                                dateFormat="MMMM yyyy"
+                                showMonthYearPicker
+                                customInput={<CustomDateInput />}
+                                isClearable
+                                placeholderText="เลือกเดือน"
+                            />
+                        </div>
+                        <select
+                            className='form-select form-select-solid w-150px'
+                            value={statusFilter}
+                            onChange={(e) => {
+                                setStatusFilter(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <option value=''>สถานะทั้งหมด</option>
+                            {Object.values(WorkOrderStatusEnum).map((value) => (
+                                <option key={value} value={value}>
+                                    {statusThaiMap[value] || value}
                                 </option>
-                            )
-                        })}
-                    </select>
+                            ))}
+                        </select>
+
+                    </div>
                 </div>
 
                 <div className='card-body pt-0'>
@@ -269,7 +359,7 @@ const WorkorderList: React.FC = () => {
 
                                             <td className='text-center'>
                                                 <span className={`badge ${getStatusBadge(item.status)} fw-bold px-4 py-3`}>
-                                                    {item.status || 'Waiting'}
+                                                    {statusThaiMap[item.status] || item.status || 'Waiting'}
                                                 </span>
                                             </td>
 

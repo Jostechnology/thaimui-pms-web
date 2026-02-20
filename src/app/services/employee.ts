@@ -1,21 +1,19 @@
-import EnvConfig from "../environments/envConfig";
-import { getGroupId, getTokenFromLocal } from "../helpers/appHelpers";
-import { authTokenDedicated } from "../helpers/authenticationHelpers";
 import { front_api } from "./apiConfig";
 
-export const getEmployeeList = async (search: string = "") => {
+export const getEmployeeList = async (search: string = "", status: string = "") => {
     try {
         const token = localStorage.getItem('tk-jos');
         const params = new URLSearchParams();
         if (search) params.append("search", search);
+        if (status && status !== "all") params.append("status", status);
 
         const response = await front_api(
-            "GET", 
-            `/get_employee_list${params.toString()}`, 
-            {}, 
-            { 
+            "GET",
+            `/get_employee_list?${params.toString()}`,
+            {},
+            {
                 wrapData: false,
-                headers: { "Authorization": `Bearer ${token}` } 
+                headers: { "Authorization": `Bearer ${token}` }
             }
         );
 
@@ -23,5 +21,155 @@ export const getEmployeeList = async (search: string = "") => {
         return await response.json();
     } catch (error) {
         return { success: false, data: [] };
+    }
+};
+export const getEmployeeById = async (employee_id: number) => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const response = await front_api(
+            "GET",
+            `/get_employee_id/${employee_id}`,
+            {},
+            {
+                wrapData: false,
+                headers: { "Authorization": `Bearer ${token}` }
+            }
+        );
+
+        if (!response) return { success: false, data: [] };
+        return await response.json();
+    } catch (error) {
+        return { success: false, data: [] };
+    }
+};
+
+
+
+export const createEmployee = async (data: any) => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const response = await front_api(
+            "POST",
+            "/create_employee",
+            data,
+            {
+                wrapData: false,
+                headers: { "Authorization": `Bearer ${token}` }
+            }
+        );
+
+        if (!response) return { success: false };
+        return await response.json();
+    } catch (error) {
+        return { success: false };
+    }
+};
+
+export const updateEmployee = async (data: any) => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const employee_id = data.employee_id;
+        const response = await front_api(
+            "PUT",
+            `/update_employee/${employee_id}`,
+            data,
+            {
+                wrapData: false,
+                headers: { "Authorization": `Bearer ${token}` }
+            }
+        );
+
+        if (!response) return { success: false };
+        return await response.json();
+    } catch (error) {
+        return { success: false };
+    }
+};
+
+export const deleteEmployee = async (employee_id: number) => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const response = await front_api(
+            "DELETE",
+            `/delete_employee/${employee_id}`,
+            {},
+            {
+                wrapData: false,
+                headers: { "Authorization": `Bearer ${token}` }
+            }
+        );
+
+        if (!response) return { success: false };
+        return await response.json();
+    } catch (error) {
+        return { success: false };
+    }
+};
+
+export const getEmployeeSalaryList = async (search: string = '') => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const params = new URLSearchParams();
+        if (search) params.append('search', search)
+        // if (status && status !== 'all') params.append('status', status);
+        
+
+        const response = await front_api(
+            'GET',
+            `/get_employee_salary_list?${params.toString()}`,
+            {},
+            {
+                wrapData: false,
+                headers: { 'Authorization': `Bearer ${token}` }
+            }
+        );
+
+        if (!response) return { success: false, data: [] };
+        return await response.json();
+    } catch (error) {
+        return { success: false, data: [] };
+    }
+};
+
+export const getEmployeeSalaryHistory = async (employee_id: number, month?: string) => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const url = month 
+        ? `/get_employee_salary_history/${employee_id}?month=${month}`
+        : `/get_employee_salary_history/${employee_id}`;
+        const response = await front_api(
+            'GET',
+            url,
+            {},
+            {
+                wrapData: false,
+                headers: { 'Authorization': `Bearer ${token}` }
+            }
+        );
+
+        if (!response) return { success: false, data: [] };
+        return await response.json();
+    } catch (error) {
+        return { success: false, data: [] };
+    }
+};
+
+export const updateEmployeeSalary = async (employee_id: number, payload: { new_salary: number; effective_date: string; remark?: string }) => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const response = await front_api(
+            'PUT',
+            `/update_employee_salary/${employee_id}`,
+            payload,
+            {
+                wrapData: false,
+                headers: { 'Authorization': `Bearer ${token}` }
+            }
+        );
+
+        if (!response) return { success: false };
+        return await response.json();
+    } catch (error) {
+        return { success: false };
     }
 };

@@ -8,7 +8,6 @@ import { getWorkOrderById, createWorkPhase, updateWorkPhase, deleteWorkPhase } f
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 
-// --- Interfaces ---
 interface Employee {
     citizen_id: string;
     employee_first_name: string;
@@ -80,6 +79,37 @@ const WorkorderDetail: React.FC = () => {
     const [deleteIDList, setDeleteIDList] = useState<number[]>([]);
     const [editIDList, setEditIDList] = useState<number[]>([]);
 
+    const phaseStatusThaiMap: Record<string, string> = {
+        PENDING: 'รอดําเนินการ',
+        IN_PROGRESS: 'กําลังดําเนินการ',
+        PAUSED: 'หยุดชั่วคราว',
+        COMPLETED: 'เสร็จสิ้น'
+    };
+
+    const normalizePhaseKey = (s?: string | null) => {
+        if (!s) return '';
+        // If contains Thai keywords, map directly
+        if (/[ก-๙]/.test(s)) {
+            if (s.includes('รอ')) return 'PENDING';
+            if (s.includes('กําลัง') || s.includes('ดําเนิน')) return 'IN_PROGRESS';
+            if (s.includes('หยุด')) return 'PAUSED';
+            if (s.includes('เสร็จ')) return 'COMPLETED';
+            return s.toString().toUpperCase().replace(/\s+/g, '_');
+        }
+        return s.toString().toUpperCase().replace(/\s+/g, '_');
+    };
+
+    const getPhaseDisplay = (status?: string | null) => {
+        const key = normalizePhaseKey(status);
+        return phaseStatusThaiMap[key] || (status || 'รอดําเนินการ');
+    };
+
+    const toBackendPhaseKey = (s?: string | null) => {
+        const key = normalizePhaseKey(s);
+        if (['PENDING', 'IN_PROGRESS', 'PAUSED', 'COMPLETED'].includes(key)) return key;
+        return key || '';
+    };
+
     useEffect(() => {
         if (currentWorkOrder?.work_phases && Array.isArray(currentWorkOrder.work_phases)) {
             const loadedPhases: Phase[] = currentWorkOrder.work_phases.map((wp) => ({
@@ -120,10 +150,10 @@ const WorkorderDetail: React.FC = () => {
         }
     };
 
-    const fetchEmployees = async (search: string) => {
+    const fetchEmployees = async () => {
         setEmpLoading(true);
         try {
-            const res = await getEmployeeList(search);
+            const res = await getEmployeeList('');
             if (res && res.success && res.data && Array.isArray(res.data.items)) {
                 setAllEmployees(res.data.items);
             } else {
@@ -136,12 +166,23 @@ const WorkorderDetail: React.FC = () => {
         }
     };
 
+    // Filter employees locally instead of re-fetching on every search
+    const filteredEmployees = React.useMemo(() => {
+        if (!searchTerm) return allEmployees;
+        const q = searchTerm.toLowerCase();
+        return allEmployees.filter(emp => {
+            const fullName = `${emp.employee_first_name} ${emp.employee_last_name}`.toLowerCase();
+            return fullName.includes(q) || String(emp.employee_id).includes(q) || (emp.citizen_id && emp.citizen_id.includes(q));
+        });
+    }, [allEmployees, searchTerm]);
+
     useEffect(() => {
         if (showModal) {
-            const delay = setTimeout(() => fetchEmployees(searchTerm), 300);
-            return () => clearTimeout(delay);
+            if (allEmployees.length === 0) {
+                fetchEmployees();
+            }
         }
-    }, [searchTerm, showModal]);
+    }, [showModal]);
 
     useEffect(() => {
         fetchWorkorderData();
@@ -150,7 +191,6 @@ const WorkorderDetail: React.FC = () => {
     // --- 3. Change Tracking Helpers ---
     const markAsEdited = (phaseId: number) => {
         const phase = phases.find(p => p.id === phaseId);
-        // ถ้าเป็นของเก่า (!isNew) และยังไม่ได้อยู่ในรายการแก้ไข -> เพิ่มเข้าไป
         if (phase && !phase.isNew && !editIDList.includes(phaseId)) {
             setEditIDList(prev => [...prev, phaseId]);
         }
@@ -218,9 +258,14 @@ const WorkorderDetail: React.FC = () => {
         }
     };
 
-    const hasActivePhase = phases.some(p => !p.isNew && (p.status === 'กําลังดําเนินการ' || p.status === 'หยุดชั่วคราว'));
+    const hasActivePhase = phases.some(p => {
+        if (p.isNew) return false;
+        const k = normalizePhaseKey(p.status);
+        return k === 'IN_PROGRESS' || k === 'PAUSED';
+    });
+
     const firstPendingPhaseId = !hasActivePhase
-        ? (phases.find(p => !p.isNew && p.status === 'รอดําเนินการ')?.id ?? null)
+        ? (phases.find(p => !p.isNew && normalizePhaseKey(p.status) === 'PENDING')?.id ?? null)
         : null;
 
     const handlePhaseStatusUpdate = async (phaseId: number, newStatus: string, breakType?: string) => {
@@ -229,7 +274,7 @@ const WorkorderDetail: React.FC = () => {
 
         setLoading();
         try {
-            const payload: any = { work_phase_id: phaseId, phase_status: newStatus };
+            const payload: any = { work_phase_id: phaseId, phase_status: toBackendPhaseKey(newStatus) };
             if (breakType) payload.break_type = breakType;
 
             const result = await updateWorkPhase([payload]);
@@ -440,7 +485,7 @@ const WorkorderDetail: React.FC = () => {
                                             </span>
                                         )}
                                         <div className='d-flex gap-2 align-items-center'>
-                                            <span className='text-muted fw-bold fs-8'>สถานะ: {phase.status || 'รอดําเนินการ'}</span>
+                                            <span className='text-muted fw-bold fs-8'>สถานะ: {getPhaseDisplay(phase.status)}</span>
                                             {phase.isNew && <span className='badge badge-light-primary fs-9'>New</span>}
                                             {!phase.isNew && editIDList.includes(phase.id) && <span className='badge badge-light-warning fs-9'>Edited</span>}
                                         </div>
@@ -455,7 +500,7 @@ const WorkorderDetail: React.FC = () => {
                                             </button>
                                         )}
                                         {/* พักงาน — เฉพาะ phase ที่กำลัง InProgress */}
-                                        {!phase.isNew && phase.status.includes('กําลังดําเนินการ')  && (
+                                        {!phase.isNew && normalizePhaseKey(phase.status) === 'IN_PROGRESS'  && (
                                             <button
                                                 className='btn btn-sm btn-warning fw-bold'
                                                 onClick={() => handlePausePhase(phase.id)}
@@ -464,7 +509,7 @@ const WorkorderDetail: React.FC = () => {
                                             </button>
                                         )}
                                         {/* ทำงานต่อ — เฉพาะ phase ที่ Paused */}
-                                        {!phase.isNew && phase.status.includes('หยุดชั่วคราว') && (
+                                        {!phase.isNew && normalizePhaseKey(phase.status) === 'PAUSED' && (
                                             <button
                                                 className='btn btn-sm btn-primary fw-bold'
                                                 onClick={() => handleResumePhase(phase.id)}
@@ -473,7 +518,7 @@ const WorkorderDetail: React.FC = () => {
                                             </button>
                                         )}
                                         {/* เสร็จสิ้น — เฉพาะ phase ที่ InProgress หรือ Paused */}
-                                        {!phase.isNew && (phase.status.includes('กําลังดําเนินการ') || phase.status.includes('หยุดชั่วคราว')) && (
+                                        {!phase.isNew && (['IN_PROGRESS','PAUSED'].includes(normalizePhaseKey(phase.status))) && (
                                             <button
                                                 className='btn btn-sm btn-success fw-bold'
                                                 onClick={() => handleCompletePhase(phase.id)}
@@ -481,7 +526,7 @@ const WorkorderDetail: React.FC = () => {
                                                 <i className='bi bi-check-lg me-1'></i> เสร็จสิ้น
                                             </button>
                                         )}
-                                        {phase.status !== 'เสร็จสิ้น' && (
+                                        {normalizePhaseKey(phase.status) !== 'COMPLETED' && (
                                             <button className='btn btn-icon btn-sm btn-light-danger' onClick={() => handleDeletePhase(phase.id)}><i className='bi bi-trash'></i></button>
                                         )}
                                     </div>
@@ -499,7 +544,7 @@ const WorkorderDetail: React.FC = () => {
                                     <div className='separator separator-dashed my-4'></div>
                                     <div className='d-flex flex-stack mb-4'>
                                         <span className='text-gray-400 fw-bold fs-8 uppercase'>พนักงานที่ได้รับมอบหมาย</span>
-                                        {phase.status !== 'เสร็จสิ้น' && (
+                                        {normalizePhaseKey(phase.status) !== 'COMPLETED' && (
                                             <button onClick={() => { setActivePhaseId(phase.id); setShowModal(true); }} className='btn btn-sm btn-light-primary fw-bold'><i className='bi bi-person-plus'></i> Assign Staff</button>
                                         )}
                                     </div>
@@ -541,7 +586,7 @@ const WorkorderDetail: React.FC = () => {
                             <thead><tr className='fw-bold text-muted text-uppercase fs-7'><th>พนักงาน</th><th>สถานะ</th><th className='text-end'>เลือก</th></tr></thead>
                             <tbody>
                                 {empLoading ? (<tr><td colSpan={3} className='text-center py-10'>กำลังโหลด...</td></tr>) :
-                                    allEmployees && allEmployees.length > 0 ? (allEmployees.map((emp) => {
+                                    filteredEmployees && filteredEmployees.length > 0 ? (filteredEmployees.map((emp) => {
                                         const isAlreadyAssigned = phases.find(p => p.id === activePhaseId)?.staffs?.some(s => s.id === emp.employee_id);
                                         return (
                                             <tr key={emp.employee_id}>
