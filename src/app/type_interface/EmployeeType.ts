@@ -8,17 +8,34 @@ export interface Employee {
   status: string;
   citizen_id?: string;
   user_id?: number;
+  salary_base?: number;
+  created_date?: string;
+  updated_date?: string;
 }
 
 export interface EmployeeSalaryHistory {
-salary_history_id: number;
-employee_id: number;
-old_salary: number;
-new_salary: number;
-effective_date: string;
-remark: string;
-created_by: number;
-update_by: number;
-created_date: string;
-updated_date: string;
+  salary_history_id: number;
+  employee_id: number;
+  old_salary: number;
+  new_salary: number;
+  effective_date: string;
+  remark: string;
+  created_by: number;
+  update_by: number;
+  created_date: string;
+  updated_date: string;
 }
+
+export enum EmployeeStatus {
+  UNEMPLOYED = 'UNEMPLOYED',
+  ACTIVE = 'Active',
+  ONLEAVE = 'ONLEAVE',
+  SUSPENDED = 'SUSPENDED'
+}
+
+export const EmployeeStatusLabel: Record<EmployeeStatus, string> = {
+  [EmployeeStatus.UNEMPLOYED]: 'ว่างงาน',
+  [EmployeeStatus.ACTIVE]: 'ทำงานอยู่',
+  [EmployeeStatus.ONLEAVE]: 'หยุดงาน',
+  [EmployeeStatus.SUSPENDED]: 'ลางาน'
+};

@@ -43,7 +43,7 @@ const WorkorderList: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState<string>(searchParams.get("search") || "");
     const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get("page") || "1"));
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
-    const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("filter") || "");    
+    const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("filter") || "");
 
     useTableParams({
         currentPage,
@@ -88,7 +88,7 @@ const WorkorderList: React.FC = () => {
         return 'badge-light-secondary';
     };
 
-    const {masterData} = useMasterData()
+    const { masterData } = useMasterData()
     const actionList = masterData.actionList
     const allowedActions = getUserAction(actionList, "QC", "QC_WORKORDERS")
 
@@ -163,7 +163,7 @@ const WorkorderList: React.FC = () => {
                                         <option value={`${status}`}>{status.label}</option>
                                     )
                                 })}
-                                
+
                             </select>
 
                             {/* ปุ่ม Refresh หรือ Clear Filter (ถ้าต้องการ) */}
@@ -245,9 +245,9 @@ const WorkorderList: React.FC = () => {
                                             </td>
 
                                             <td className='text-center'>
-                                                <span className={`badge ${item.status === 'Pending' ? 'badge-light-warning' :
-                                                        item.status === 'Active' ? 'badge-light-primary' :
-                                                            'badge-light-secondary'
+                                                <span className={`badge ${item.status === 'PENDING' ? 'badge-light-warning' :
+                                                    item.status === 'Active' ? 'badge-light-primary' :
+                                                        'badge-light-secondary'
                                                     } fw-bold px-4 py-3`}>
                                                     {item.status || 'Waiting'}
                                                 </span>
