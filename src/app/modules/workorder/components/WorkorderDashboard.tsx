@@ -56,7 +56,7 @@ const MOCK_WORK_ORDERS: WorkOrderSummary[] = [
         status: 'สำเร็จ', created_date: '2026-01-20T14:00:00',
         sales_item_id: 103,
         current_phase: {
-            work_phase_id: 3, phase_name: 'ส่งมอบ', phase_status: 'Completed',
+            work_phase_id: 3, phase_name: 'ส่งมอบ', phase_status: 'COMPLETED',
             start_time: '2026-02-01T08:00:00', end_time: '2026-02-10T16:00:00',
             employee_list: [
                 { employee_id: 4, employee_first_name: 'สมศักดิ์', employee_last_name: 'มั่นคง', status: 'Done' },
@@ -98,7 +98,7 @@ const MOCK_WORK_ORDERS: WorkOrderSummary[] = [
         status: 'สำเร็จ', created_date: '2026-01-15T09:15:00',
         sales_item_id: 107,
         current_phase: {
-            work_phase_id: 7, phase_name: 'ส่งมอบ', phase_status: 'Completed',
+            work_phase_id: 7, phase_name: 'ส่งมอบ', phase_status: 'COMPLETED',
             start_time: '2026-01-20T08:00:00', end_time: '2026-01-28T17:00:00',
             employee_list: [
                 { employee_id: 2, employee_first_name: 'สมหญิง', employee_last_name: 'รักดี', status: 'Done' },
@@ -153,7 +153,7 @@ const MOCK_WORK_ORDERS: WorkOrderSummary[] = [
         status: 'สำเร็จ', created_date: '2026-01-10T08:00:00',
         sales_item_id: 112,
         current_phase: {
-            work_phase_id: 12, phase_name: 'ส่งมอบ', phase_status: 'Completed',
+            work_phase_id: 12, phase_name: 'ส่งมอบ', phase_status: 'COMPLETED',
             start_time: '2026-01-12T08:00:00', end_time: '2026-01-18T16:00:00',
             employee_list: [
                 { employee_id: 4, employee_first_name: 'สมศักดิ์', employee_last_name: 'มั่นคง', status: 'Done' },
@@ -165,7 +165,7 @@ const MOCK_WORK_ORDERS: WorkOrderSummary[] = [
         status: 'รอเทส', created_date: '2026-02-10T11:30:00',
         sales_item_id: 113,
         current_phase: {
-            work_phase_id: 13, phase_name: 'รอทดสอบ QC', phase_status: 'Pending',
+            work_phase_id: 13, phase_name: 'รอทดสอบ QC', phase_status: 'PENDING',
             start_time: '2026-02-11T08:00:00', end_time: null,
             employee_list: []
         }
@@ -266,14 +266,14 @@ const WorkorderDashboard: React.FC = () => {
         const waitingStatuses: WorkOrderStatus[] = ['รอกำหนดข้อมูล', 'รอเบิกของ', 'รอเริ่มงาน', 'รอเทส'];
 
         const active = workOrders.filter(wo => activeStatuses.includes(wo.status)).length;
-        const completed = workOrders.filter(wo => wo.status === 'สำเร็จ').length;
+        const COMPLETED = workOrders.filter(wo => wo.status === 'สำเร็จ').length;
         const waiting = workOrders.filter(wo => waitingStatuses.includes(wo.status)).length;
         const overdue = workOrders.filter(wo => {
             if (wo.status === 'สำเร็จ') return false;
             return new Date(wo.created_date) < sevenDaysAgo;
         }).length;
 
-        return { total: workOrders.length, active, completed, waiting, overdue };
+        return { total: workOrders.length, active, COMPLETED, waiting, overdue };
     }, [workOrders]);
 
     const statusDistribution: StatusCount[] = useMemo(() => {
@@ -296,14 +296,14 @@ const WorkorderDashboard: React.FC = () => {
             wo.current_phase?.employee_list?.forEach(emp => {
                 const existing = map.get(emp.employee_id);
                 if (existing) {
-                    if (wo.status === 'สำเร็จ') existing.completed_tasks++;
+                    if (wo.status === 'สำเร็จ') existing.COMPLETED_tasks++;
                     else existing.active_tasks++;
                 } else {
                     map.set(emp.employee_id, {
                         employee_id: emp.employee_id,
                         employee_name: `${emp.employee_first_name} ${emp.employee_last_name}`,
                         active_tasks: wo.status === 'สำเร็จ' ? 0 : 1,
-                        completed_tasks: wo.status === 'สำเร็จ' ? 1 : 0,
+                        COMPLETED_tasks: wo.status === 'สำเร็จ' ? 1 : 0,
                     });
                 }
             });
@@ -315,7 +315,7 @@ const WorkorderDashboard: React.FC = () => {
         const COLORS = ['#009EF7', '#50CD89', '#FFC700', '#F1416C', '#7239EA', '#FFA800', '#1BC5BD', '#8950FC'];
         return employeeWorkload.map((emp, i) => ({
             name: emp.employee_name,
-            value: emp.active_tasks + emp.completed_tasks,
+            value: emp.active_tasks + emp.COMPLETED_tasks,
             fill: COLORS[i % COLORS.length],
         }));
     }, [employeeWorkload]);
@@ -399,15 +399,15 @@ const WorkorderDashboard: React.FC = () => {
             icon: 'bi-gear-wide-connected',
             bgClass: 'bg-light-warning',
             iconColor: 'text-warning',
-            subtitle: 'In Progress',
+            subtitle: 'INPROGRESS',
         },
         {
             title: 'เสร็จสมบูรณ์',
-            value: kpi.completed,
+            value: kpi.COMPLETED,
             icon: 'bi-check-circle',
             bgClass: 'bg-light-success',
             iconColor: 'text-success',
-            subtitle: 'Completed',
+            subtitle: 'COMPLETED',
         },
         {
             title: 'รอดำเนินการ',

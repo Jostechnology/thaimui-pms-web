@@ -52,7 +52,7 @@ const WorkorderList: React.FC = () => {
         const str = s.toString();
         if (/[ก-๙]/.test(str)) {
             if (str.includes('พร้อม')) return 'READY';
-            if (str.includes('กำลัง') || str.includes('ดำเนิน') || str.includes('ดําเนิน')) return 'IN_PROGRESS';
+            if (str.includes('กำลัง') || str.includes('ดำเนิน') || str.includes('ดําเนิน')) return 'INPROGRESS';
             if (str.includes('เสร็จ')) return 'COMPLETED';
             return str.toUpperCase().replace(/\s+/g, '_');
         }
@@ -62,19 +62,19 @@ const WorkorderList: React.FC = () => {
     const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
     const statusThaiMap: Record<string, string> = {
         READY: 'พร้อม',
-        IN_PROGRESS: 'กำลังดำเนินงาน',
+        INPROGRESS: 'กำลังดำเนินงาน',
         COMPLETED: 'เสร็จสิ้น'
     };
 
     const phaseStatusThaiMap: Record<string, string> = {
         PENDING: 'รอดำเนินการ',
-        IN_PROGRESS: 'กำลังดำเนินการ',
+        INPROGRESS: 'กำลังดำเนินการ',
         PAUSED: 'ระงับ/หยุดชั่วคราว',
         COMPLETED: 'เสร็จสิ้น'
     };
 
-    const workingCount = workorders.filter(w => normalizeStatusKey(w.status) === 'IN_PROGRESS').length;
-    const completedCount = workorders.filter(w => normalizeStatusKey(w.status) === 'COMPLETED').length;
+    const workingCount = workorders.filter(w => normalizeStatusKey(w.status) === 'INPROGRESS').length;
+    const COMPLETEDCount = workorders.filter(w => normalizeStatusKey(w.status) === 'COMPLETED').length;
     useTableParams({
         currentPage,
         setCurrentPage,
@@ -224,7 +224,7 @@ const WorkorderList: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Card 3: Completed Orders */}
+                {/* Card 3: COMPLETED Orders */}
                 <div className='col-md-4'>
                     <div className='card card-flush shadow-sm h-100 py-5 px-6 border-0 bg-white hover-elevate-up transition-300'>
                         <div className='d-flex align-items-center'>
@@ -234,7 +234,7 @@ const WorkorderList: React.FC = () => {
                                 </span>
                             </div>
                             <div className='d-flex flex-column'>
-                                <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{completedCount}</span>
+                                <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{COMPLETEDCount}</span>
                                 <span className='text-gray-500 fw-semibold fs-6 mt-1'>เสร็จสิ้น</span>
                             </div>
                         </div>
