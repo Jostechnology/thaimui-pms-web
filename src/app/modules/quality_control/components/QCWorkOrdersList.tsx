@@ -8,7 +8,7 @@ import { getWorkOrderList } from '../../../services/workorder';
 import { useTableParams } from '../../../hooks/useTableParams';
 import { useSearchParams } from 'react-router-dom';
 import TablePaginator from '../../../custom_components/TablePaginator'; // สมมติว่ามี Component นี้อยู่แล้ว
-import { work_order_statuses } from '../../../enum/work_order';
+import { WORK_ORDER_STATUS_OPTIONS } from '../../../enum/work_order';
 import { getUserAction } from '../../../helpers/pageAccess';
 import { useMasterData } from '../../../context/MasterDataContext';
 
@@ -158,9 +158,9 @@ const WorkorderList: React.FC = () => {
                                 value={statusFilter} // สมมติว่ามี State นี้
                                 onChange={(e) => setStatusFilter(e.target.value)}
                             >
-                                {work_order_statuses.map((status) => {
+                                {WORK_ORDER_STATUS_OPTIONS.map((status) => {
                                     return (
-                                        <option value={`${status}`}>{status}</option>
+                                        <option value={`${status}`}>{status.label}</option>
                                     )
                                 })}
 

@@ -5,7 +5,7 @@ export const qcWorkData : QCWorkOrderData = {
     documentNumber: "",
     customerCode: "",
     customerName: "",
-    invoiceNumber: "",
+    docNum: "",
     customerReceiptNumber: "",
     inspectionDate: "",
 
@@ -24,11 +24,11 @@ export const qcWorkData : QCWorkOrderData = {
     testingOthersText: "",
 
     continueSerial: false,
-    separateSerial: false,
-    combinedSerial: false,
+    serialImprint: false,
+    serialTag: false,
     serialOthers: false,
     serialOthersText: "",
-    salesOrderCode : "",
+    donEntry : "",
 
     generalRemark: "",
     details : "",

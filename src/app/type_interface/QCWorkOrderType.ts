@@ -14,10 +14,13 @@ export interface QCWorkOrderData {
   documentNumber: string;
   customerCode: string;
   customerName: string;
-  invoiceNumber: string;
+  docNum: string;
   customerReceiptNumber: string;
-  inspectionDate: string;
-  salesOrderCode : string
+  donEntry : string
+  salesName : string
+  salesCode : string
+  teamCode : string
+  teamName : string
 
   // Testing standards
   ptt: boolean;
@@ -37,8 +40,8 @@ export interface QCWorkOrderData {
 
   // Serial number options
   continueSerial: boolean;
-  separateSerial: boolean;
-  combinedSerial: boolean;
+  serialImprint: boolean;
+  serialTag: boolean;
   serialOthers: boolean;
   serialOthersText: string;
 
