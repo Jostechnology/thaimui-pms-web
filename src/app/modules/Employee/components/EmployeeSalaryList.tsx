@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
-// ตรวจสอบ Path import ให้ถูกต้องตามโปรเจกต์จริงของคุณ
 import { useAlertModal } from '../../../context/ModalContext'; 
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import SalaryAdjustmentModal from '../../../modals/employee_modal/SalaryAdjustmentModal';
 import SalarySummaryModal from '../../../modals/employee_modal/SalarySummaryModal';
+import { EmployeeStatus, EmployeeStatusLabel } from '../../../type_interface/EmployeeType';
 import { getEmployeeSalaryList } from '../../../services/employee';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
-// Interface ข้อมูลพนักงาน (รองรับทุกเคส)
+// Interface ของข้อมูลพนักงาน (รองรับฟิลด์ต่างๆ ที่ระบบอาจส่งมา)
 export interface EmployeeData {
     employee_id: number;
     employee_first_name: string;
@@ -71,16 +71,18 @@ const EmployeeSalaryList: React.FC = () => {
     }, [searchTerm, selectedDate]);
 
     const handleOpenAdjustModal = (emp: EmployeeData) => {
-        console.log("Open Adjust:", emp);
+        // เปิดโมดอลเพื่อปรับเงินเดือน (บันทึก employee สำหรับส่งเข้า modal)
+        console.log("เปิดโมดอลปรับเงินเดือน:", emp);
         setSelectedEmp(emp);
         setShowAdjustModal(true);
     };
-
+    // ฟังก์ชันตัวอย่างสำหรับเปิดหน้าสรุป (ยังไม่ใช้งาน)
     // const handleOpenSummaryModal = (emp: EmployeeData) => {
-    //     console.log("Open Summary:", emp);
+    //     console.log("เปิดหน้าสรุปเงินเดือน:", emp);
     //     setSelectedEmp(emp);
     //     setShowSummaryModal(true);
     // };
+    // ตัวอย่าง custom input ของ DatePicker (ยังคงเป็นคอมเมนต์)
     // const CustomDateInput = React.forwardRef(({ value, onClick }: any, ref: any) => (
     //     <div className="d-flex align-items-center position-relative my-1" onClick={onClick} ref={ref}>
     //         <button className="btn btn-sm btn-light-primary fw-bold me-2">
@@ -91,13 +93,28 @@ const EmployeeSalaryList: React.FC = () => {
     //             className="form-control form-control-sm form-control-solid w-150px text-center fw-bold cursor-pointer"
     //             value={value}
     //             readOnly
-    //             placeholder="Select Month"
+    //             placeholder="เลือกเดือน"
     //         />
     //     </div>
     // ));
 
     const formatCurrency = (amount: number | undefined | null) => {
         return (amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
+    const getThaiStatus = (status?: string | null) => {
+        if (!status) return '-';
+        // กรณี backend ส่งค่าเป็นชื่อค่า enum ตัวอย่าง: 'Unemployed'
+        if ((EmployeeStatusLabel as any)[status]) return (EmployeeStatusLabel as any)[status];
+        // กรณี backend ส่งค่าเป็นคีย์ของ enum เช่น 'UNEMPLOYED'
+        if ((EmployeeStatus as any)[status]) {
+            const enumValue = (EmployeeStatus as any)[status];
+            return (EmployeeStatusLabel as any)[enumValue] || enumValue;
+        }
+        // ลองจับคู่แบบไม่สนตัวพิมพ์ (case-insensitive) กับค่า enum
+        const found = Object.values(EmployeeStatus).find((v: string) => v.toLowerCase() === status.toLowerCase());
+        if (found) return (EmployeeStatusLabel as any)[found] || found;
+        return status;
     };
 
     return (
@@ -174,7 +191,7 @@ const EmployeeSalaryList: React.FC = () => {
                                                         {item.employee_first_name} {item.employee_last_name}
                                                     </span>
                                                     <span className="text-muted fs-8">
-                                                        {item.status || '-'}
+                                                        {getThaiStatus(item.status)}
                                                     </span>
                                                 </div>
                                             </div>

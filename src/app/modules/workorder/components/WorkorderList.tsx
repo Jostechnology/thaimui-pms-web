@@ -47,6 +47,18 @@ const WorkorderList: React.FC = () => {
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
     const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("filter") || "");
 
+    const normalizeStatusKey = (s?: string | null) => {
+        if (!s) return '';
+        const str = s.toString();
+        if (/[ก-๙]/.test(str)) {
+            if (str.includes('พร้อม')) return 'READY';
+            if (str.includes('กำลัง') || str.includes('ดำเนิน') || str.includes('ดําเนิน')) return 'IN_PROGRESS';
+            if (str.includes('เสร็จ')) return 'COMPLETED';
+            return str.toUpperCase().replace(/\s+/g, '_');
+        }
+        return str.toUpperCase().replace(/\s+/g, '_');
+    };
+
     const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
     const statusThaiMap: Record<string, string> = {
         READY: 'พร้อม',
@@ -61,8 +73,8 @@ const WorkorderList: React.FC = () => {
         COMPLETED: 'เสร็จสิ้น'
     };
 
-    const workingCount = workorders.filter(w => w.status === 'IN_PROGRESS').length;
-    const completedCount = workorders.filter(w => w.status === 'COMPLETED').length;
+    const workingCount = workorders.filter(w => normalizeStatusKey(w.status) === 'IN_PROGRESS').length;
+    const completedCount = workorders.filter(w => normalizeStatusKey(w.status) === 'COMPLETED').length;
     useTableParams({
         currentPage,
         setCurrentPage,
@@ -98,7 +110,18 @@ const WorkorderList: React.FC = () => {
             }
             const result = await getWorkOrderList(currentPage, pageConfig, keyword, statusFilter, monthParam);
             if (result && result.success) {
-                setWorkorders(result.data.items);
+                // SERVER MAY NOT APPLY FILTER — apply client-side fallback filter
+                let items = result.data.items || [];
+                const filterParam = normalizeStatusKey(statusFilter) || '';
+                if (filterParam) {
+                    const filtered = items.filter((it: any) => {
+                        const s1 = normalizeStatusKey(it.status);
+                        const s2 = normalizeStatusKey(it.current_phase?.phase_status);
+                        return s1 === filterParam || s2 === filterParam;
+                    });
+                    items = filtered;
+                }
+                setWorkorders(items);
                 setTotalPages(result.data.total_pages);
             } else {
                 setWorkorders([]);
