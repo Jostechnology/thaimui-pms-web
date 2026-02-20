@@ -50,7 +50,7 @@ export const createEmployee = async (data: any) => {
         const token = localStorage.getItem('tk-jos');
         const response = await front_api(
             "POST",
-            "/create_employee/",
+            "/create_employee",
             data,
             {
                 wrapData: false,
