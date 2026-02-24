@@ -333,24 +333,56 @@ const CreateTestCertificate: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="fw-semibold text-gray-700">
-                                    <tr>
-                                        <td>1</td>
-                                        <td>SL-8842</td>
-                                        <td>
-                                            <textarea className="form-control form-control-sm bg-light" rows={2} defaultValue="Steel Wire Rope - 12mm Galvanized Core IWRC"></textarea>
-                                        </td>
-                                        <td><input type="number" className="form-control form-control-sm text-center bg-light" placeholder="0.00" /></td>
-                                        <td><input type="number" className="form-control form-control-sm text-center bg-light" placeholder="0.00" /></td>
-                                    </tr>
-                                    <tr>
-                                        <td>2</td>
-                                        <td>SL-8843</td>
-                                        <td>
-                                            <textarea className="form-control form-control-sm bg-light" rows={2} defaultValue="Omega Shackle 4.75t G-2130 Crosby Style"></textarea>
-                                        </td>
-                                        <td><input type="number" className="form-control form-control-sm text-center bg-light" defaultValue="4.75" /></td>
-                                        <td><input type="number" className="form-control form-control-sm text-center bg-light" defaultValue="9.50" /></td>
-                                    </tr>
+                                    {materialList.length > 0 ? (
+                                        materialList.map((mat: any, index: number) => (
+                                            <tr key={mat.material_list_id || index}>
+                                                {/* 1. NO. (ลำดับที่) */}
+                                                <td className="text-center">{index + 1}</td>
+
+                                                {/* 2. REF. NO. (รหัสสินค้า) */}
+                                                <td>
+                                                    <span className="fw-bold text-gray-800">{mat.item_code || "-"}</span>
+                                                </td>
+
+                                                {/* 3. DESCRIPTION (เอาชื่อและรายละเอียดมารวมกันใน Textarea) */}
+                                                <td>
+                                                    <textarea
+                                                        className="form-control form-control-sm bg-light"
+                                                        rows={2}
+                                                        // จับ item_name กับ item_description มารวมกัน เพื่อให้ User แก้ไข/พิมพ์เพิ่มได้
+                                                        defaultValue={`${mat.item_name || ""} ${mat.item_description || ""}`.trim()}
+                                                    ></textarea>
+                                                </td>
+
+                                                {/* 4. W.L.L. (MT.) - ช่องกรอกผลทดสอบ */}
+                                                <td>
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        className="form-control form-control-sm text-center bg-light"
+                                                        placeholder="0.00"
+                                                    />
+                                                </td>
+
+                                                {/* 5. LOAD TEST (MT.) - ช่องกรอกผลทดสอบ */}
+                                                <td>
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        className="form-control form-control-sm text-center bg-light"
+                                                        placeholder="0.00"
+                                                    />
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={5} className="text-center text-muted py-10">
+                                                <i className="bi bi-inbox fs-2x d-block mb-2 text-gray-400"></i>
+                                                กรุณาเลือกใบสั่งขาย เพื่อแสดงรายการสินค้าสำหรับการกรอกผลทดสอบ
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
