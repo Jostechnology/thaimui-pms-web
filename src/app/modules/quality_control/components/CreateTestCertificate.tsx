@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { SalesOrderSearch } from "../../../type_interface/SalesOrderType";
 import Select from "react-select";
-import {
-    QCWorkOrderData,
-} from "../../../type_interface/QCWorkOrderType";
+import { QCWorkOrderData } from "../../../type_interface/QCWorkOrderType";
 import { qcWorkData } from "../../../libs/defaultFormData";
 import {
     getSalesOrderService,
@@ -11,43 +9,85 @@ import {
 } from "../../../services/salesOrderService";
 import { Material } from "../../../type_interface/MaterialType";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { getQCWorkOrderById } from "../../../services/qcWorkOrderService";
 import Swal from "sweetalert2";
 
 type PageMode = "create" | "view" | "edit";
 
+// Interface สำหรับเก็บข้อมูลแต่ละบรรทัดในใบ Cert (หลังจากแยกร่างตามจำนวนชิ้นแล้ว)
+interface CertItemRow {
+    id: string;
+    itemNo: string;
+    testNo: string;
+    refNo: string;
+    description: string;
+    wll: string;
+    loadTest: string;
+}
+
 const CreateTestCertificate: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const [overallStatus, setOverallStatus] = useState<'acceptable' | 'not_acceptable' | null>('acceptable');
 
+    // States หลัก
+    const [overallStatus, setOverallStatus] = useState<'acceptable' | 'not_acceptable' | null>('acceptable');
     const [salesOrders, setSalesOrder] = useState<SalesOrderSearch[]>([]);
     const [searchSalesOrder, setSearchSalesOrder] = useState<string>("");
     const [formData, setFormData] = useState<QCWorkOrderData>(qcWorkData);
     const [materialList, setMaterialList] = useState<Material[]>([]);
-    const [mode, setMode] = useState<PageMode>("create");
-    const { qc_workorder_id } = useParams<{ qc_workorder_id: string }>();
-    const isReadOnly = mode === "view";
-    const [loading, setLoading] = useState(false);
-
     const [selectedSalesOrders, setSelectedSalesOrders] = useState<any[]>([]);
 
-    useEffect(() => {
-        if (location.pathname.includes("/create")) {
-            setMode("create");
-        } else if (location.pathname.includes("/view")) {
-            setMode("view");
-        } else if (location.pathname.includes("/edit")) {
-            setMode("edit");
-        }
-    }, [location.pathname]);
+    // States สำหรับใบ Cert (อิงตามฟิลด์ที่คุณต้องการ)
+    const [certForm, setCertForm] = useState({
+        testMethod: "Proof Load Test", // ค่า Default คร่าวๆ
+        remark: "",
+        standardRef: "",
+        dateOfTest: new Date().toISOString().split('T')[0] // ดึงวันที่ปัจจุบัน
+    });
 
-    // Load data for view/edit modes
+    // State สำหรับเก็บข้อมูลตารางที่ "แตกแถว" แล้ว (1 ชิ้น = 1 แถว)
+    const [certItemRows, setCertItemRows] = useState<CertItemRow[]>([]);
+
+    const [mode, setMode] = useState<PageMode>("create");
+    const isReadOnly = mode === "view";
+
+    // 🌟 1. Logic การ "แตกแถว" ตามจำนวน Quantity (item_num)
     useEffect(() => {
-        if (qc_workorder_id && (mode === "view" || mode === "edit")) {
-            loadQCWorkOrder(qc_workorder_id);
-        }
-    }, [qc_workorder_id, mode]);
+        let expandedRows: CertItemRow[] = [];
+        let counter = 1;
+
+        materialList.forEach((mat: any) => {
+            // ดึงจำนวนออกมา (ถ้าไม่มีให้ถือเป็น 1)
+            const qty = Number(mat.item_num || mat.Qty || mat.Quantity || 1);
+            
+            // วนลูปสร้างแถวตามจำนวนชิ้น
+            for (let i = 0; i < qty; i++) {
+                expandedRows.push({
+                    id: `${mat.item_code}-${counter}`,
+                    itemNo: String(counter).padStart(2, '0'), // รันเลข 01, 02, 03...
+                    testNo: "[Auto Gen]", // ระบบหลังบ้านรันให้ตอนบันทึก
+                    refNo: "", // รอ User กรอก
+                    description: `${mat.item_name || ""} ${mat.item_description || ""}`.trim(), // ข้อความตั้งต้น
+                    wll: "", // รอ User กรอก
+                    loadTest: "", // รอ User กรอก
+                });
+                counter++;
+            }
+        });
+
+        setCertItemRows(expandedRows);
+    }, [materialList]);
+
+    // 🌟 2. Handle การพิมพ์แก้ไขข้อมูลในแต่ละแถวของตาราง
+    const handleRowChange = (index: number, field: keyof CertItemRow, value: string) => {
+        const newRows = [...certItemRows];
+        newRows[index][field] = value;
+        setCertItemRows(newRows);
+    };
+
+    const handleSearchSalesOrder = async () => {
+        const res = await searchSalesOrderService(searchSalesOrder);
+        setSalesOrder(res.data);
+    };
 
     const handleChangedSalesOrders = async (selectedOptions: any) => {
         const options = selectedOptions || [];
@@ -57,33 +97,27 @@ const CreateTestCertificate: React.FC = () => {
             let combinedMaterials: any[] = [];
             let firstSOData: any = null;
 
-            // วนลูปดึงข้อมูลของทุกๆ SO ที่เลือกมา
             for (let i = 0; i < options.length; i++) {
                 const doc_entry = options[i].doc_entry;
                 try {
                     const res = await getSalesOrderService(doc_entry);
                     if (res && res.data) {
                         if (i === 0) firstSOData = res.data;
-
                         const materials = res.data.material_list || [];
                         combinedMaterials = [...combinedMaterials, ...materials];
                     }
                 } catch (error) {
-                    console.error(`Failed to fetch details for SO: ${doc_entry}`, error);
+                    console.error(`Failed to fetch SO: ${doc_entry}`, error);
                 }
             }
 
-            // อัปเดตตาราง Material รวม
             setMaterialList(combinedMaterials);
 
-            // อัปเดตข้อมูลลูกค้า (ใช้ข้อมูลจาก SO แรก)
             if (firstSOData) {
                 setFormData((prev) => ({
                     ...prev,
                     customerCode: firstSOData.card_code,
                     customerName: firstSOData.card_name,
-                    docNum: firstSOData.doc_num,
-                    docEntry: firstSOData.doc_entry,
                 }));
             }
         } else {
@@ -92,329 +126,162 @@ const CreateTestCertificate: React.FC = () => {
         }
     };
 
-    const loadQCWorkOrder = async (id: string) => {
-        setLoading(true);
-        try {
-            const result = await getQCWorkOrderById(Number(id));
-            if (result.success && result.data) {
-                const formDataToSet = {
-                    ...qcWorkData,
-                    ...((result.data as any).form_data || {}),
-                    ...result.data,
-                };
-                setFormData(formDataToSet);
-
-                if (formDataToSet.donEntry) {
-                    try {
-                        const salesRes = await getSalesOrderService(Number(formDataToSet.donEntry));
-                        if (salesRes && salesRes.data && salesRes.data.material_list) {
-                            setMaterialList(salesRes.data.material_list);
-                            setSalesOrder([{
-                                doc_num: salesRes.data.doc_num,
-                                doc_entry: salesRes.data.doc_entry
-                            } as unknown as SalesOrderSearch]);
-                        }
-                    } catch (e) {
-                        console.error("Failed to fetch materials for this QC Work Order", e);
-                    }
-                }
-            } else {
-                Swal.fire("ผิดพลาด!", result.message || "ไม่พบข้อมูล QC Work Order", "error");
-            }
-        } catch (error) {
-            console.error("Error loading QC work order:", error);
-            Swal.fire("ผิดพลาด!", "ไม่สามารถโหลดข้อมูลได้", "error");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSearchSalesOrder = async () => {
-        const res = await searchSalesOrderService(searchSalesOrder);
-        setSalesOrder(res.data);
-    };
-
-    const handleClickedSalesOrder = async (option: any) => {
-        if (option) {
-            const doc_entry: number = option.doc_entry;
-            setFormData((prev: any) => ({
-                ...prev,
-                donEntry: doc_entry,
-            }));
-
-            const res = await getSalesOrderService(doc_entry);
-            const data = res.data;
-
-            setFormData((prev) => ({
-                ...prev,
-                customerCode: data.card_code,
-                customerName: data.card_name,
-                docNum: data.doc_num,
-                docEntry: data.doc_entry,
-                salesCode: data.slp_code,
-                salesName: data.slp_name,
-                teamCode: data.group_code,
-                teamName: data.group_name,
-            }));
-
-            setMaterialList(data.material_list || []);
-            setSearchSalesOrder(option.doc_entry);
-        } else {
-            setFormData(qcWorkData);
-            setSearchSalesOrder("");
-            setMaterialList([]);
-        }
-    };
-
     useEffect(() => {
         if (!searchSalesOrder) return;
-
-        const timeout = setTimeout(() => {
-            handleSearchSalesOrder();
-        }, 750);
-
-        return () => {
-            clearTimeout(timeout);
-        };
+        const timeout = setTimeout(() => { handleSearchSalesOrder(); }, 750);
+        return () => clearTimeout(timeout);
     }, [searchSalesOrder]);
 
     return (
         <div className="container-fluid px-10 py-8">
-            <div className="d-flex flex-column gap-8">
+            <div className="d-flex flex-column gap-6">
 
-                {/* --- Header & Breadcrumb --- */}
-                <div className="d-flex flex-column py-2">
-                    <h1 className="fw-bold text-gray-900 fs-2 mb-2">Create Test Certificate</h1>
-                    <span className="text-gray-500 fs-6">Configure and generate a new material test certificate for compliance.</span>
-                </div>
-
-                {/* --- Section 1: Source Selection --- */}
+                {/* --- ส่วนบน: เลือก Sales Order --- */}
                 <div className="card shadow-sm border-0">
-                    <div className="card-body p-8 p-lg-10">
-                        <div className="d-flex align-items-center mb-8">
-                            <span className="badge badge-circle badge-light-primary text-primary fs-5 fw-bold me-3">1</span>
-                            <h3 className="m-0 fw-bold text-gray-800 fs-4">Source Selection</h3>
+                    <div className="card-body p-6">
+                        <div className="d-flex align-items-center mb-4">
+                            <i className="bi bi-cart fs-2 text-primary me-3"></i>
+                            <h3 className="m-0 fw-bold text-gray-800 fs-4">เลือกใบสั่งขาย (Sales Order)</h3>
                         </div>
-
-                        <div className="col-md-6">
-                            <label className="form-label">ใบสั่งขายเลขที่ (เลือกได้หลายรายการ)</label>
+                        <div className="w-md-500px">
                             <Select
                                 isMulti
                                 options={salesOrders}
                                 formatOptionLabel={(option: any) => (
-                                    <div className="d-flex align-items-center gap-2">
-                                        <span>{option.doc_entry}</span>
-                                    </div>
+                                    <div className="d-flex align-items-center gap-2"><span>{option.doc_entry}</span></div>
                                 )}
                                 getOptionValue={(option) => option.doc_entry}
                                 value={selectedSalesOrders}
                                 onInputChange={(inputValue, actionMeta) => {
-                                    if (actionMeta.action === "input-change") {
-                                        setSearchSalesOrder(inputValue);
-                                    }
+                                    if (actionMeta.action === "input-change") setSearchSalesOrder(inputValue);
                                 }}
                                 onChange={handleChangedSalesOrders}
-                                placeholder="ค้นหาใบสั่งขาย..."
+                                placeholder="ค้นหาใบสั่งขาย... (เลือกได้มากกว่า 1 ใบ)"
                                 isClearable
-                                isDisabled={isReadOnly}
-                                components={{ DropdownIndicator: () => null, IndicatorSeparator: () => null }}
                             />
                         </div>
-
-                        <div className="table-responsive border rounded">
-                            <table className="table align-middle table-row-dashed fs-6 gy-4 mb-0">
-                                <thead className="bg-light">
-                                    <tr className="text-start text-gray-500 fw-bold fs-7 text-uppercase border-bottom border-gray-200">
-                                        <th className="w-50px ps-4">
-                                            <div className="form-check form-check-sm form-check-custom form-check-solid">
-                                                <input className="form-check-input" type="checkbox" />
-                                            </div>
-                                        </th>
-                                        <th className="min-w-100px">ITEM ID</th>
-                                        <th className="min-w-300px">DESCRIPTION</th>
-                                        <th className="min-w-100px">QUANTITY</th>
-                                        <th className="min-w-100px">BATCH NO.</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="fw-semibold text-gray-700">
-                                    {materialList.length > 0 ? (
-                                        materialList.map((mat: any, index: number) => (
-                                            <tr key={mat.material_list_id || index} className="hover:bg-light-primary transition-all">
-                                                <td className="ps-4">
-                                                    <div className="form-check form-check-sm form-check-custom form-check-solid">
-                                                        {/* 🌟 ในอนาคตเราจะต้องผูก onChange ตรงนี้เพื่อให้ User เลือกว่าจะเอา Item ไหนไปออก Cert */}
-                                                        <input className="form-check-input" type="checkbox" defaultChecked />
-                                                    </div>
-                                                </td>
-
-                                                {/* 1. ITEM ID */}
-                                                <td>
-                                                    <span className="fw-bold text-gray-800">{mat.item_code || "-"}</span>
-                                                </td>
-
-                                                {/* 2. DESCRIPTION (เอาชื่อสินค้ามาทำตัวหนา แล้วเอาคำอธิบายไว้บรรทัดล่างตัวเล็กๆ) */}
-                                                <td>
-                                                    <div className="d-flex flex-column">
-                                                        <span className="text-gray-800 fw-bold">{mat.item_name || "-"}</span>
-                                                        {mat.item_description && (
-                                                            <span className="text-muted fs-8">{mat.item_description}</span>
-                                                        )}
-                                                    </div>
-                                                </td>
-
-                                                {/* 3. QUANTITY (ชั่วคราวใช้ item_num ไปก่อน) */}
-                                                <td>{mat.item_num || "-"}</td>
-
-                                                {/* 4. BATCH NO. (ยังไม่มีใน JSON ปล่อยว่างไปก่อน) */}
-                                                <td><span className="text-gray-400">-</span></td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={5} className="text-center text-muted py-10">
-                                                <i className="bi bi-inbox fs-2x d-block mb-2 text-gray-400"></i>
-                                                กรุณาเลือกใบสั่งขาย เพื่อแสดงรายการสินค้า
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
                     </div>
                 </div>
 
-                {/* --- Section 2: Header Details --- */}
+                {/* --- ส่วนล่าง: จำลองหน้ากระดาษ Test Certificate --- */}
                 <div className="card shadow-sm border-0">
-                    <div className="card-body p-8 p-lg-10">
-                        <div className="d-flex align-items-center mb-8">
-                            <span className="badge badge-circle badge-light-primary text-primary fs-5 fw-bold me-3">2</span>
-                            <h3 className="m-0 fw-bold text-gray-800 fs-4">Header Details</h3>
+                    <div className="card-body p-8 p-lg-12 bg-white rounded shadow-sm border border-gray-300">
+                        
+                        {/* หัวเอกสาร (Title) */}
+                        <div className="text-center mb-10 pb-5 border-bottom border-2 border-gray-400">
+                            <h1 className="fw-bolder text-gray-900 fs-2hx tracking-widest uppercase">TEST CERTIFICATE</h1>
                         </div>
 
-                        <div className="row g-8">
-                            <div className="col-md-6">
-                                <label className="form-label fw-bold text-gray-700 fs-6">Customer</label>
-                                {/* ดึงชื่อลูกค้าจาก formData มาแสดงเลย */}
-                                <input type="text" className="form-control form-control-solid bg-light text-muted" value={formData.customerName || ""} readOnly placeholder="Auto-filled from Sales Order" />
+                        {/* ข้อมูล Header แบบ 2 คอลัมน์ (ซ้าย-ขวา) เหมือนในกระดาษจริง */}
+                        <div className="row g-8 mb-10">
+                            {/* คอลัมน์ซ้าย */}
+                            <div className="col-md-6 d-flex flex-column gap-4">
+                                <div className="d-flex align-items-center">
+                                    <label className="fw-bold text-gray-800 min-w-125px fs-5">Customer :</label>
+                                    <input type="text" className="form-control form-control-solid bg-light fw-bold" value={formData.customerName || ""} readOnly placeholder="[Auto from SO]" />
+                                </div>
+                                <div className="d-flex align-items-center">
+                                    <label className="fw-bold text-gray-800 min-w-125px fs-5">Test Method :</label>
+                                    <input type="text" className="form-control" value={certForm.testMethod} onChange={(e) => setCertForm({...certForm, testMethod: e.target.value})} placeholder="e.g. Proof Load Test" />
+                                </div>
+                                <div className="d-flex align-items-center">
+                                    <label className="fw-bold text-gray-800 min-w-125px fs-5">Remark :</label>
+                                    <input type="text" className="form-control" value={certForm.remark} onChange={(e) => setCertForm({...certForm, remark: e.target.value})} placeholder="e.g. PO.No. 10559024" />
+                                </div>
                             </div>
-                            <div className="col-md-6">
-                                <label className="form-label fw-bold text-gray-700 fs-6">Certificate No.</label>
-                                <input type="text" className="form-control" placeholder="TC-XXXX-XXXX" />
-                            </div>
-                            <div className="col-md-6">
-                                <label className="form-label fw-bold text-gray-700 fs-6">Date of Test</label>
-                                <input type="date" className="form-control" defaultValue={new Date().toISOString().split('T')[0]} />
-                            </div>
-                            <div className="col-md-6">
-                                <label className="form-label fw-bold text-gray-700 fs-6">Standard Ref.</label>
-                                <input type="text" className="form-control" placeholder="e.g. BS EN 12385-4" />
+
+                            {/* คอลัมน์ขวา */}
+                            <div className="col-md-6 d-flex flex-column gap-4">
+                                <div className="d-flex align-items-center">
+                                    <label className="fw-bold text-gray-800 min-w-150px fs-5">Certificate No :</label>
+                                    <input type="text" className="form-control form-control-solid bg-light fw-bold text-gray-600" value="[Auto Gen by System]" readOnly />
+                                </div>
+                                <div className="d-flex align-items-center">
+                                    <label className="fw-bold text-gray-800 min-w-150px fs-5">Date of Test :</label>
+                                    <input type="date" className="form-control form-control-solid bg-light fw-bold" value={certForm.dateOfTest} readOnly />
+                                </div>
+                                <div className="d-flex align-items-center">
+                                    <label className="fw-bold text-gray-800 min-w-150px fs-5">Standard Ref. :</label>
+                                    <input type="text" className="form-control" value={certForm.standardRef} onChange={(e) => setCertForm({...certForm, standardRef: e.target.value})} placeholder="e.g. BS EN 13414" />
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                {/* --- Section 3: Material Results (เก็บของเดิมไว้ก่อน) --- */}
-                <div className="card shadow-sm border-0">
-                    <div className="card-body p-8 p-lg-10">
-                        <div className="d-flex align-items-center mb-8">
-                            <span className="badge badge-circle badge-light-primary text-primary fs-5 fw-bold me-3">3</span>
-                            <h3 className="m-0 fw-bold text-gray-800 fs-4">Material Results</h3>
-                        </div>
-
-                        <div className="table-responsive">
-                            <table className="table align-middle table-row-dashed fs-6 gy-4 mb-0">
+                        {/* ตารางรายการ (Items Table) */}
+                        <div className="table-responsive border border-gray-400 mb-8">
+                            <table className="table align-middle table-row-bordered border-gray-400 fs-6 gy-3 mb-0">
                                 <thead>
-                                    <tr className="text-start text-gray-500 fw-bold fs-7 text-uppercase border-bottom border-gray-200">
-                                        <th className="w-50px">NO.</th>
-                                        <th className="min-w-100px">REF. NO.</th>
-                                        <th className="min-w-300px">DESCRIPTION</th>
-                                        <th className="min-w-150px text-center">W.L.L. (MT.)</th>
-                                        <th className="min-w-150px text-center">LOAD TEST (MT.)</th>
+                                    <tr className="text-center text-gray-800 fw-bolder fs-6 bg-light border-bottom border-gray-400">
+                                        <th className="w-60px border-end border-gray-400">Item<br/>No.</th>
+                                        <th className="min-w-100px border-end border-gray-400">Test No.</th>
+                                        <th className="min-w-100px border-end border-gray-400">Ref.No.</th>
+                                        <th className="min-w-300px border-end border-gray-400">Description</th>
+                                        <th className="w-100px border-end border-gray-400">W.L.L.<br/>(MT.)</th>
+                                        <th className="w-100px">Load Test<br/>(MT.)</th>
                                     </tr>
                                 </thead>
-                                <tbody className="fw-semibold text-gray-700">
-                                    {materialList.length > 0 ? (
-                                        materialList.map((mat: any, index: number) => (
-                                            <tr key={mat.material_list_id || index}>
-                                                {/* 1. NO. (ลำดับที่) */}
-                                                <td className="text-center">{index + 1}</td>
-
-                                                {/* 2. REF. NO. (รหัสสินค้า) */}
-                                                <td>
-                                                    <span className="fw-bold text-gray-800">{mat.item_code || "-"}</span>
+                                <tbody>
+                                    {certItemRows.length > 0 ? (
+                                        certItemRows.map((row, index) => (
+                                            <tr key={index} className="text-center">
+                                                {/* 1. Item No. (Frontend ไล่ให้เอง เช่น 01, 02) */}
+                                                <td className="fw-bold border-end border-gray-400">{row.itemNo}</td>
+                                                
+                                                {/* 2. Test No. (Auto Gen) */}
+                                                <td className="text-gray-500 border-end border-gray-400">{row.testNo}</td>
+                                                
+                                                {/* 3. Ref.No. (กรอกเอง) */}
+                                                <td className="border-end border-gray-400 p-1">
+                                                    <input type="text" className="form-control form-control-sm text-center border-0 bg-transparent" placeholder="-" value={row.refNo} onChange={(e) => handleRowChange(index, 'refNo', e.target.value)} />
                                                 </td>
-
-                                                {/* 3. DESCRIPTION (เอาชื่อและรายละเอียดมารวมกันใน Textarea) */}
-                                                <td>
-                                                    <textarea
-                                                        className="form-control form-control-sm bg-light"
-                                                        rows={2}
-                                                        // จับ item_name กับ item_description มารวมกัน เพื่อให้ User แก้ไข/พิมพ์เพิ่มได้
-                                                        defaultValue={`${mat.item_name || ""} ${mat.item_description || ""}`.trim()}
-                                                    ></textarea>
+                                                
+                                                {/* 4. Description (มีมาให้ แต่แก้ได้) */}
+                                                <td className="border-end border-gray-400 p-1 text-start">
+                                                    <textarea className="form-control form-control-sm border-0 bg-transparent resize-none" rows={2} value={row.description} onChange={(e) => handleRowChange(index, 'description', e.target.value)}></textarea>
                                                 </td>
-
-                                                {/* 4. W.L.L. (MT.) - ช่องกรอกผลทดสอบ */}
-                                                <td>
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        className="form-control form-control-sm text-center bg-light"
-                                                        placeholder="0.00"
-                                                    />
+                                                
+                                                {/* 5. W.L.L. (กรอกเอง) */}
+                                                <td className="border-end border-gray-400 p-1">
+                                                    <input type="number" step="0.01" className="form-control form-control-sm text-center border-0 bg-transparent fw-bold" placeholder="0.00" value={row.wll} onChange={(e) => handleRowChange(index, 'wll', e.target.value)} />
                                                 </td>
-
-                                                {/* 5. LOAD TEST (MT.) - ช่องกรอกผลทดสอบ */}
-                                                <td>
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        className="form-control form-control-sm text-center bg-light"
-                                                        placeholder="0.00"
-                                                    />
+                                                
+                                                {/* 6. Load Test (กรอกเอง) */}
+                                                <td className="p-1">
+                                                    <input type="number" step="0.01" className="form-control form-control-sm text-center border-0 bg-transparent fw-bold" placeholder="0.00" value={row.loadTest} onChange={(e) => handleRowChange(index, 'loadTest', e.target.value)} />
                                                 </td>
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={5} className="text-center text-muted py-10">
-                                                <i className="bi bi-inbox fs-2x d-block mb-2 text-gray-400"></i>
-                                                กรุณาเลือกใบสั่งขาย เพื่อแสดงรายการสินค้าสำหรับการกรอกผลทดสอบ
+                                            <td colSpan={6} className="text-center text-muted py-10">
+                                                ไม่มีรายการสินค้า (กรุณาเลือกใบสั่งขาย)
                                             </td>
                                         </tr>
                                     )}
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* สรุปผลการทดสอบ (Overall Inspection Result) */}
+                        <div className="d-flex justify-content-center gap-10 mt-10">
+                            <label className="d-flex align-items-center cursor-pointer">
+                                <input type="radio" name="certStatus" value="acceptable" className="form-check-input h-30px w-30px me-3 border-gray-400" checked={overallStatus === 'acceptable'} onChange={() => setOverallStatus('acceptable')} />
+                                <span className="fs-2 fw-bold text-gray-800">Acceptable</span>
+                            </label>
+                            <label className="d-flex align-items-center cursor-pointer">
+                                <input type="radio" name="certStatus" value="not_acceptable" className="form-check-input h-30px w-30px me-3 border-gray-400" checked={overallStatus === 'not_acceptable'} onChange={() => setOverallStatus('not_acceptable')} />
+                                <span className="fs-2 fw-bold text-gray-800">Not Acceptable</span>
+                            </label>
+                        </div>
+
                     </div>
-                </div>
-
-                {/* --- Footer: Overall Result & Actions --- */}
-                <div className="card shadow-sm border-0 bg-transparent mb-10">
-                    <div className="card-body p-0 d-flex flex-column flex-lg-row align-items-lg-center justify-content-between">
-                        <div className="d-flex flex-column mb-6 mb-lg-0">
-                            <h4 className="fw-bold text-gray-800 mb-4 fs-5">Overall Inspection Result</h4>
-                            <div className="d-flex gap-4">
-                                <label className={`btn btn-outline btn-active-light-success d-flex flex-column align-items-center justify-content-center p-4 w-150px rounded-3 ${overallStatus === 'acceptable' ? 'active border-success border-2 bg-light-success' : 'border-gray-300'}`}>
-                                    <input type="radio" className="btn-check" name="status" value="acceptable" checked={overallStatus === 'acceptable'} onChange={() => setOverallStatus('acceptable')} />
-                                    <i className={`bi bi-check-circle-fill fs-2x mb-2 ${overallStatus === 'acceptable' ? 'text-success' : 'text-gray-400'}`}></i>
-                                    <span className={`fw-bold fs-6 ${overallStatus === 'acceptable' ? 'text-success' : 'text-gray-600'}`}>ACCEPTABLE</span>
-                                </label>
-
-                                <label className={`btn btn-outline btn-active-light-danger d-flex flex-column align-items-center justify-content-center p-4 w-150px rounded-3 ${overallStatus === 'not_acceptable' ? 'active border-danger border-2 bg-light-danger' : 'border-gray-300'}`}>
-                                    <input type="radio" className="btn-check" name="status" value="not_acceptable" checked={overallStatus === 'not_acceptable'} onChange={() => setOverallStatus('not_acceptable')} />
-                                    <i className={`bi bi-x-circle-fill fs-2x mb-2 ${overallStatus === 'not_acceptable' ? 'text-danger' : 'text-gray-400'}`}></i>
-                                    <span className={`fw-bold fs-6 ${overallStatus === 'not_acceptable' ? 'text-danger' : 'text-gray-600'}`}>NOT ACCEPTABLE</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div className="d-flex align-items-end gap-3">
-                            <button className="btn btn-light fw-bold px-8" onClick={() => navigate(-1)}>Cancel</button>
-                            <button className="btn btn-primary fw-bold px-8 shadow-sm">
-                                <i className="bi bi-save me-2"></i> Save Certificate
-                            </button>
-                        </div>
+                    
+                    {/* Action Buttons (Save/Cancel) อยู่นอกกระดาษนิดนึง */}
+                    <div className="card-footer border-0 d-flex justify-content-end gap-3 mt-4">
+                        <button className="btn btn-light fw-bold px-8" onClick={() => navigate(-1)}>Cancel</button>
+                        <button className="btn btn-primary fw-bold px-8 shadow-sm">
+                            <i className="bi bi-save me-2"></i> Save Certificate
+                        </button>
                     </div>
                 </div>
 
