@@ -411,7 +411,7 @@ const WorkorderCreate: React.FC = () => {
                             type="button"
                             className="btn btn-primary fw-bold px-6"
                             onClick={handleSubmit}
-                            disabled={submitting}
+                            disabled={submitting || selectedSalesItemId === '' || selectedMaterialIds.length === 0}
                         >
                             {submitting ? (
                                 <>
