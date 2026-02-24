@@ -10,17 +10,19 @@ export interface QCWorkOrderItem {
 
 export interface QCWorkOrderData {
   id?: string;
+  work_order_id: number | null;
   date: string;
   documentNumber: string;
   customerCode: string;
   customerName: string;
   docNum: string;
   customerReceiptNumber: string;
-  donEntry : string
-  salesName : string
-  salesCode : string
-  teamCode : string
-  teamName : string
+  donEntry: string
+  salesName: string
+  salesCode: string
+  teamCode: string
+  teamName: string
+  inspectionDate: string
 
   // Testing standards
   ptt: boolean;
@@ -47,7 +49,7 @@ export interface QCWorkOrderData {
 
   // Remark
   generalRemark: string;
-  details : string
+  details: string
 
   // Items
   items: QCWorkOrderItem[];

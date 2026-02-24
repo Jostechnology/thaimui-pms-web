@@ -8,6 +8,8 @@ const WorkorderPage = () => {
     return (
         <Routes>
             <Route path="qc_workorders_list/create" element={<CreateEditViewQCWorkOrder />} />
+            <Route path="qc_workorders_list/edit/:qc_workorder_id" element={<CreateEditViewQCWorkOrder />} />
+            <Route path="qc_workorders_list/view/:qc_workorder_id" element={<CreateEditViewQCWorkOrder />} />
 
             <Route path="qc_workorders_list" element={<QCWorkOrdersList />} />
         </Routes>
