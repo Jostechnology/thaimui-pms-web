@@ -140,6 +140,21 @@ const WorkorderCreate: React.FC = () => {
         );
     };
 
+    const handleQuantityChange = (id: number, value: string, maxAmount: number) => {
+        if (value === '' || /^\d+$/.test(value)) {
+            if (value === '') {
+                updateComponent(id, 'quantity_used', '');
+                return;
+            }
+            const num = Number(value);
+            if (num > maxAmount) {
+                updateComponent(id, 'quantity_used', maxAmount);
+                return;
+            }
+            updateComponent(id, 'quantity_used', num);
+        }
+    };
+
     // ─── Submit ────────────────────────────────────────────────
     const handleSubmit = async () => {
         if (selectedSalesItemId === '') {
@@ -354,29 +369,12 @@ const WorkorderCreate: React.FC = () => {
                                     const maxQty = mat ? mat.item_num : 1;
                                     return (
                                         <input
-                                            type="number"
+                                            type="text"
                                             className="form-control form-control-solid"
-                                            min={1}
-                                            max={maxQty}
-                                            step={1}
                                             value={comp.quantity_used}
-                                            onKeyDown={(e) => {
-                                                if (['.', ',', '-', 'e', 'E', '+'].includes(e.key)) {
-                                                    e.preventDefault();
-                                                }
-                                            }}
-                                            onChange={(e) => {
-                                                const raw = e.target.value;
-                                                if (raw === '') return;
-                                                const parsed = parseInt(raw, 10);
-                                                if (isNaN(parsed) || parsed < 1) {
-                                                    updateComponent(comp.id, 'quantity_used', 1);
-                                                } else if (parsed > maxQty) {
-                                                    updateComponent(comp.id, 'quantity_used', maxQty);
-                                                } else {
-                                                    updateComponent(comp.id, 'quantity_used', parsed);
-                                                }
-                                            }}
+                                            onChange={(e) =>
+                                                handleQuantityChange(comp.id, e.target.value, maxQty)
+                                            }
                                         />
                                     );
                                 })()}
