@@ -310,7 +310,10 @@ const WorkorderCreate: React.FC = () => {
                             type="button"
                             className="btn btn-sm btn-light-primary fw-bold"
                             onClick={addComponent}
-                            disabled={materials.length === 0}
+                            disabled={
+                                materials.filter(m => !selectedMaterialIds.includes(m.material_list_id)).length === 0 ||
+                                components.some(c => c.material_list_id === '')
+                            }
                         >
                             <i className="bi bi-plus-lg me-1"></i> เพิ่มวัตถุดิบ
                         </button>
@@ -400,7 +403,7 @@ const WorkorderCreate: React.FC = () => {
                     {/* ── Actions ── */}
                     <div className="separator separator-dashed my-8"></div>
 
-                    <div className="d-flex justify-content-center gap-4">
+                    <div className="d-flex justify-content-end gap-4">
                         <button
                             type="button"
                             className="btn btn-light fw-bold px-6"
