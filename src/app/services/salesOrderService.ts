@@ -88,3 +88,26 @@ export const getSalesOrdersForQC = async (search: string = "") => {
         return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
     }
 }
+
+export const getSalesItemsForQC = async (search: string = "") => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const headers = { "Authorization": `Bearer ${token}` };
+        const params = new URLSearchParams();
+        if (search) params.append("search", search);
+
+        const response = await front_api(
+            "GET",
+            `/get_sales_items_for_qc?${params.toString()}`,
+            {},
+            { wrapData: false, headers }
+        );
+
+        if (!response) return { success: false, data: [] };
+        const result = await response.json();
+        return response.ok ? { ...result, success: true } : { ...result, success: false };
+    } catch (error) {
+        console.error("getSalesItemsForQC Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+}

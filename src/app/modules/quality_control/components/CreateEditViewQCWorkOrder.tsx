@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
 	QCWorkOrderData,
@@ -10,6 +10,7 @@ import { SalesOrderSearch } from "../../../type_interface/SalesOrderType";
 import {
 	getSalesOrderService,
 	getSalesOrdersForQC,
+	getSalesItemsForQC,
 } from "../../../services/salesOrderService";
 import { Material } from "../../../type_interface/MaterialType";
 import { createQCWorkOrder, updateQCWorkOrder, getQCWorkOrderById } from "../../../services/qcWorkOrderService";
@@ -28,8 +29,10 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 	const [pdfLoading, setPdfLoading] = useState(false);
 
 	const [formData, setFormData] = useState<QCWorkOrderData>(qcWorkData);
-	const [salesOrders, setSalesOrder] = useState<SalesOrderSearch[]>([]);
+	const [salesOrders, setSalesOrders] = useState<any[]>([]);
 	const [searchSalesOrder, setSearchSalesOrder] = useState<string>("");
+	const [salesItems, setSalesItems] = useState<any[]>([]);
+	const [searchSalesItem, setSearchSalesItem] = useState<string>("");
 	const [materialList, setMaterialList] = useState<Material[]>([]);
 
 	const printRef = useRef<HTMLDivElement>(null);
@@ -57,23 +60,55 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 		try {
 			const result = await getQCWorkOrderById(Number(id));
 			if (result.success && result.data) {
+				const raw = result.data;
+				const form = raw.qc_form || {};
+				const items = (raw.qc_items || []).map((item: any) => ({
+					id: String(item.qc_item_id),
+					code: item.item_code ?? "",
+					description: item.description ?? "",
+					wll: item.wll ?? "",
+					quantity: item.quantity ?? "",
+					serialNo: item.serial_no ?? "",
+					remark: item.item_remark ?? "",
+				}));
+
 				const formDataToSet = {
 					...qcWorkData,
-					...((result.data as any).form_data || {}),
-					...result.data,
+					// QCWorkOrder fields
+					work_order_id: raw.work_order_id,
+					// QCForm fields — map snake_case → camelCase
+					ptt: form.std_ptt ?? false,
+					chevron: form.std_chevron ?? false,
+					valeur: form.std_valeur ?? false,
+					ophir: form.std_ophir ?? false,
+					threeSpec: form.std_three_spec ?? false,
+					standardOthers: form.std_others ?? false,
+					standardOthersText: form.std_others_text ?? "",
+					inHouse: form.cert_inhouse ?? false,
+					thirdParty: form.cert_third_party ?? false,
+					ndt: form.cert_ndt ?? false,
+					testingOthers: form.cert_others ?? false,
+					testingOthersText: form.cert_others_text ?? "",
+					serialTag: form.serial_tag ?? false,
+					serialImprint: form.serial_imprint ?? false,
+					continueSerial: form.serial_continue ?? false,
+					serialOthers: form.serial_others ?? false,
+					serialOthersText: form.serial_others_text ?? "",
+					generalRemark: form.general_remark ?? "",
+					details: form.details ?? "",
+					customerReceiptNumber: form.customer_receipt_number ?? "",
+					donEntry: raw.donEntry ?? raw.work_order?.doc_entry ?? "",
+					items,
 				};
+
 				setFormData(formDataToSet);
 
-			
 				if (formDataToSet.donEntry) {
 					try {
 						const salesRes = await getSalesOrderService(Number(formDataToSet.donEntry));
 						if (salesRes && salesRes.data && salesRes.data.material_list) {
 							setMaterialList(salesRes.data.material_list);
-							setSalesOrder([{
-								doc_num: salesRes.data.doc_num,
-								doc_entry: salesRes.data.doc_entry
-							} as unknown as SalesOrderSearch]);
+							setSalesOrders([salesRes.data]);  // เพื่อให้ dropdown SO แสดงค่าที่เลือกได้ใน view/edit
 						}
 					} catch (e) {
 						console.error("Failed to fetch materials for this QC Work Order", e);
@@ -154,6 +189,10 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 					: item,
 			),
 		}));
+		// set salesItemId จาก item ที่เลือก
+		if (option) {
+			setFormData((prev: any) => ({ ...prev, salesItemId: option.sales_item_id }));
+		}
 	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -186,10 +225,6 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 		}
 	};
 
-	const handleSearchSalesOrder = async () => {
-		const res = await getSalesOrdersForQC(searchSalesOrder);
-		if (res && res.data) setSalesOrder(res.data);
-	};
 
 	const switchToEditMode = () => {
 		navigate(`/quality_control/qc_workorders_list/edit/${qc_workorder_id}`);
@@ -210,55 +245,59 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 	const isReadOnly = mode === "view";
 
 
+	// โหลด Sales Orders เมื่อเปิดหน้า create/edit
 	useEffect(() => {
 		const loadInitialSalesOrders = async () => {
 			const res = await getSalesOrdersForQC("");
-			if (res && res.data) {
-				setSalesOrder(res.data);
-			}
+			if (res && res.data) setSalesOrders(res.data);
 		};
 		if (mode === "create" || mode === "edit") {
 			loadInitialSalesOrders();
 		}
 	}, [mode]);
 
+	// Debounce search Sales Order
 	useEffect(() => {
-		const timeout = setTimeout(() => {
-			handleSearchSalesOrder();
+		const timeout = setTimeout(async () => {
+			const res = await getSalesOrdersForQC(searchSalesOrder);
+			if (res && res.data) setSalesOrders(res.data);
 		}, 750);
-
-		return () => {
-			clearTimeout(timeout);
-		};
+		return () => clearTimeout(timeout);
 	}, [searchSalesOrder]);
 
 	const handleClickedSalesOrder = async (option: any) => {
 		if (option) {
-			const doc_entry: number = option.doc_entry;
-			setFormData((prev: any) => ({
-				...prev,
-				donEntry: doc_entry,
-			}));
-
-			const res = await getSalesOrderService(doc_entry);
-			const data = res.data;
-
-			setFormData((prev) => ({
-				...prev,
-				customerCode: data.card_code,
-				customerName: data.card_name,
-				docNum: data.doc_num,
-				docEntry: data.doc_entry,
-				salesCode: data.slp_code,
-				salesName: data.slp_name,
-				teamCode: data.group_code,
-				teamName: data.group_name,
-			}));
-
-			setMaterialList(data.material_list);
+			try {
+				const res = await getSalesOrderService(Number(option.doc_entry));
+				if (res && res.data) {
+					const data = res.data;
+					setFormData((prev: any) => ({
+						...prev,
+						donEntry: data.doc_entry,
+						customerCode: data.card_code,
+						customerName: data.card_name,
+						docNum: data.doc_num,
+						salesCode: data.slp_code,
+						salesName: data.slp_name,
+						teamCode: data.group_code,
+						teamName: data.group_name,
+						salesItemId: undefined, // reset item selection
+					}));
+					// โหลด sales items ของ SO นี้
+					const itemsRes = await getSalesItemsForQC("");
+					const filtered = (itemsRes?.data || []).filter(
+						(item: any) => item.doc_entry === data.doc_entry
+					);
+					setSalesItems(filtered);
+					setMaterialList(data.material_list || []);
+				}
+			} catch (e) {
+				console.error("Failed to fetch sales order info", e);
+			}
 		} else {
 			setFormData(qcWorkData);
 			setSearchSalesOrder("");
+			setSalesItems([]);
 			setMaterialList([]);
 		}
 	};
@@ -382,13 +421,14 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 										options={salesOrders}
 										formatOptionLabel={(option: any) => (
 											<div className="d-flex align-items-center gap-2">
-												<span>{option.doc_entry}</span>
+												<span className="fw-bold">{option.doc_num}</span>
+												<span className="text-muted">{option.card_name}</span>
 											</div>
 										)}
-										getOptionValue={(option) => option.doc_entry}
+										getOptionValue={(option: any) => String(option.doc_entry)}
 										value={
 											salesOrders.find(
-												(op) => op.doc_entry === formData.donEntry,
+												(op: any) => op.doc_entry === formData.donEntry
 											) || null
 										}
 										onInputChange={(inputValue, actionMeta) => {
@@ -396,9 +436,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 												setSearchSalesOrder(inputValue);
 											}
 										}}
-										onChange={(option: any) => {
-											handleClickedSalesOrder(option);
-										}}
+										onChange={(option: any) => handleClickedSalesOrder(option)}
 										placeholder="ค้นหาใบสั่งขาย..."
 										isClearable
 										isDisabled={isReadOnly}
@@ -666,19 +704,18 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 																</span>
 															) : (
 																<Select
-																	isDisabled={materialList.length < 1}
-																	options={materialList}
-																	formatOptionLabel={(option: Material) => (
-																		<div>{option.item_code}</div>
+																	isDisabled={!formData.donEntry || isReadOnly}
+																	options={salesItems}
+																	formatOptionLabel={(option: any) => (
+																		<div>{option.item_code} — {option.item_name}</div>
 																	)}
-																	getOptionValue={(option) => option.item_code}
-																	// Controlled: reflect current item.code
+																	getOptionValue={(option: any) => String(option.sales_item_id)}
 																	value={
-																		materialList.find(
-																			(m) => m.item_code === item.code,
+																		salesItems.find(
+																			(si: any) => si.item_code === item.code
 																		) || null
 																	}
-																	onChange={(option: Material | null) => {
+																	onChange={(option: any) => {
 																		handleSelectMaterial(item.id, option);
 																	}}
 																	placeholder="ค้นหารหัส..."
@@ -884,7 +921,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.customerName} {formData.customerCode ? `(${formData.customerCode})` : ""}</td>
 						</tr>
 						<tr>
-							<td style={{ padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>ใบสั่งขายเลขที่</td>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>รหัสสินค้า (Sales Item)</td>
 							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.donEntry}</td>
 							<td style={{ padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>วันที่ย้าย / ส่ง</td>
 							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.customerReceiptNumber}</td>
