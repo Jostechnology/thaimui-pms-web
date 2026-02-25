@@ -9,13 +9,12 @@ import Select from "react-select";
 import { SalesOrderSearch } from "../../../type_interface/SalesOrderType";
 import {
 	getSalesOrderService,
-	searchSalesOrderService,
+	getSalesOrdersForQC,
 } from "../../../services/salesOrderService";
 import { Material } from "../../../type_interface/MaterialType";
 import { createQCWorkOrder, updateQCWorkOrder, getQCWorkOrderById } from "../../../services/qcWorkOrderService";
 import Swal from "sweetalert2";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import { generateQCWorkOrderPDF } from "../../../utils/generateQCWorkOrderPDF";
 
 type PageMode = "create" | "view" | "edit";
 
@@ -63,17 +62,14 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 					...((result.data as any).form_data || {}),
 					...result.data,
 				};
-				// Map backend data to form fields
 				setFormData(formDataToSet);
 
-				// Fetch material list for the item dropdowns
+			
 				if (formDataToSet.donEntry) {
 					try {
 						const salesRes = await getSalesOrderService(Number(formDataToSet.donEntry));
 						if (salesRes && salesRes.data && salesRes.data.material_list) {
 							setMaterialList(salesRes.data.material_list);
-							// Push the loaded Sales Order into the options list 
-							// so the Select dropdown can render the selected value properly
 							setSalesOrder([{
 								doc_num: salesRes.data.doc_num,
 								doc_entry: salesRes.data.doc_entry
@@ -145,8 +141,6 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 			),
 		}));
 	};
-
-	// ✅ NEW: Handle material selection per row — auto-fills code + description
 	const handleSelectMaterial = (itemId: string, option: Material | null) => {
 		setFormData((prev) => ({
 			...prev,
@@ -193,8 +187,8 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 	};
 
 	const handleSearchSalesOrder = async () => {
-		const res = await searchSalesOrderService(searchSalesOrder);
-		setSalesOrder(res.data);
+		const res = await getSalesOrdersForQC(searchSalesOrder);
+		if (res && res.data) setSalesOrder(res.data);
 	};
 
 	const switchToEditMode = () => {
@@ -202,38 +196,9 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 	};
 
 	const handleExportPDF = async () => {
-		if (!printRef.current) return;
 		setPdfLoading(true);
 		try {
-			const element = printRef.current;
-			const canvas = await html2canvas(element, {
-				scale: 2,
-				useCORS: true,
-				logging: false,
-				backgroundColor: "#ffffff",
-			});
-			const imgData = canvas.toDataURL("image/png");
-			const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-			const pdfWidth = pdf.internal.pageSize.getWidth();
-			const pdfHeight = pdf.internal.pageSize.getHeight();
-			const imgWidth = canvas.width;
-			const imgHeight = canvas.height;
-			const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-			const scaledWidth = imgWidth * ratio;
-			const scaledHeight = imgHeight * ratio;
-			const x = (pdfWidth - scaledWidth) / 2;
-			let y = 0;
-			let heightLeft = scaledHeight;
-			pdf.addImage(imgData, "PNG", x, y, scaledWidth, scaledHeight);
-			heightLeft -= pdfHeight;
-			while (heightLeft > 0) {
-				y = heightLeft - scaledHeight;
-				pdf.addPage();
-				pdf.addImage(imgData, "PNG", x, y, scaledWidth, scaledHeight);
-				heightLeft -= pdfHeight;
-			}
-			const docNum = formData.docNum || formData.documentNumber || qc_workorder_id || "QC";
-			pdf.save(`QC-WorkOrder-${docNum}.pdf`);
+			await generateQCWorkOrderPDF(formData, qc_workorder_id);
 		} catch (err) {
 			console.error("PDF export error:", err);
 			Swal.fire("ผิดพลาด!", "ไม่สามารถ export PDF ได้", "error");
@@ -244,9 +209,20 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 
 	const isReadOnly = mode === "view";
 
-	useEffect(() => {
-		if (!searchSalesOrder) return;
 
+	useEffect(() => {
+		const loadInitialSalesOrders = async () => {
+			const res = await getSalesOrdersForQC("");
+			if (res && res.data) {
+				setSalesOrder(res.data);
+			}
+		};
+		if (mode === "create" || mode === "edit") {
+			loadInitialSalesOrders();
+		}
+	}, [mode]);
+
+	useEffect(() => {
 		const timeout = setTimeout(() => {
 			handleSearchSalesOrder();
 		}, 750);
@@ -280,7 +256,6 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 			}));
 
 			setMaterialList(data.material_list);
-			setSearchSalesOrder(option.doc_entry);
 		} else {
 			setFormData(qcWorkData);
 			setSearchSalesOrder("");
@@ -649,7 +624,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 								</div>
 							</div>
 
-							{/* ✅ Items Table — fully functional */}
+							{/*  Items Table — fully functional */}
 							<div className="row mb-3">
 								<div className="col-md-12">
 									<div className="d-flex justify-content-between align-items-center mb-2">
@@ -683,7 +658,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 											<tbody>
 												{formData.items.map((item) => (
 													<tr key={item.id}>
-														{/* ✅ Material selector — scoped to this row */}
+														{/* Material selector — scoped to this row */}
 														<td>
 															{isReadOnly ? (
 																<span className="form-control-plaintext px-2">
@@ -697,7 +672,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 																		<div>{option.item_code}</div>
 																	)}
 																	getOptionValue={(option) => option.item_code}
-																	// ✅ Controlled: reflect current item.code
+																	// Controlled: reflect current item.code
 																	value={
 																		materialList.find(
 																			(m) => m.item_code === item.code,
@@ -719,7 +694,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 															)}
 														</td>
 
-														{/* ✅ Description — auto-filled, but still editable */}
+														{/*  Description — auto-filled, but still editable */}
 														<td>
 															<input
 																type="text"

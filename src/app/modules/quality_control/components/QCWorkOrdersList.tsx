@@ -23,11 +23,11 @@ interface QCWorkOrderData {
 }
 
 const QC_STATUS_OPTIONS = [
-    { value: "", label: "All" },
-    { value: "PENDING", label: "Pending" },
-    { value: "INPROGRESS", label: "In Progress" },
-    { value: "PASSED", label: "Passed" },
-    { value: "FAILED", label: "Failed" },
+    { value: "", label: "ทั้งหมด" },
+    { value: "PENDING", label: "รอดำเนินการ" },
+    { value: "INPROGRESS", label: "กำลังดำเนินการ" },
+    { value: "PASSED", label: "ผ่าน QC" },
+    { value: "FAILED", label: "ไม่ผ่าน QC" },
 ];
 
 const QCWorkOrdersList: React.FC = () => {
@@ -60,7 +60,7 @@ const QCWorkOrdersList: React.FC = () => {
         setDataLoading(true);
         setLoading();
         try {
-            const result = await getQCWorkOrderList(currentPage, pageConfig, keyword);
+            const result = await getQCWorkOrderList(currentPage, pageConfig, keyword, statusFilter);
             if (result && result.success) {
                 setQCWorkOrders(result.data.items);
                 setTotalPages(result.data.total_pages);
@@ -79,7 +79,7 @@ const QCWorkOrdersList: React.FC = () => {
 
     useEffect(() => {
         fetchQCWorkOrders();
-    }, [currentPage, keyword, pageConfig]);
+    }, [currentPage, keyword, pageConfig, statusFilter]);
 
     const getStatusBadge = (status: string) => {
         const s = status?.toUpperCase();
@@ -248,7 +248,10 @@ const QCWorkOrdersList: React.FC = () => {
                             <select
                                 className='form-select form-select-solid w-150px'
                                 value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
+                                onChange={(e) => {
+                                    setStatusFilter(e.target.value);
+                                    setCurrentPage(1);
+                                }}
                             >
                                 {QC_STATUS_OPTIONS.map((status) => (
                                     <option key={status.value} value={status.value}>{status.label}</option>
@@ -275,7 +278,6 @@ const QCWorkOrdersList: React.FC = () => {
                             <thead>
                                 <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
                                     <th className='min-w-80px'>ID</th>
-                                    <th className='min-w-100px'>WORK ORDER</th>
                                     <th className='min-w-125px text-center'>QC STATUS</th>
                                     <th className='min-w-125px text-center'>QC DATE</th>
                                     <th className='min-w-125px'>QC BY</th>
@@ -287,7 +289,7 @@ const QCWorkOrdersList: React.FC = () => {
                             <tbody className='text-gray-600 fw-semibold'>
                                 {dataLoading ? (
                                     <tr>
-                                        <td colSpan={8} className='text-center p-20'>
+                                        <td colSpan={7} className='text-center p-20'>
                                             <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
                                             <span className="ms-3 text-gray-500">กำลังดึงข้อมูล...</span>
                                         </td>
@@ -299,11 +301,6 @@ const QCWorkOrdersList: React.FC = () => {
                                                 <span className='text-gray-800 fw-bold fs-6'>#{item.qc_work_order_id}</span>
                                             </td>
 
-                                            <td>
-                                                <span className='badge badge-light-dark fw-bold px-3 py-2'>
-                                                    WO-{item.work_order_id}
-                                                </span>
-                                            </td>
 
                                             <td className='text-center'>
                                                 <span className={`badge ${getStatusBadge(item.qc_status)} fw-bold px-4 py-3`}>

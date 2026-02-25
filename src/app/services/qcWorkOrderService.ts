@@ -29,18 +29,20 @@ const handleResponse = async (response: Response | false | undefined): Promise<A
 export const getQCWorkOrderList = async (
     page: number,
     limit: number,
-    search: string = ""
+    search: string = "",
+    filter: string = ""
 ): Promise<APIResponse> => {
     try {
         const params = new URLSearchParams({
             page: page.toString(),
-            limit: limit.toString(),
+            pageConfig: limit.toString(),
         });
         if (search) params.append("search", search);
+        if (filter) params.append("filter", filter);
 
         const response = await front_api(
             "GET",
-            `/qc_work_order/list?${params.toString()}`,
+            `/get_qc_work_order_list?${params.toString()}`,
             {},
             { wrapData: false, headers: getHeaders() }
         );
