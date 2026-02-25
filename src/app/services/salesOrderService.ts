@@ -88,7 +88,6 @@ export const getSalesOrdersForQC = async (search: string = "") => {
         return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
     }
 }
-<<<<<<< HEAD
 
 export const getSalesItemsForQC = async (search: string = "") => {
     try {
@@ -112,5 +111,3 @@ export const getSalesItemsForQC = async (search: string = "") => {
         return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
     }
 }
-=======
->>>>>>> 2d2c3caecbf97d3eafb6f84c46fcb5745653b15f
