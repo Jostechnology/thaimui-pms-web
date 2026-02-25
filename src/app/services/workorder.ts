@@ -160,7 +160,10 @@ export const deleteWorkPhase = async (payload: { work_phase_ids: number[] }): Pr
 
 export const createWorkOrder = async (payload: {
     sales_item_id: number;
-    item_components: { material_list_id: number; quantity_used: number }[];
+    item_components: {
+        component_name: string;
+        material_usage: { material_list_id: number; quantity_used: number }[];
+    }[];
 }): Promise<APIResponse> => {
     try {
         const response = await front_api(
