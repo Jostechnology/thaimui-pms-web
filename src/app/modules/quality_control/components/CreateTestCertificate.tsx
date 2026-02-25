@@ -77,7 +77,7 @@ const CreateTestCertificate: React.FC = () => {
 
         materialList.forEach((mat: any) => {
             const qty = Number(mat.item_num || mat.Qty || mat.Quantity || 1);
-            
+
             for (let i = 0; i < qty; i++) {
                 expandedRows.push({
                     id: `${mat.item_code}-${counter}`,
@@ -137,10 +137,10 @@ const CreateTestCertificate: React.FC = () => {
         }
 
         const payload = {
-            qc_work_order_id: 1,
+            qc_work_order_id: 6,
             certification_name: "TC-AUTO-GEN",
             certification_date: certForm.dateOfTest,
-            certification_status: overallStatus, 
+            certification_status: overallStatus,
             remark: certForm.remark,
             standard_ref: certForm.standardRef,
             test_method: certForm.testMethod,
@@ -164,11 +164,12 @@ const CreateTestCertificate: React.FC = () => {
             });
 
             const result = await createCertificate(payload);
-
-            if (result) {
+            if (result.success) {
                 Swal.fire("สำเร็จ!", "สร้าง Test Certificate เรียบร้อยแล้ว", "success").then(() => {
                     navigate(-1);
                 });
+            } else {
+                Swal.fire("ผิดพลาด!", result.message || "ไม่สามารถบันทึกข้อมูลได้", "error");
             }
         } catch (error: any) {
             Swal.fire("ผิดพลาด!", error.message || "ไม่สามารถบันทึกข้อมูลได้", "error");
@@ -176,11 +177,16 @@ const CreateTestCertificate: React.FC = () => {
     };
 
     const handleSearchSalesOrder = async () => {
-        const res = await searchSalesOrderService(searchSalesOrder);
-        setSalesOrder(res.data);
+        try {
+            const res = await searchSalesOrderService(searchSalesOrder);
+            setSalesOrder(res.data || []);
+        } catch (error) {
+            console.error('searchSalesOrderService error', error);
+            setSalesOrder([]);
+        }
     };
 
-    const handleChangedSalesOrder = async (option: any) => { //to do
+    const handleChangedSalesOrder = async (option: any) => {
         const selected = option || null;
         setSelectedSalesOrder(selected);
 
@@ -193,13 +199,17 @@ const CreateTestCertificate: React.FC = () => {
 
                     setFormData((prev) => ({
                         ...prev,
-                        customerCode: res.data.card_code,
-                        customerName: res.data.card_name,
+                        customerCode: res.data.card_code || prev.customerCode,
+                        customerName: res.data.card_name || prev.customerName,
                     }));
+                } else {
+                    Swal.fire("ไม่พบข้อมูล!", `ไม่พบใบสั่งขาย ${selected.doc_entry}`, "warning");
+                    setFormData(qcWorkData);
+                    setMaterialList([]);
                 }
             } catch (error) {
                 console.error(`Failed to fetch SO: ${selected.doc_entry}`, error);
-                Swal.fire("ผิดพลาด!", `ไม่สามารถดึงข้อมูลใบสั่งขาย ${selected.doc_entry}`, "error");
+                Swal.fire("ผิดพลาด!", `เกิดข้อผิดพลาดในการดึงข้อมูล ${selected.doc_entry}`, "error");
                 setFormData(qcWorkData);
                 setMaterialList([]);
                 setSelectedSalesOrder(null);
@@ -225,7 +235,7 @@ const CreateTestCertificate: React.FC = () => {
                     <div className="card-body p-6">
                         <div className="d-flex align-items-center mb-4">
                             <i className="bi bi-cart fs-2 text-primary me-3"></i>
-                            <h3 className="m-0 fw-bold text-gray-800 fs-4">เลือกใบสั่งขาย (Sales Order)</h3>
+                            <h3 className="m-0 fw-bold text-gray-800 fs-4">เลือกใบ QC</h3>
                         </div>
                         <div className="w-md-500px">
                             <Select
@@ -249,7 +259,7 @@ const CreateTestCertificate: React.FC = () => {
                 {/* --- ส่วนล่าง: จำลองหน้ากระดาษ Test Certificate --- */}
                 <div className="card shadow-sm border-0">
                     <div className="card-body p-8 p-lg-12 bg-white rounded shadow-sm border border-gray-300">
-                        
+
                         <div className="text-center mb-10 pb-5 border-bottom border-2 border-gray-400">
                             <h1 className="fw-bolder text-gray-900 fs-2hx tracking-widest uppercase">TEST CERTIFICATE</h1>
                         </div>
@@ -262,26 +272,26 @@ const CreateTestCertificate: React.FC = () => {
                                 </div>
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-125px fs-5">Test Method :</label>
-                                    <input type="text" className="form-control" value={certForm.testMethod} onChange={(e) => setCertForm({...certForm, testMethod: e.target.value})} placeholder="e.g. Proof Load Test" />
+                                    <input type="text" className="form-control" value={certForm.testMethod} onChange={(e) => setCertForm({ ...certForm, testMethod: e.target.value })} placeholder="e.g. Proof Load Test" />
                                 </div>
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-125px fs-5">Remark :</label>
-                                    <input type="text" className="form-control" value={certForm.remark} onChange={(e) => setCertForm({...certForm, remark: e.target.value})} placeholder="e.g. PO.No. 10559024" />
+                                    <input type="text" className="form-control" value={certForm.remark} onChange={(e) => setCertForm({ ...certForm, remark: e.target.value })} placeholder="e.g. PO.No. 10559024" />
                                 </div>
                             </div>
 
                             <div className="col-md-6 d-flex flex-column gap-4">
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-150px fs-5">Certificate No :</label>
-                                    <input type="text" className="form-control form-control-solid bg-light" value={certForm.certificateNo} onChange={(e) => setCertForm({...certForm, certificateNo: e.target.value})}/>
+                                    <input type="text" className="form-control form-control-solid bg-light" value={certForm.certificateNo} onChange={(e) => setCertForm({ ...certForm, certificateNo: e.target.value })} />
                                 </div>
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-150px fs-5">Date of Test :</label>
-                                    <input type="date" className="form-control form-control-solid bg-light fw-bold" value={certForm.dateOfTest} onChange={(e) => setCertForm({...certForm, dateOfTest: e.target.value})} />
+                                    <input type="date" className="form-control form-control-solid bg-light fw-bold" value={certForm.dateOfTest} onChange={(e) => setCertForm({ ...certForm, dateOfTest: e.target.value })} />
                                 </div>
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-150px fs-5">Standard Ref. :</label>
-                                    <input type="text" className="form-control" value={certForm.standardRef} onChange={(e) => setCertForm({...certForm, standardRef: e.target.value})} placeholder="e.g. BS EN 13414" />
+                                    <input type="text" className="form-control" value={certForm.standardRef} onChange={(e) => setCertForm({ ...certForm, standardRef: e.target.value })} placeholder="e.g. BS EN 13414" />
                                 </div>
                             </div>
                         </div>
@@ -290,12 +300,12 @@ const CreateTestCertificate: React.FC = () => {
                             <table className="table align-middle table-row-bordered border-gray-400 fs-6 gy-3 mb-0">
                                 <thead>
                                     <tr className="text-center text-gray-800 fw-bolder fs-6 bg-light border-bottom border-gray-400">
-                                        <th className="w-60px border-end border-gray-400">Item<br/>No.</th>
+                                        <th className="w-60px border-end border-gray-400">Item<br />No.</th>
                                         <th className="min-w-100px border-end border-gray-400">Test No.</th>
                                         <th className="min-w-100px border-end border-gray-400">Ref.No.</th>
                                         <th className="min-w-300px border-end border-gray-400">Description</th>
-                                        <th className="w-100px border-end border-gray-400">W.L.L.<br/>(MT.)</th>
-                                        <th className="w-100px">Load Test<br/>(MT.)</th>
+                                        <th className="w-100px border-end border-gray-400">W.L.L.<br />(MT.)</th>
+                                        <th className="w-100px">Load Test<br />(MT.)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -377,7 +387,7 @@ const CreateTestCertificate: React.FC = () => {
                         </div>
 
                     </div>
-                    
+
                     <div className="card-footer border-0 d-flex justify-content-end gap-3 mt-4">
                         <button className="btn btn-light fw-bold px-8" onClick={() => navigate(-1)}>Cancel</button>
                         <button className="btn btn-primary fw-bold px-8 shadow-sm" onClick={handleSave}>
