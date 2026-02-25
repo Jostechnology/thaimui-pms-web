@@ -10,10 +10,19 @@ import {
 import { Material } from "../../../type_interface/MaterialType";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
+import { createCertificate } from "../../../services/certificateService";
 
 type PageMode = "create" | "view" | "edit";
 
-// Interface สำหรับเก็บข้อมูลแต่ละบรรทัดในใบ Cert (หลังจากแยกร่างตามจำนวนชิ้นแล้ว)
+// 1. Interface สำหรับ Header Form
+interface CertFormState {
+    testMethod: string;
+    remark: string;
+    standardRef: string;
+    dateOfTest: string;
+}
+
+// 2. Interface สำหรับข้อมูลตารางที่แยกชิ้นแล้ว
 interface CertItemRow {
     id: string;
     itemNo: string;
@@ -23,6 +32,15 @@ interface CertItemRow {
     wll: string;
     loadTest: string;
 }
+
+// 3. ฟังก์ชันเล็กๆ ดึงวันที่ปัจจุบันแบบ Local Time (Timezone ไทย)
+const getTodayLocalString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`; // จะได้ฟอร์แมต YYYY-MM-DD เสมอ
+};
 
 const CreateTestCertificate: React.FC = () => {
     const navigate = useNavigate();
@@ -34,14 +52,14 @@ const CreateTestCertificate: React.FC = () => {
     const [searchSalesOrder, setSearchSalesOrder] = useState<string>("");
     const [formData, setFormData] = useState<QCWorkOrderData>(qcWorkData);
     const [materialList, setMaterialList] = useState<Material[]>([]);
-    const [selectedSalesOrders, setSelectedSalesOrders] = useState<any[]>([]);
+    const [selectedSalesOrder, setSelectedSalesOrder] = useState<any | null>(null);
 
-    // States สำหรับใบ Cert (อิงตามฟิลด์ที่คุณต้องการ)
-    const [certForm, setCertForm] = useState({
-        testMethod: "Proof Load Test", // ค่า Default คร่าวๆ
+    // 🌟 4. State สำหรับฟอร์มใบ Cert (ย้ายเข้ามาไว้ใน Component อย่างถูกต้อง)
+    const [certForm, setCertForm] = useState<CertFormState>({
+        testMethod: "Proof Load Test", // ค่า Default
         remark: "",
         standardRef: "",
-        dateOfTest: new Date().toISOString().split('T')[0] // ดึงวันที่ปัจจุบัน
+        dateOfTest: getTodayLocalString() // ดึงวันที่ปัจจุบันแบบปลอดภัย
     });
 
     // State สำหรับเก็บข้อมูลตารางที่ "แตกแถว" แล้ว (1 ชิ้น = 1 แถว)
@@ -50,25 +68,23 @@ const CreateTestCertificate: React.FC = () => {
     const [mode, setMode] = useState<PageMode>("create");
     const isReadOnly = mode === "view";
 
-    // 🌟 1. Logic การ "แตกแถว" ตามจำนวน Quantity (item_num)
+    // Logic การ "แตกแถว" ตามจำนวน Quantity (item_num)
     useEffect(() => {
         let expandedRows: CertItemRow[] = [];
         let counter = 1;
 
         materialList.forEach((mat: any) => {
-            // ดึงจำนวนออกมา (ถ้าไม่มีให้ถือเป็น 1)
             const qty = Number(mat.item_num || mat.Qty || mat.Quantity || 1);
             
-            // วนลูปสร้างแถวตามจำนวนชิ้น
             for (let i = 0; i < qty; i++) {
                 expandedRows.push({
                     id: `${mat.item_code}-${counter}`,
                     itemNo: String(counter).padStart(2, '0'), // รันเลข 01, 02, 03...
-                    testNo: "[Auto Gen]", // ระบบหลังบ้านรันให้ตอนบันทึก
-                    refNo: "", // รอ User กรอก
-                    description: `${mat.item_name || ""} ${mat.item_description || ""}`.trim(), // ข้อความตั้งต้น
-                    wll: "", // รอ User กรอก
-                    loadTest: "", // รอ User กรอก
+                    testNo: "[Auto Gen]",
+                    refNo: "",
+                    description: `${mat.item_name || ""} ${mat.item_description || ""}`.trim(),
+                    wll: "",
+                    loadTest: "",
                 });
                 counter++;
             }
@@ -77,11 +93,84 @@ const CreateTestCertificate: React.FC = () => {
         setCertItemRows(expandedRows);
     }, [materialList]);
 
-    // 🌟 2. Handle การพิมพ์แก้ไขข้อมูลในแต่ละแถวของตาราง
+    // Handle การพิมพ์แก้ไขข้อมูลในแต่ละแถวของตาราง
     const handleRowChange = (index: number, field: keyof CertItemRow, value: string) => {
         const newRows = [...certItemRows];
         newRows[index][field] = value;
         setCertItemRows(newRows);
+    };
+
+    // Handle numeric-only inputs for WLL and Load Test (no negative values)
+    const sanitizeNumericInput = (val: string) => {
+        // remove any non-digit and non-dot characters
+        let s = val.replace(/[^0-9.]/g, "");
+        // collapse multiple dots to a single dot
+        const parts = s.split('.');
+        if (parts.length > 2) {
+            s = parts.shift() + '.' + parts.join('');
+        }
+        // remove leading zeros unless followed by a dot (keep user-friendly)
+        // allow empty string
+        return s;
+    };
+
+    const handleNumericRowChange = (index: number, field: keyof CertItemRow, value: string) => {
+        const clean = sanitizeNumericInput(value);
+        // prevent leading '-' by design; parsed negative is also blocked
+        const num = clean === '' ? NaN : parseFloat(clean);
+        if (!isNaN(num) && num < 0) {
+            // ignore negative input (do not update)
+            return;
+        }
+
+        const newRows = [...certItemRows];
+        newRows[index][field] = clean;
+        setCertItemRows(newRows);
+    };
+
+    const handleSave = async () => {
+        if (certItemRows.length === 0) {
+            Swal.fire("แจ้งเตือน", "กรุณาเลือกใบสั่งขายและตรวจสอบรายการสินค้า", "warning");
+            return;
+        }
+
+        const payload = {
+            qc_work_order_id: 1, //mock id สำหรับเชื่อมโยงกับ QC Work Order ก่อน
+            certification_name: "TC-AUTO-GEN",
+            certification_date: certForm.dateOfTest,
+            certification_status: overallStatus, 
+            remark: certForm.remark,
+            standard_ref: certForm.standardRef,
+            test_method: certForm.testMethod,
+            customer_name: formData.customerName,
+
+            items: certItemRows.map(row => ({
+                item_no: row.itemNo,
+                test_no: row.testNo,
+                ref_no: row.refNo,
+                description: row.description,
+                wll: row.wll,
+                load_test: row.loadTest
+            }))
+        };
+
+        try {
+            Swal.fire({
+                title: 'กำลังบันทึกข้อมูล...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            const result = await createCertificate(payload);
+
+            if (result) {
+                Swal.fire("สำเร็จ!", "สร้าง Test Certificate เรียบร้อยแล้ว", "success").then(() => {
+                    navigate(-1);
+                });
+            }
+        } catch (error: any) {
+            Swal.fire("ผิดพลาด!", error.message || "ไม่สามารถบันทึกข้อมูลได้", "error");
+        }
     };
 
     const handleSearchSalesOrder = async () => {
@@ -89,36 +178,29 @@ const CreateTestCertificate: React.FC = () => {
         setSalesOrder(res.data);
     };
 
-    const handleChangedSalesOrders = async (selectedOptions: any) => {
-        const options = selectedOptions || [];
-        setSelectedSalesOrders(options);
+    const handleChangedSalesOrder = async (option: any) => {
+        const selected = option || null;
+        setSelectedSalesOrder(selected);
 
-        if (options.length > 0) {
-            let combinedMaterials: any[] = [];
-            let firstSOData: any = null;
+        if (selected) {
+            try {
+                const res = await getSalesOrderService(selected.doc_entry);
+                if (res && res.data) {
+                    const materials = res.data.items || res.data.material_list || [];
+                    setMaterialList(materials);
 
-            for (let i = 0; i < options.length; i++) {
-                const doc_entry = options[i].doc_entry;
-                try {
-                    const res = await getSalesOrderService(doc_entry);
-                    if (res && res.data) {
-                        if (i === 0) firstSOData = res.data;
-                        const materials = res.data.material_list || [];
-                        combinedMaterials = [...combinedMaterials, ...materials];
-                    }
-                } catch (error) {
-                    console.error(`Failed to fetch SO: ${doc_entry}`, error);
+                    setFormData((prev) => ({
+                        ...prev,
+                        customerCode: res.data.card_code,
+                        customerName: res.data.card_name,
+                    }));
                 }
-            }
-
-            setMaterialList(combinedMaterials);
-
-            if (firstSOData) {
-                setFormData((prev) => ({
-                    ...prev,
-                    customerCode: firstSOData.card_code,
-                    customerName: firstSOData.card_name,
-                }));
+            } catch (error) {
+                console.error(`Failed to fetch SO: ${selected.doc_entry}`, error);
+                Swal.fire("ผิดพลาด!", `ไม่สามารถดึงข้อมูลใบสั่งขาย ${selected.doc_entry}`, "error");
+                setFormData(qcWorkData);
+                setMaterialList([]);
+                setSelectedSalesOrder(null);
             }
         } else {
             setFormData(qcWorkData);
@@ -145,18 +227,17 @@ const CreateTestCertificate: React.FC = () => {
                         </div>
                         <div className="w-md-500px">
                             <Select
-                                isMulti
                                 options={salesOrders}
                                 formatOptionLabel={(option: any) => (
                                     <div className="d-flex align-items-center gap-2"><span>{option.doc_entry}</span></div>
                                 )}
                                 getOptionValue={(option) => option.doc_entry}
-                                value={selectedSalesOrders}
+                                value={selectedSalesOrder}
                                 onInputChange={(inputValue, actionMeta) => {
                                     if (actionMeta.action === "input-change") setSearchSalesOrder(inputValue);
                                 }}
-                                onChange={handleChangedSalesOrders}
-                                placeholder="ค้นหาใบสั่งขาย... (เลือกได้มากกว่า 1 ใบ)"
+                                onChange={handleChangedSalesOrder}
+                                placeholder="ค้นหาใบสั่งขาย..."
                                 isClearable
                             />
                         </div>
@@ -167,14 +248,11 @@ const CreateTestCertificate: React.FC = () => {
                 <div className="card shadow-sm border-0">
                     <div className="card-body p-8 p-lg-12 bg-white rounded shadow-sm border border-gray-300">
                         
-                        {/* หัวเอกสาร (Title) */}
                         <div className="text-center mb-10 pb-5 border-bottom border-2 border-gray-400">
                             <h1 className="fw-bolder text-gray-900 fs-2hx tracking-widest uppercase">TEST CERTIFICATE</h1>
                         </div>
 
-                        {/* ข้อมูล Header แบบ 2 คอลัมน์ (ซ้าย-ขวา) เหมือนในกระดาษจริง */}
                         <div className="row g-8 mb-10">
-                            {/* คอลัมน์ซ้าย */}
                             <div className="col-md-6 d-flex flex-column gap-4">
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-125px fs-5">Customer :</label>
@@ -190,7 +268,6 @@ const CreateTestCertificate: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* คอลัมน์ขวา */}
                             <div className="col-md-6 d-flex flex-column gap-4">
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-150px fs-5">Certificate No :</label>
@@ -198,7 +275,7 @@ const CreateTestCertificate: React.FC = () => {
                                 </div>
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-150px fs-5">Date of Test :</label>
-                                    <input type="date" className="form-control form-control-solid bg-light fw-bold" value={certForm.dateOfTest} readOnly />
+                                    <input type="date" className="form-control form-control-solid bg-light fw-bold" value={certForm.dateOfTest} onChange={(e) => setCertForm({...certForm, dateOfTest: e.target.value})} />
                                 </div>
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-150px fs-5">Standard Ref. :</label>
@@ -207,7 +284,6 @@ const CreateTestCertificate: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* ตารางรายการ (Items Table) */}
                         <div className="table-responsive border border-gray-400 mb-8">
                             <table className="table align-middle table-row-bordered border-gray-400 fs-6 gy-3 mb-0">
                                 <thead>
@@ -224,30 +300,55 @@ const CreateTestCertificate: React.FC = () => {
                                     {certItemRows.length > 0 ? (
                                         certItemRows.map((row, index) => (
                                             <tr key={index} className="text-center">
-                                                {/* 1. Item No. (Frontend ไล่ให้เอง เช่น 01, 02) */}
                                                 <td className="fw-bold border-end border-gray-400">{row.itemNo}</td>
-                                                
-                                                {/* 2. Test No. (Auto Gen) */}
                                                 <td className="text-gray-500 border-end border-gray-400">{row.testNo}</td>
-                                                
-                                                {/* 3. Ref.No. (กรอกเอง) */}
                                                 <td className="border-end border-gray-400 p-1">
                                                     <input type="text" className="form-control form-control-sm text-center border-0 bg-transparent" placeholder="-" value={row.refNo} onChange={(e) => handleRowChange(index, 'refNo', e.target.value)} />
                                                 </td>
-                                                
-                                                {/* 4. Description (มีมาให้ แต่แก้ได้) */}
                                                 <td className="border-end border-gray-400 p-1 text-start">
                                                     <textarea className="form-control form-control-sm border-0 bg-transparent resize-none" rows={2} value={row.description} onChange={(e) => handleRowChange(index, 'description', e.target.value)}></textarea>
                                                 </td>
-                                                
-                                                {/* 5. W.L.L. (กรอกเอง) */}
                                                 <td className="border-end border-gray-400 p-1">
-                                                    <input type="number" step="0.01" className="form-control form-control-sm text-center border-0 bg-transparent fw-bold" placeholder="0.00" value={row.wll} onChange={(e) => handleRowChange(index, 'wll', e.target.value)} />
+                                                    <input
+                                                        type="text"
+                                                        inputMode="decimal"
+                                                        pattern="[0-9]*\.?[0-9]*"
+                                                        className="form-control form-control-sm text-center border-0 bg-transparent fw-bold"
+                                                        placeholder="0.00"
+                                                        value={row.wll}
+                                                        onChange={(e) => handleNumericRowChange(index, 'wll', e.target.value)}
+                                                        onBlur={(e) => {
+                                                            // ensure empty or valid non-negative number; if empty keep empty
+                                                            const v = e.target.value;
+                                                            if (v === '') return;
+                                                            const n = parseFloat(v);
+                                                            if (isNaN(n) || n < 0) {
+                                                                // reset to empty when invalid
+                                                                handleNumericRowChange(index, 'wll', '');
+                                                            }
+                                                        }}
+                                                        min="0"
+                                                    />
                                                 </td>
-                                                
-                                                {/* 6. Load Test (กรอกเอง) */}
                                                 <td className="p-1">
-                                                    <input type="number" step="0.01" className="form-control form-control-sm text-center border-0 bg-transparent fw-bold" placeholder="0.00" value={row.loadTest} onChange={(e) => handleRowChange(index, 'loadTest', e.target.value)} />
+                                                    <input
+                                                        type="text"
+                                                        inputMode="decimal"
+                                                        pattern="[0-9]*\.?[0-9]*"
+                                                        className="form-control form-control-sm text-center border-0 bg-transparent fw-bold"
+                                                        placeholder="0.00"
+                                                        value={row.loadTest}
+                                                        onChange={(e) => handleNumericRowChange(index, 'loadTest', e.target.value)}
+                                                        onBlur={(e) => {
+                                                            const v = e.target.value;
+                                                            if (v === '') return;
+                                                            const n = parseFloat(v);
+                                                            if (isNaN(n) || n < 0) {
+                                                                handleNumericRowChange(index, 'loadTest', '');
+                                                            }
+                                                        }}
+                                                        min="0"
+                                                    />
                                                 </td>
                                             </tr>
                                         ))
@@ -262,7 +363,6 @@ const CreateTestCertificate: React.FC = () => {
                             </table>
                         </div>
 
-                        {/* สรุปผลการทดสอบ (Overall Inspection Result) */}
                         <div className="d-flex justify-content-center gap-10 mt-10">
                             <label className="d-flex align-items-center cursor-pointer">
                                 <input type="radio" name="certStatus" value="acceptable" className="form-check-input h-30px w-30px me-3 border-gray-400" checked={overallStatus === 'acceptable'} onChange={() => setOverallStatus('acceptable')} />
@@ -276,10 +376,9 @@ const CreateTestCertificate: React.FC = () => {
 
                     </div>
                     
-                    {/* Action Buttons (Save/Cancel) อยู่นอกกระดาษนิดนึง */}
                     <div className="card-footer border-0 d-flex justify-content-end gap-3 mt-4">
                         <button className="btn btn-light fw-bold px-8" onClick={() => navigate(-1)}>Cancel</button>
-                        <button className="btn btn-primary fw-bold px-8 shadow-sm">
+                        <button className="btn btn-primary fw-bold px-8 shadow-sm" onClick={handleSave}>
                             <i className="bi bi-save me-2"></i> Save Certificate
                         </button>
                     </div>

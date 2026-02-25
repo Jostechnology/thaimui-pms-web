@@ -15,7 +15,6 @@ const TestCertificateList: React.FC = () => {
     const navigate = useNavigate();
 
     return (
-        // ✅ เพิ่ม Wrapper Container ตรงนี้ เพื่อดันเนื้อหาออกจากขอบจอ
         <div className="container-fluid px-10 py-8">
             
             {/* --- Page Header (Title & Create Button) --- */}
