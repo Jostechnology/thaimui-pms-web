@@ -116,5 +116,12 @@ export const deleteQCWorkOrder = async (id: number): Promise<APIResponse> => {
         return { success: false, message: "เกิดข้อผิดพลาดในการลบ QC Work Order" };
     }
 };
-
-
+export const searchQcWorkOrder = async (search: string) => {
+    const response = await front_api(
+        "GET",
+        `/search_qc_work_order?search=${search}`, 
+        {},
+        { wrapData: false, headers: getHeaders() }
+    );
+    return response; 
+};
