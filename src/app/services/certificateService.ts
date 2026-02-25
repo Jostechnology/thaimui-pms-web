@@ -26,6 +26,7 @@ const handleResponse = async (response: Response | false | undefined): Promise<A
 };
 
 export const createCertificate = async (data: any): Promise<APIResponse> => {
+    console.log("Creating Certificate with data:", data);
     try {
         const response = await front_api(
             "POST",

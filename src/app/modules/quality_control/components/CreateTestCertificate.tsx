@@ -20,6 +20,7 @@ interface CertFormState {
     remark: string;
     standardRef: string;
     dateOfTest: string;
+    certificateNo?: string;
 }
 
 // 2. Interface สำหรับข้อมูลตารางที่แยกชิ้นแล้ว
@@ -56,10 +57,11 @@ const CreateTestCertificate: React.FC = () => {
 
     // 🌟 4. State สำหรับฟอร์มใบ Cert (ย้ายเข้ามาไว้ใน Component อย่างถูกต้อง)
     const [certForm, setCertForm] = useState<CertFormState>({
-        testMethod: "Proof Load Test", // ค่า Default
+        testMethod: "Proof Load Test", //ค่า Default
+        certificateNo: "",
         remark: "",
         standardRef: "",
-        dateOfTest: getTodayLocalString() // ดึงวันที่ปัจจุบันแบบปลอดภัย
+        dateOfTest: getTodayLocalString()
     });
 
     // State สำหรับเก็บข้อมูลตารางที่ "แตกแถว" แล้ว (1 ชิ้น = 1 แถว)
@@ -135,7 +137,7 @@ const CreateTestCertificate: React.FC = () => {
         }
 
         const payload = {
-            qc_work_order_id: 1, //mock id สำหรับเชื่อมโยงกับ QC Work Order ก่อน
+            qc_work_order_id: 1,
             certification_name: "TC-AUTO-GEN",
             certification_date: certForm.dateOfTest,
             certification_status: overallStatus, 
@@ -178,7 +180,7 @@ const CreateTestCertificate: React.FC = () => {
         setSalesOrder(res.data);
     };
 
-    const handleChangedSalesOrder = async (option: any) => {
+    const handleChangedSalesOrder = async (option: any) => { //to do
         const selected = option || null;
         setSelectedSalesOrder(selected);
 
@@ -271,7 +273,7 @@ const CreateTestCertificate: React.FC = () => {
                             <div className="col-md-6 d-flex flex-column gap-4">
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-150px fs-5">Certificate No :</label>
-                                    <input type="text" className="form-control form-control-solid bg-light fw-bold text-gray-600" value="[Auto Gen by System]" readOnly />
+                                    <input type="text" className="form-control form-control-solid bg-light" value={certForm.certificateNo} onChange={(e) => setCertForm({...certForm, certificateNo: e.target.value})}/>
                                 </div>
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-150px fs-5">Date of Test :</label>
