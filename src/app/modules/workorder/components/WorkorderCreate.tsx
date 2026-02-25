@@ -342,18 +342,19 @@ const WorkorderCreate: React.FC = () => {
                                     disabled={materials.length === 0}
                                 >
                                     <option value="">เลือกวัตถุดิบ</option>
-                                    {materials.map((mat) => (
-                                        <option
-                                            key={mat.material_list_id}
-                                            value={mat.material_list_id}
-                                            disabled={
-                                                selectedMaterialIds.includes(mat.material_list_id) &&
-                                                comp.material_list_id !== mat.material_list_id
-                                            }
-                                        >
-                                            {mat.item_name} (คงเหลือ: {mat.item_num})
-                                        </option>
-                                    ))}
+                                    {materials
+                                        .filter((mat) =>
+                                            !selectedMaterialIds.includes(mat.material_list_id) ||
+                                            comp.material_list_id === mat.material_list_id
+                                        )
+                                        .map((mat) => (
+                                            <option
+                                                key={mat.material_list_id}
+                                                value={mat.material_list_id}
+                                            >
+                                                {mat.item_name} (คงเหลือ: {mat.item_num})
+                                            </option>
+                                        ))}
                                 </select>
                             </div>
 
