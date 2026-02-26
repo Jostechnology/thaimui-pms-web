@@ -1,22 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-// --- Mock Data ---
-const mockCertificates = [
-    { id: 1, certNo: 'CERT-2024-001', soNo: 'SO-10293', customer: 'ABC Construction', location: 'Bangkok, TH', date: '15 Feb 2026', status: 'Acceptable' },
-    { id: 2, certNo: 'CERT-2024-002', soNo: 'SO-10294', customer: 'XYZ Developers', location: 'Chonburi, TH', date: '14 Feb 2026', status: 'Not Acceptable' },
-    { id: 3, certNo: 'CERT-2024-003', soNo: 'SO-10295', customer: 'BuildTech Co.', location: 'Rayong, TH', date: '12 Feb 2026', status: 'Acceptable' },
-    { id: 4, certNo: 'CERT-2024-004', soNo: 'SO-10298', customer: 'Grand Structures', location: 'Phuket, TH', date: '10 Feb 2026', status: 'Acceptable' },
-    { id: 5, certNo: 'CERT-2024-005', soNo: 'SO-10300', customer: 'City Projects', location: 'Chiang Mai, TH', date: '08 Feb 2026', status: 'Acceptable' },
-];
+import { getCertificateList } from '../../../services/certificateService';
 
 const TestCertificateList: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [certificates, setCertificates] = useState<any[]>([]);
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const fetchCertificates = async () => {
+            const res = await getCertificateList();
+            if (res.success && res.data) {
+                setCertificates(res.data);
+            }
+        };
+        fetchCertificates();
+    }, []);
 
     return (
         <div className="container-fluid px-10 py-8">
-            
+
             {/* --- Page Header (Title & Create Button) --- */}
             <div className="d-flex flex-stack flex-wrap mb-8">
                 <div className="page-title d-flex flex-column py-1">
@@ -28,7 +31,7 @@ const TestCertificateList: React.FC = () => {
                     </span>
                 </div>
                 <div className="d-flex align-items-center py-1">
-                    <button 
+                    <button
                         className="btn btn-primary fw-bold shadow-sm"
                         onClick={() => navigate('/quality_control/qc_test_cert_list/create')}
                     >
@@ -70,28 +73,30 @@ const TestCertificateList: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="fw-semibold text-gray-700">
-                                {mockCertificates.map((cert) => (
-                                    <tr key={cert.id} className="hover:bg-light-primary transition-all">
+                                {certificates.map((cert: any, index: number) => (
+                                    <tr key={cert.qc_certification_id || index} className="hover:bg-light-primary transition-all">
                                         <td className="ps-4">
                                             <div className="d-flex align-items-center">
                                                 <i className="bi bi-file-earmark-text text-gray-400 fs-4 me-3"></i>
-                                                <span className="text-gray-800 fw-bold">{cert.certNo}</span>
+                                                <span className="text-gray-800 fw-bold">{cert.certification_number || '-'}</span>
                                             </div>
                                         </td>
                                         <td>
-                                            <span className="text-gray-600">{cert.soNo}</span>
+                                            <span className="text-gray-600">{cert.qc_work_order_id ? `WO-${cert.qc_work_order_id}` : '-'}</span>
                                         </td>
                                         <td>
                                             <div className="d-flex flex-column">
-                                                <span className="text-gray-800 fw-bold">{cert.customer}</span>
-                                                <span className="text-muted fs-8">{cert.location}</span>
+                                                <span className="text-gray-800 fw-bold">{cert.customer || cert.customer_name || '-'}</span>
+                                                <span className="text-muted fs-8">{cert.location || '-'}</span>
                                             </div>
                                         </td>
                                         <td>
-                                            <span className="text-gray-600">{cert.date}</span>
+                                            <span className="text-gray-600">
+                                                {cert.certification_date ? new Date(cert.certification_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                                            </span>
                                         </td>
                                         <td>
-                                            {cert.status === 'Acceptable' ? (
+                                            {cert.certification_status === 'CertificationStatus.PASSED' ? (
                                                 <span className="badge badge-light-success px-3 py-2 fs-8 fw-bold">
                                                     <span className="bullet bullet-dot bg-success me-2"></span> Acceptable
                                                 </span>

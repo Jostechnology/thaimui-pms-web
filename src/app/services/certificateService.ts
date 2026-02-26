@@ -40,3 +40,18 @@ export const createCertificate = async (data: any): Promise<APIResponse> => {
         return { success: false, message: "เกิดข้อผิดพลาดในการสร้าง Certificate" };
     }
 };
+
+export const getCertificateList = async (): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "GET",
+            "/test_certificate/get_list",
+            undefined,
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("getCertificateList Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูล Certificate" };
+    }
+};

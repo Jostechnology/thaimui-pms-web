@@ -71,7 +71,7 @@ const CreateTestCertificate: React.FC = () => {
         let counter = 1;
 
         materialList.forEach((mat: any) => {
-            // 🌟 2. ดักจับ quantity ค่าว่าง ("") ให้ถือว่าเป็น 1 ชิ้นเสมอ
+            //2. ดักจับ quantity ค่าว่าง ("") ให้ถือว่าเป็น 1 ชิ้นเสมอ
             const rawQty = mat.quantity || mat.item_num || mat.Qty || mat.Quantity;
             const qty = (rawQty === "" || rawQty == null) ? 1 : Number(rawQty);
 
@@ -117,7 +117,7 @@ const CreateTestCertificate: React.FC = () => {
         setCertItemRows(newRows);
     };
 
-    // 🌟 ฟังก์ชัน Save ที่ปรับปรุงแล้ว
+    //ฟังก์ชัน Save ที่ปรับปรุงแล้ว
     const handleSave = async () => {
         // ดักจับว่าเลือกใบ QC หรือยัง
         if (!selectedQcOrder) {
@@ -131,10 +131,10 @@ const CreateTestCertificate: React.FC = () => {
         }
 
         const payload = {
-            // 🌟 ดึง ID มาจากใบ QC ที่เลือก (รองรับทั้งฟิลด์ qc_work_order_id หรือ id)
+            //ดึง ID มาจากใบ QC ที่เลือก (รองรับทั้งฟิลด์ qc_work_order_id หรือ id)
             qc_work_order_id: selectedQcOrder.qc_work_order_id || selectedQcOrder.id,
 
-            // 🌟 ถ้าไม่ได้กรอก Certificate No. ให้ส่ง TC-AUTO-GEN ไปให้ Backend จัดการ
+            //ถ้าไม่ได้กรอก Certificate No. ให้ส่ง TC-AUTO-GEN ไปให้ Backend จัดการ
             certification_name: certForm.certificateNo.trim() !== "" ? certForm.certificateNo : "TC-AUTO-GEN",
 
             certification_date: certForm.dateOfTest,
