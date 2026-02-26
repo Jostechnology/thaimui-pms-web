@@ -199,6 +199,22 @@ const WorkorderCreate: React.FC = () => {
             .filter((id): id is number => id !== '');
     };
 
+    // Calculate total quantity used for a material across ALL components, excluding a specific row
+    const getTotalUsedForMaterial = (materialListId: number, excludeComponentId?: number, excludeMaterialRowId?: number): number => {
+        let total = 0;
+        for (const comp of components) {
+            for (const mat of comp.materials) {
+                if (mat.material_list_id === materialListId) {
+                    if (comp.id === excludeComponentId && mat.id === excludeMaterialRowId) {
+                        continue;
+                    }
+                    total += Number(mat.quantity_used) || 0;
+                }
+            }
+        }
+        return total;
+    };
+
     // ─── Submit ────────────────────────────────────────────────
     const handleSubmit = async () => {
         if (selectedSalesItemId === '') {
@@ -369,7 +385,7 @@ const WorkorderCreate: React.FC = () => {
             </div>
 
             {/* ── Section: Components & Materials ── */}
-            <div className="d-flex justify-content-between align-items-center mb-5">
+            {selectedSalesItemId !== '' && <><div className="d-flex justify-content-between align-items-center mb-5">
                 <div className="d-flex align-items-center">
                     <i className="bi bi-gear-wide-connected text-primary fs-3 me-2"></i>
                     <h4 className="fw-bold text-gray-800 mb-0">ส่วนประกอบและวัตถุดิบ (Components & Materials)</h4>
@@ -383,134 +399,136 @@ const WorkorderCreate: React.FC = () => {
                 </button>
             </div>
 
-            {materials.length === 0 && selectedSalesItemId !== '' && (
-                <div className="alert alert-warning d-flex align-items-center py-3 mb-5">
-                    <i className="bi bi-exclamation-triangle text-warning me-3 fs-4"></i>
-                    <span>ไม่พบวัตถุดิบสำหรับรายการสินค้าที่เลือก</span>
-                </div>
-            )}
-
-            {/* Component Cards */}
-            {components.map((comp, compIdx) => {
-                const selectedInThisComponent = getSelectedMaterialIdsInComponent(comp.id);
-                const hasUnselectedInThisComp = comp.materials.some(m => m.material_list_id === '');
-                const availableForThisComponent = materials.filter(m =>
-                    !selectedInThisComponent.includes(m.material_list_id)
-                ).length;
-
-                return (
-                    <div key={comp.id} className="card card-flush shadow-sm border-0 mb-5">
-                        <div className="card-header py-4 px-6 bg-light-primary d-flex justify-content-between align-items-center">
-                            <div className="d-flex align-items-center flex-grow-1 me-3">
-                                <span className="badge badge-primary me-3 fs-6">{compIdx + 1}</span>
-                                <input
-                                    type="text"
-                                    className="form-control form-control-solid form-control-sm fw-bold"
-                                    placeholder={`ชื่อส่วนประกอบ (Component ${compIdx + 1})`}
-                                    value={comp.component_name}
-                                    onChange={(e) => updateComponentName(comp.id, e.target.value)}
-                                    style={{ maxWidth: 300 }}
-                                />
-                            </div>
-                            {components.length > 1 && (
-                                <button
-                                    type="button"
-                                    className="btn btn-sm btn-icon btn-light-danger"
-                                    title="ลบส่วนประกอบ"
-                                    onClick={() => removeComponent(comp.id)}
-                                >
-                                    <i className="bi bi-trash fs-4"></i>
-                                </button>
-                            )}
-                        </div>
-                        <div className="card-body py-5 px-6">
-                            {/* Materials Header */}
-                            <div className="d-flex justify-content-between align-items-center mb-4">
-                                <span className="fw-bold text-muted text-uppercase fs-7">
-                                    รายการวัตถุดิบ (Materials)
-                                </span>
-                                <button
-                                    type="button"
-                                    className="btn btn-sm btn-light-primary fw-bold"
-                                    onClick={() => addMaterial(comp.id)}
-                                    disabled={
-                                        availableForThisComponent <= selectedInThisComponent.length ||
-                                        hasUnselectedInThisComp
-                                    }
-                                >
-                                    <i className="bi bi-plus me-1"></i> เพิ่มวัตถุดิบ
-                                </button>
-                            </div>
-
-                            {/* Material Rows */}
-                            {comp.materials.map((mat, matIdx) => {
-                                const selectedMaterial = materials.find(m => m.material_list_id === mat.material_list_id);
-                                const maxQty = selectedMaterial ? selectedMaterial.item_num : 1;
-
-                                // Filter available materials for this dropdown
-                                const availableForDropdown = materials.filter(m =>
-                                    !selectedInThisComponent.includes(m.material_list_id) ||
-                                    mat.material_list_id === m.material_list_id
-                                );
-
-                                return (
-                                    <div key={mat.id} className="row align-items-center mb-3">
-                                        {/* Material select */}
-                                        <div className="col-md-6 mb-2 mb-md-0">
-                                            <select
-                                                className="form-select form-select-solid"
-                                                value={mat.material_list_id}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    updateMaterial(comp.id, mat.id, 'material_list_id', val === '' ? '' : Number(val));
-                                                }}
-                                                disabled={materials.length === 0}
-                                            >
-                                                <option value="">เลือกวัตถุดิบ (Material)</option>
-                                                {availableForDropdown.map((m) => (
-                                                    <option key={m.material_list_id} value={m.material_list_id}>
-                                                        {m.item_name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        {/* Quantity */}
-                                        <div className="col-md-3 mb-2 mb-md-0">
-                                            <input
-                                                type="text"
-                                                className="form-control form-control-solid"
-                                                placeholder="จำนวน"
-                                                value={mat.quantity_used}
-                                                onChange={(e) =>
-                                                    handleQuantityChange(comp.id, mat.id, e.target.value, maxQty)
-                                                }
-                                            />
-                                        </div>
-
-                                        {/* Unit & Remove */}
-                                        <div className="col-md-3 d-flex align-items-center justify-content-between">
-                                            <span className="text-muted fs-7">
-                                                {selectedMaterial ? `(คงเหลือ: ${selectedMaterial.item_num})` : ''}
-                                            </span>
-                                            {comp.materials.length > 1 && (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-icon btn-light-danger ms-2"
-                                                    title="ลบวัตถุดิบ"
-                                                    onClick={() => removeMaterial(comp.id, mat.id)}
-                                                >
-                                                    <i className="bi bi-x fs-3"></i>
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                {materials.length === 0 && (
+                    <div className="alert alert-warning d-flex align-items-center py-3 mb-5">
+                        <i className="bi bi-exclamation-triangle text-warning me-3 fs-4"></i>
+                        <span>ไม่พบวัตถุดิบสำหรับรายการสินค้าที่เลือก</span>
                     </div>
-                );
-            })}
+                )}
+
+                {/* Component Cards */}
+                {components.map((comp, compIdx) => {
+                    const selectedInThisComponent = getSelectedMaterialIdsInComponent(comp.id);
+                    const hasUnselectedInThisComp = comp.materials.some(m => m.material_list_id === '');
+                    const availableForThisComponent = materials.filter(m =>
+                        !selectedInThisComponent.includes(m.material_list_id)
+                    ).length;
+
+                    return (
+                        <div key={comp.id} className="card card-flush shadow-sm border-0 mb-5">
+                            <div className="card-header py-4 px-6 bg-light-primary d-flex justify-content-between align-items-center">
+                                <div className="d-flex align-items-center flex-grow-1 me-3">
+                                    <span className="badge badge-primary me-3 fs-6">{compIdx + 1}</span>
+                                    <input
+                                        type="text"
+                                        className="form-control form-control-solid form-control-sm fw-bold"
+                                        placeholder={`ชื่อส่วนประกอบ (Component ${compIdx + 1})`}
+                                        value={comp.component_name}
+                                        onChange={(e) => updateComponentName(comp.id, e.target.value)}
+                                        style={{ maxWidth: 300 }}
+                                    />
+                                </div>
+                                {components.length > 1 && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-icon btn-light-danger"
+                                        title="ลบส่วนประกอบ"
+                                        onClick={() => removeComponent(comp.id)}
+                                    >
+                                        <i className="bi bi-trash fs-4"></i>
+                                    </button>
+                                )}
+                            </div>
+                            <div className="card-body py-5 px-6">
+                                {/* Materials Header */}
+                                <div className="d-flex justify-content-between align-items-center mb-4">
+                                    <span className="fw-bold text-muted text-uppercase fs-7">
+                                        รายการวัตถุดิบ (Materials)
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-light-primary fw-bold"
+                                        onClick={() => addMaterial(comp.id)}
+                                        disabled={
+                                            availableForThisComponent <= selectedInThisComponent.length ||
+                                            hasUnselectedInThisComp
+                                        }
+                                    >
+                                        <i className="bi bi-plus me-1"></i> เพิ่มวัตถุดิบ
+                                    </button>
+                                </div>
+
+                                {/* Material Rows */}
+                                {comp.materials.map((mat, matIdx) => {
+                                    const selectedMaterial = materials.find(m => m.material_list_id === mat.material_list_id);
+                                    const usedByOthers = selectedMaterial ? getTotalUsedForMaterial(selectedMaterial.material_list_id, comp.id, mat.id) : 0;
+                                    const maxQty = selectedMaterial ? selectedMaterial.item_num - usedByOthers : 1;
+                                    const remaining = selectedMaterial ? maxQty - (Number(mat.quantity_used) || 0) : 0;
+
+                                    // Filter available materials for this dropdown
+                                    const availableForDropdown = materials.filter(m =>
+                                        !selectedInThisComponent.includes(m.material_list_id) ||
+                                        mat.material_list_id === m.material_list_id
+                                    );
+
+                                    return (
+                                        <div key={mat.id} className="row align-items-center mb-3">
+                                            {/* Material select */}
+                                            <div className="col-md-6 mb-2 mb-md-0">
+                                                <select
+                                                    className="form-select form-select-solid"
+                                                    value={mat.material_list_id}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        updateMaterial(comp.id, mat.id, 'material_list_id', val === '' ? '' : Number(val));
+                                                    }}
+                                                    disabled={materials.length === 0}
+                                                >
+                                                    <option value="">เลือกวัตถุดิบ (Material)</option>
+                                                    {availableForDropdown.map((m) => (
+                                                        <option key={m.material_list_id} value={m.material_list_id}>
+                                                            {m.item_name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            {/* Quantity */}
+                                            <div className="col-md-3 mb-2 mb-md-0">
+                                                <input
+                                                    type="text"
+                                                    className="form-control form-control-solid"
+                                                    placeholder="จำนวน"
+                                                    value={mat.quantity_used}
+                                                    onChange={(e) =>
+                                                        handleQuantityChange(comp.id, mat.id, e.target.value, maxQty)
+                                                    }
+                                                />
+                                            </div>
+
+                                            {/* Unit & Remove */}
+                                            <div className="col-md-3 d-flex align-items-center justify-content-between">
+                                                <span className="text-muted fs-7">
+                                                    {selectedMaterial ? `(คงเหลือ: ${remaining})` : ''}
+                                                </span>
+                                                {comp.materials.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-icon btn-light-danger ms-2"
+                                                        title="ลบวัตถุดิบ"
+                                                        onClick={() => removeMaterial(comp.id, mat.id)}
+                                                    >
+                                                        <i className="bi bi-x fs-3"></i>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })}</>}
 
             {/* ── Actions ── */}
             <div className="d-flex justify-content-end gap-4 mt-6">
