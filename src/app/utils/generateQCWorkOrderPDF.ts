@@ -78,6 +78,10 @@ export async function generateQCWorkOrderPDF(formData: QCWorkOrderData, qcWorkOr
             <tr>
                 <td style="border:1px solid #000;padding:3px 6px;font-weight:bold;">ใบสั่งขายเลขที่</td>
                 <td style="border:1px solid #000;padding:3px 6px;">${docNum}</td>
+                <td style="border:1px solid #000;padding:3px 6px;font-weight:bold;">รหัสสินค้า(Sales Item)</td>
+                <td style="border:1px solid #000;padding:3px 6px;">${formData.salesItemCode ?? ""}</td>
+            </tr>
+            <tr>
                 <td style="border:1px solid #000;padding:3px 6px;font-weight:bold;">วันที่</td>
                 <td style="border:1px solid #000;padding:3px 6px;">${formData.date ?? ""}</td>
             </tr>

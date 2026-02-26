@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
 	QCWorkOrderData,
@@ -97,7 +97,9 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 					generalRemark: form.general_remark ?? "",
 					details: form.details ?? "",
 					customerReceiptNumber: form.customer_receipt_number ?? "",
-					donEntry: raw.donEntry ?? raw.work_order?.doc_entry ?? "",
+					donEntry: raw.doc_entry ?? "",          // ← ใช้ doc_entry ที่ backend ส่งใหม่
+					salesItemId: raw.sales_item_id ?? undefined,
+					salesItemCode: raw.sales_item_code ?? "",  // ← item_code จาก backend
 					items,
 				};
 
@@ -106,12 +108,29 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				if (formDataToSet.donEntry) {
 					try {
 						const salesRes = await getSalesOrderService(Number(formDataToSet.donEntry));
-						if (salesRes && salesRes.data && salesRes.data.material_list) {
-							setMaterialList(salesRes.data.material_list);
-							setSalesOrders([salesRes.data]);  // เพื่อให้ dropdown SO แสดงค่าที่เลือกได้ใน view/edit
+						if (salesRes && salesRes.data) {
+							const data = salesRes.data;
+							setMaterialList(data.material_list || []);
+							setSalesOrders([data]);  // ให้ dropdown SO แสดงค่าที่เลือกใน view/edit
+							setFormData((prev: any) => ({
+								...prev,
+								customerCode: data.card_code,
+								customerName: data.card_name,
+								docNum: data.doc_num,
+								salesCode: data.slp_code,
+								salesName: data.slp_name,
+								teamCode: data.group_code,
+								teamName: data.group_name,
+							}));
+							// โหลด sales items เพื่อให้แสดงชื่อสินค้าใน select
+							const itemsRes = await getSalesItemsForQC("");
+							const filtered = (itemsRes?.data || []).filter(
+								(item: any) => item.doc_entry === data.doc_entry
+							);
+							setSalesItems(filtered);
 						}
 					} catch (e) {
-						console.error("Failed to fetch materials for this QC Work Order", e);
+						console.error("Failed to fetch sales order for QC Work Order", e);
 					}
 				}
 
@@ -189,10 +208,6 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 					: item,
 			),
 		}));
-		// set salesItemId จาก item ที่เลือก
-		if (option) {
-			setFormData((prev: any) => ({ ...prev, salesItemId: option.sales_item_id }));
-		}
 	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -443,6 +458,50 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 									/>
 								</div>
 
+								<div className="col-md-6">
+									<label className="form-label">รหัสสินค้า (Sales Item)</label>
+									{!isReadOnly ? (
+										<Select
+											options={salesItems}
+											formatOptionLabel={(option: any) => (
+												<div className="d-flex align-items-center gap-2">
+													<span className="fw-bold">{option.item_code}</span>
+													<span className="text-muted">{option.item_name}</span>
+												</div>
+											)}
+											getOptionValue={(option: any) => String(option.sales_item_id)}
+											value={
+												salesItems.find(
+													(op: any) => op.sales_item_id === formData.salesItemId
+												) || null
+											}
+											onChange={(option: any) => {
+												if (option) {
+													setFormData((prev: any) => ({
+														...prev,
+														salesItemId: option.sales_item_id,
+														salesItemCode: option.item_code,
+													}));
+												} else {
+													setFormData((prev: any) => ({ ...prev, salesItemId: undefined, salesItemCode: "" }));
+												}
+											}}
+											placeholder="พิมพ์เพื่อค้นหาสินค้า..."
+											isClearable
+											isSearchable
+										/>
+									) : (
+										<input
+											type="text"
+											className="form-control"
+											value={formData.salesItemCode ?? ""}
+											disabled
+										/>
+									)}
+								</div>
+							</div>
+
+							<div className="row mb-3">
 								<div className="col-md-3">
 									<label className="form-label">วันที่ย้าย</label>
 									<input
@@ -704,18 +763,18 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 																</span>
 															) : (
 																<Select
-																	isDisabled={!formData.donEntry || isReadOnly}
-																	options={salesItems}
-																	formatOptionLabel={(option: any) => (
-																		<div>{option.item_code} — {option.item_name}</div>
+																	isDisabled={materialList.length < 1 || isReadOnly}
+																	options={materialList}
+																	formatOptionLabel={(option: Material) => (
+																		<div>{option.item_code}</div>
 																	)}
-																	getOptionValue={(option: any) => String(option.sales_item_id)}
+																	getOptionValue={(option) => option.item_code}
 																	value={
-																		salesItems.find(
-																			(si: any) => si.item_code === item.code
+																		materialList.find(
+																			(m) => m.item_code === item.code,
 																		) || null
 																	}
-																	onChange={(option: any) => {
+																	onChange={(option: Material | null) => {
 																		handleSelectMaterial(item.id, option);
 																	}}
 																	placeholder="ค้นหารหัส..."
@@ -1075,7 +1134,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
           font-size: 0.875rem;
         }
       `}</style>
-		</div>
+		</div >
 	);
 };
 
