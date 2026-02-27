@@ -69,8 +69,19 @@ export interface DashboardKPI {
 export enum WorkOrderStatusEnum {
     READY = 'READY',
     INPROGRESS = 'INPROGRESS',
+    WAIT_TEST = 'WAIT_TEST',
+    TESTING = 'TESTING',
     COMPLETED = 'COMPLETED'
 }
+
+export const WORK_ORDER_STATUS_OPTIONS: { value: WorkOrderStatusEnum; label: string }[] = [
+    { value: WorkOrderStatusEnum.READY, label: 'พร้อมดำเนินการ' },
+    { value: WorkOrderStatusEnum.INPROGRESS, label: 'กำลังดำเนินการ' },
+    { value: WorkOrderStatusEnum.WAIT_TEST, label: 'รอทดสอบ (Wait Test)' },
+    { value: WorkOrderStatusEnum.TESTING, label: 'กำลังทดสอบ (Testing)' },
+    { value: WorkOrderStatusEnum.COMPLETED, label: 'ดำเนินการเสร็จสิ้น' }
+];
+
 export enum WorkPhaseStatusEnum {
     PENDING = 'PENDING',
     INPROGRESS = 'INPROGRESS',
@@ -81,4 +92,38 @@ export enum BreakTypeEnum {
     LUNCHBREAK = 'LUNCHBREAK',
     RESTBREAK = 'RESTBREAK',
     OTHER = 'OTHER'
+}
+
+export interface EmployeeBreakdown {
+    employee_id: number;
+    employee_first_name: string;
+    employee_last_name: string;
+    status: string;
+    salary_at_phase: number;
+    hourly_rate: number;
+    time_spent_seconds: number;
+    net_cost: number;
+}
+
+export interface BreakData {
+    break_id: number;
+    work_phase_id: number;
+    break_start: string;
+    break_end: string | null;
+    break_type: string;
+}
+
+export interface PhaseDetailData {
+    work_phase_id: number;
+    phase_name: string;
+    phase_status: string;
+    created_date: string;
+    start_date: string | null;
+    end_date: string | null;
+    work_order_id: number;
+    doc_num: string;
+    total_time_spent_seconds: number;
+    total_labor_cost: number;
+    employee_breakdown: EmployeeBreakdown[];
+    breaks: BreakData[];
 }

@@ -1,0 +1,118 @@
+import { front_api } from "./apiConfig";
+
+interface APIResponse {
+    success: boolean;
+    message?: string;
+    data?: any;
+}
+
+const getHeaders = () => {
+    const token = localStorage.getItem('tk-jos');
+    return {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+    };
+};
+
+const handleResponse = async (response: Response | false | undefined): Promise<APIResponse> => {
+    if (!response) {
+        return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
+    }
+    const result = await response.json().catch(() => ({}));
+    if (response.ok) {
+        return { ...result, success: true };
+    }
+    return { success: false, message: result.error || "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์" };
+};
+
+// List QC Work Orders (paginated + search)
+export const getQCWorkOrderList = async (
+    page: number,
+    limit: number,
+    search: string = "",
+    filter: string = ""
+): Promise<APIResponse> => {
+    try {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            pageConfig: limit.toString(),
+        });
+        if (search) params.append("search", search);
+        if (filter) params.append("filter", filter);
+
+        const response = await front_api(
+            "GET",
+            `/get_qc_work_order_list?${params.toString()}`,
+            {},
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("getQCWorkOrderList Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
+// Get QC Work Order by ID
+export const getQCWorkOrderById = async (id: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "GET",
+            `/qc_work_order/${id}`,
+            {},
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("getQCWorkOrderById Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
+// Create QC Work Order
+export const createQCWorkOrder = async (data: any): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "POST",
+            "/qc_work_order/create",
+            data,
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("createQCWorkOrder Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการสร้าง QC Work Order" };
+    }
+};
+
+// Update QC Work Order
+export const updateQCWorkOrder = async (id: number, data: any): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "PUT",
+            `/qc_work_order/update/${id}`,
+            data,
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("updateQCWorkOrder Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการแก้ไข QC Work Order" };
+    }
+};
+
+// Delete QC Work Order
+export const deleteQCWorkOrder = async (id: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "DELETE",
+            `/qc_work_order/delete/${id}`,
+            {},
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("deleteQCWorkOrder Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการลบ QC Work Order" };
+    }
+};

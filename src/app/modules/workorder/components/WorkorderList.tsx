@@ -63,6 +63,8 @@ const WorkorderList: React.FC = () => {
     const statusThaiMap: Record<string, string> = {
         READY: 'พร้อม',
         INPROGRESS: 'กำลังดำเนินงาน',
+        WAIT_TEST: 'รอทดสอบ',
+        TESTING: 'กำลังทดสอบ',
         COMPLETED: 'เสร็จสิ้น'
     };
 
@@ -182,7 +184,7 @@ const WorkorderList: React.FC = () => {
                 <div className='d-flex align-items-center gap-2'>
                     <button
                         className='btn btn-primary fw-bold px-6 shadow-sm'
-                        onClick={() => Swal.fire('สร้างใบสั่งงาน', 'เตรียมเปิดฟอร์ม...', 'success')}
+                        onClick={() => navigate('/workorder/workorders_create')}
                     >
                         <i className='bi bi-plus-lg me-2 fs-4'></i> Create Order
                     </button>

@@ -1,3 +1,5 @@
+import path from "path";
+
 export interface RouteType {
     module_code: string;
     path: string;
@@ -129,5 +131,12 @@ export const subRoutesConfig: SubRouteType[] = [
         title: "",
         permission:[]
     },
+    {
+        module_code:"QC_TEST_CERT",
+        main_module_code: "QC",
+        path:"/quality_control/qc_test_cert_list",
+        title: "",
+        permission:[]
+    }
  
 ]
