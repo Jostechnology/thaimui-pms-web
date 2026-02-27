@@ -204,7 +204,11 @@ const TestCertificateList: React.FC = () => {
                                                     >
                                                         <i className="bi bi-eye fs-5"></i>
                                                     </button>
-                                                    <button className="btn btn-icon btn-sm btn-light-warning btn-active-warning disabled" title="แก้ไข" disabled>
+                                                    <button
+                                                        className="btn btn-icon btn-sm btn-light-warning btn-active-warning"
+                                                        title="แก้ไข"
+                                                        onClick={() => navigate(`/quality_control/qc_test_cert_list/edit/${cert.qc_certification_id}`)}
+                                                    >
                                                         <i className="bi bi-pencil fs-5"></i>
                                                     </button>
                                                     <button className="btn btn-icon btn-sm btn-light-info btn-active-info disabled" title="พิมพ์ PDF" disabled>
