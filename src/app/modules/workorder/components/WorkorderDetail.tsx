@@ -41,12 +41,36 @@ interface WorkPhaseData {
     sales_item_list?: SalesItem[];
 }
 
+interface ComponentMaterialUsageData {
+    usage_id: number;
+    item_component_id: number;
+    material_list_id: number;
+    quantity_used: number;
+    material_list: {
+        material_list_id: number;
+        item_code: string;
+        item_name: string;
+        item_description: string;
+        item_num: number;
+        cost_price: number;
+        unit_price: number;
+    };
+}
+
+interface ItemComponentData {
+    item_component_id: number;
+    work_order_id: number;
+    component_name: string;
+    material_usages: ComponentMaterialUsageData[];
+}
+
 interface WorkorderData {
     work_order_id: number;
     doc_num: string;
     status: string;
     created_date: string;
     work_phases: WorkPhaseData[]; // ใช้ Array นี้เป็นหลัก
+    item_components?: ItemComponentData[];
 }
 
 // UI State สำหรับ Phase
@@ -569,6 +593,72 @@ const WorkorderDetail: React.FC = () => {
 
                     <div className='d-flex align-items-center position-relative z-index-1 ms-10 ps-2'>
                         <button onClick={handleAddPhase} className='btn btn-outline btn-outline-dashed btn-outline-primary btn-active-light-primary w-100 py-4 fw-bold'><i className='bi bi-plus-lg me-2 fs-3'></i> เพิ่มขั้นตอนถัดไป</button>
+                    </div>
+                </div>
+            )}
+
+            {/* Components & Materials */}
+            {currentWorkOrder?.item_components && currentWorkOrder.item_components.length > 0 && (
+                <div className='card shadow-sm mb-10 mt-10'>
+                    <div className='card-header border-0 pt-6 pb-4'>
+                        <div className='card-title'>
+                            <h3 className='fw-bold text-gray-900 fs-3 mb-0'>
+                                <i className='bi bi-boxes me-2 text-primary'></i>
+                                ส่วนประกอบ & วัสดุที่ใช้
+                            </h3>
+                        </div>
+                        <div className='card-toolbar'>
+                            <span className='badge badge-light-info fw-bold fs-7 px-4 py-2'>{currentWorkOrder.item_components.length} ส่วนประกอบ</span>
+                        </div>
+                    </div>
+                    <div className='card-body pt-2 pb-6'>
+                        <div className='row g-6'>
+                            {currentWorkOrder.item_components.map((comp, idx) => (
+                                <div key={comp.item_component_id} className='col-lg-6'>
+                                    <div className='border rounded-3 p-5 h-100' style={{ backgroundColor: '#fafbfc', borderColor: '#e8ecf1' }}>
+                                        <div className='d-flex align-items-center gap-3 mb-5 pb-3 border-bottom border-gray-200'>
+                                            <div className='symbol symbol-40px'>
+                                                <span className='symbol-label bg-light-primary text-primary fw-bold fs-5 rounded-circle'>{idx + 1}</span>
+                                            </div>
+                                            <div>
+                                                <span className='fw-bold text-gray-900 fs-4 d-block'>{comp.component_name}</span>
+                                                <span className='text-muted fs-8'>
+                                                    {comp.material_usages?.length || 0} วัสดุ
+                                                </span>
+                                            </div>
+                                        </div>
+                                        {comp.material_usages && comp.material_usages.length > 0 ? (
+                                            <div className='d-flex flex-column gap-3'>
+                                                {comp.material_usages.map(usage => (
+                                                    <div key={usage.usage_id} className='d-flex align-items-center justify-content-between bg-white rounded-2 px-4 py-3 border border-gray-200' style={{ minHeight: 52 }}>
+                                                        <div className='d-flex align-items-center gap-3'>
+                                                            <div className='d-flex align-items-center justify-content-center rounded' style={{ width: 36, height: 36, backgroundColor: '#eef2ff' }}>
+                                                                <i className='bi bi-box-seam text-primary fs-6'></i>
+                                                            </div>
+                                                            <div className='d-flex flex-column'>
+                                                                <span className='fw-semibold text-gray-800 fs-7'>{usage.material_list?.item_name || '-'}</span>
+                                                                <span className='text-muted fs-9'>{usage.material_list?.item_code || '-'}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className='d-flex align-items-center gap-3'>
+                                                            <span className='badge badge-light-primary fs-8 px-3 py-2'>x{usage.quantity_used}</span>
+                                                            {usage.material_list?.unit_price != null && (
+                                                                <span className='text-gray-600 fs-8 fw-semibold'>฿{usage.material_list.unit_price.toLocaleString()}</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className='text-muted fs-8 text-center py-5'>
+                                                <i className='bi bi-inbox fs-2x text-gray-300 d-block mb-2'></i>
+                                                ไม่มีวัสดุที่ใช้
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}

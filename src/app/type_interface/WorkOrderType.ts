@@ -33,6 +33,30 @@ export interface SalesItem {
     doc_num: string;
 }
 
+export interface ComponentMaterialUsage {
+    usage_id: number;
+    item_component_id: number;
+    material_list_id: number;
+    quantity_used: number;
+    material_list: {
+        material_list_id: number;
+        sales_item_id: number;
+        item_code: string;
+        item_name: string;
+        item_description: string;
+        item_num: number;
+        cost_price: number;
+        unit_price: number;
+    };
+}
+
+export interface ItemComponent {
+    item_component_id: number;
+    work_order_id: number;
+    component_name: string;
+    material_usages: ComponentMaterialUsage[];
+}
+
 
 export interface WorkOrder {
     work_order_id: number;
@@ -42,6 +66,7 @@ export interface WorkOrder {
     current_phase: WorkPhase | null;
     work_phases: WorkPhase[];
     sales_item: SalesItem | null;
+    item_components: ItemComponent[];
 }
 
 
