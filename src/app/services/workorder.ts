@@ -110,7 +110,7 @@ const handleResponse = async (response: Response | false | undefined): Promise<A
     const errorData = await response.json().catch(() => ({}));
     return {
         success: false,
-        message: errorData.message || "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์"
+        message: errorData.error || "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์"
     };
 };
 
@@ -186,5 +186,24 @@ export const getWorkPhaseDetail = async (workPhaseId: number) => {
     } catch (error) {
         console.error("getWorkPhaseDetail Error:", error);
         return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+export const createWorkOrder = async (payload: {
+    sales_item_id: number;
+    item_components: {
+        component_name: string;
+        material_usage: { material_list_id: number; quantity_used: number }[];
+    }[];
+}): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "POST",
+            "/create_work_order",
+            payload,
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
     }
 };
