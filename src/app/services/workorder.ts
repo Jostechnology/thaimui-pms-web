@@ -158,6 +158,36 @@ export const deleteWorkPhase = async (payload: { work_phase_ids: number[] }): Pr
     }
 };
 
+export const getWorkPhaseDetail = async (workPhaseId: number) => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const headers = {
+            "Authorization": `Bearer ${token}`
+        };
+        const response = await front_api(
+            "GET",
+            `/get_work_phase_detail/${workPhaseId}`,
+            {},
+            {
+                wrapData: false,
+                headers: headers
+            }
+        );
+
+        if (!response) return { success: false };
+
+        const result = await response.json();
+
+        if (response.ok) {
+            return { ...result, success: true };
+        } else {
+            return { ...result, success: false };
+        }
+    } catch (error) {
+        console.error("getWorkPhaseDetail Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
 export const createWorkOrder = async (payload: {
     sales_item_id: number;
     item_components: {

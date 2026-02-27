@@ -1,6 +1,7 @@
 import { QCWorkOrderData } from "../type_interface/QCWorkOrderType";
 
-export const qcWorkData : QCWorkOrderData = {
+export const qcWorkData: QCWorkOrderData = {
+    work_order_id: null,
     date: new Date().toISOString().split("T")[0],
     documentNumber: "",
     customerCode: "",
@@ -8,6 +9,11 @@ export const qcWorkData : QCWorkOrderData = {
     docNum: "",
     customerReceiptNumber: "",
     inspectionDate: "",
+    donEntry: "",
+    salesName: "",
+    salesCode: "",
+    teamCode: "",
+    teamName: "",
 
     ptt: false,
     chevron: false,
@@ -28,9 +34,8 @@ export const qcWorkData : QCWorkOrderData = {
     serialTag: false,
     serialOthers: false,
     serialOthersText: "",
-    donEntry : "",
 
     generalRemark: "",
-    details : "",
+    details: "",
     items: [],
 }

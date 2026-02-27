@@ -688,6 +688,18 @@ const WorkorderView: React.FC = () => {
                                                     </span>
                                                 </div>
                                             )}
+
+                                            {/* View cost detail button */}
+                                            <div className="d-flex justify-content-end px-3 pb-3">
+                                                <button
+                                                    className="btn btn-sm btn-light-primary d-flex align-items-center gap-1"
+                                                    style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px' }}
+                                                    onClick={() => navigate(`/workorder/workorders_phase_detail/${phase.work_phase_id}`)}
+                                                >
+                                                    <i className="bi bi-bar-chart-line" style={{ fontSize: '12px' }} />
+                                                    ดูต้นทุน
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
