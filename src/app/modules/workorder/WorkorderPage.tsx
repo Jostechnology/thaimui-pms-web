@@ -3,6 +3,7 @@ import WorkorderList from "./components/WorkorderList"
 import WorkorderDetail from "./components/WorkorderDetail"
 import WorkorderDashboard from "./components/WorkorderDashboard"
 import WorkorderView from "./components/WorkorderView"
+import WorkPhaseDetail from "./components/WorkPhaseDetail"
 
 const WorkorderPage = () => {
 
@@ -14,6 +15,7 @@ const WorkorderPage = () => {
             <Route path="workorders_list" element={<WorkorderList />} />
             <Route path="workorders_detail/:id" element={<WorkorderDetail />} />
             <Route path="workorders_view/:id" element={<WorkorderView />} />
+            <Route path="workorders_phase_detail/:phaseId" element={<WorkPhaseDetail />} />
         </Routes>
     );
 

@@ -82,3 +82,37 @@ export enum BreakTypeEnum {
     RESTBREAK = 'RESTBREAK',
     OTHER = 'OTHER'
 }
+
+export interface EmployeeBreakdown {
+    employee_id: number;
+    employee_first_name: string;
+    employee_last_name: string;
+    status: string;
+    salary_at_phase: number;
+    hourly_rate: number;
+    time_spent_seconds: number;
+    net_cost: number;
+}
+
+export interface BreakData {
+    break_id: number;
+    work_phase_id: number;
+    break_start: string;
+    break_end: string | null;
+    break_type: string;
+}
+
+export interface PhaseDetailData {
+    work_phase_id: number;
+    phase_name: string;
+    phase_status: string;
+    created_date: string;
+    start_date: string | null;
+    end_date: string | null;
+    work_order_id: number;
+    doc_num: string;
+    total_time_spent_seconds: number;
+    total_labor_cost: number;
+    employee_breakdown: EmployeeBreakdown[];
+    breaks: BreakData[];
+}

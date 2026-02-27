@@ -27,24 +27,24 @@ export const getWorkOrderList = async (
         if (search) params.append("search", search);
         if (statusFilter) params.append("filter", statusFilter);
         if (month) params.append("month", month);
-        
+
         const headers = {
             "Authorization": `Bearer ${token}`
         };
         const response = await front_api(
-            "GET", 
-            `/get_work_order_list?${params.toString()}`, 
+            "GET",
+            `/get_work_order_list?${params.toString()}`,
             {},
-            { 
+            {
                 wrapData: false,
                 headers: headers
             }
         );
-        
+
         if (!response) return false;
 
         const result = await response.json();
-        
+
         if (response.ok) {
             return { ...result, success: true };
         } else {
@@ -65,19 +65,19 @@ export const getWorkOrderById = async (id: Number) => {
             "Authorization": `Bearer ${token}`
         };
         const response = await front_api(
-            "GET", 
-            `/get_work_order_by_id/${id}`, 
+            "GET",
+            `/get_work_order_by_id/${id}`,
             {},
-            { 
+            {
                 wrapData: false,
                 headers: headers
             }
         );
-        
+
         if (!response) return false;
 
         const result = await response.json();
-        
+
         if (response.ok) {
             return { ...result, success: true };
         } else {
@@ -108,9 +108,9 @@ const handleResponse = async (response: Response | false | undefined): Promise<A
     }
 
     const errorData = await response.json().catch(() => ({}));
-    return { 
-        success: false, 
-        message: errorData.message || "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์" 
+    return {
+        success: false,
+        message: errorData.message || "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์"
     };
 };
 
@@ -118,9 +118,9 @@ export const createWorkPhase = async (items: any[]): Promise<APIResponse> => {
     try {
         const body = { items: items };
         const response = await front_api(
-            "POST", 
-            "/create_work_phase", 
-            body, 
+            "POST",
+            "/create_work_phase",
+            body,
             { wrapData: false, headers: getHeaders() }
         );
         return await handleResponse(response);
@@ -133,8 +133,8 @@ export const updateWorkPhase = async (items: any[]): Promise<APIResponse> => {
     try {
         const body = { items: items };
         const response = await front_api(
-            "PUT", 
-            "/update_work_phase", 
+            "PUT",
+            "/update_work_phase",
             body,
             { wrapData: false, headers: getHeaders() }
         );
@@ -155,5 +155,36 @@ export const deleteWorkPhase = async (payload: { work_phase_ids: number[] }): Pr
         return await handleResponse(response);
     } catch (e) {
         return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
+export const getWorkPhaseDetail = async (workPhaseId: number) => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const headers = {
+            "Authorization": `Bearer ${token}`
+        };
+        const response = await front_api(
+            "GET",
+            `/get_work_phase_detail/${workPhaseId}`,
+            {},
+            {
+                wrapData: false,
+                headers: headers
+            }
+        );
+
+        if (!response) return { success: false };
+
+        const result = await response.json();
+
+        if (response.ok) {
+            return { ...result, success: true };
+        } else {
+            return { ...result, success: false };
+        }
+    } catch (error) {
+        console.error("getWorkPhaseDetail Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
     }
 };
