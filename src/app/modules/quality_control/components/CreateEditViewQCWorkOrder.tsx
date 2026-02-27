@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
 	QCWorkOrderData,
@@ -9,9 +9,13 @@ import Select from "react-select";
 import { SalesOrderSearch } from "../../../type_interface/SalesOrderType";
 import {
 	getSalesOrderService,
-	searchSalesOrderService,
+	getSalesOrdersForQC,
+	getSalesItemsForQC,
 } from "../../../services/salesOrderService";
 import { Material } from "../../../type_interface/MaterialType";
+import { createQCWorkOrder, updateQCWorkOrder, getQCWorkOrderById } from "../../../services/qcWorkOrderService";
+import Swal from "sweetalert2";
+import { generateQCWorkOrderPDF } from "../../../utils/generateQCWorkOrderPDF";
 
 type PageMode = "create" | "view" | "edit";
 
@@ -22,11 +26,16 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 
 	const [mode, setMode] = useState<PageMode>("create");
 	const [loading, setLoading] = useState(false);
+	const [pdfLoading, setPdfLoading] = useState(false);
 
 	const [formData, setFormData] = useState<QCWorkOrderData>(qcWorkData);
-	const [salesOrders, setSalesOrder] = useState<SalesOrderSearch[]>([]);
+	const [salesOrders, setSalesOrders] = useState<any[]>([]);
 	const [searchSalesOrder, setSearchSalesOrder] = useState<string>("");
+	const [salesItems, setSalesItems] = useState<any[]>([]);
+	const [searchSalesItem, setSearchSalesItem] = useState<string>("");
 	const [materialList, setMaterialList] = useState<Material[]>([]);
+
+	const printRef = useRef<HTMLDivElement>(null);
 
 	// Determine mode based on URL
 	useEffect(() => {
@@ -49,16 +58,88 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 	const loadQCWorkOrder = async (id: string) => {
 		setLoading(true);
 		try {
-			// Replace with actual API call
-			// const response = await fetch(`/api/qc-workorders/${id}`);
-			// const data = await response.json();
+			const result = await getQCWorkOrderById(Number(id));
+			if (result.success && result.data) {
+				const raw = result.data;
+				const form = raw.qc_form || {};
+				const items = (raw.qc_items || []).map((item: any) => ({
+					id: String(item.qc_item_id),
+					code: item.item_code ?? "",
+					description: item.description ?? "",
+					wll: item.wll ?? "",
+					quantity: item.quantity ?? "",
+					serialNo: item.serial_no ?? "",
+					remark: item.item_remark ?? "",
+				}));
 
-			// Mock data for demonstration
-			const mockData: QCWorkOrderData = qcWorkData;
-			setFormData(mockData);
+				const formDataToSet = {
+					...qcWorkData,
+					// QCWorkOrder fields
+					work_order_id: raw.work_order_id,
+					// QCForm fields — map snake_case → camelCase
+					ptt: form.std_ptt ?? false,
+					chevron: form.std_chevron ?? false,
+					valeur: form.std_valeur ?? false,
+					ophir: form.std_ophir ?? false,
+					threeSpec: form.std_three_spec ?? false,
+					standardOthers: form.std_others ?? false,
+					standardOthersText: form.std_others_text ?? "",
+					inHouse: form.cert_inhouse ?? false,
+					thirdParty: form.cert_third_party ?? false,
+					ndt: form.cert_ndt ?? false,
+					testingOthers: form.cert_others ?? false,
+					testingOthersText: form.cert_others_text ?? "",
+					serialTag: form.serial_tag ?? false,
+					serialImprint: form.serial_imprint ?? false,
+					continueSerial: form.serial_continue ?? false,
+					serialOthers: form.serial_others ?? false,
+					serialOthersText: form.serial_others_text ?? "",
+					generalRemark: form.general_remark ?? "",
+					details: form.details ?? "",
+					customerReceiptNumber: form.customer_receipt_number ?? "",
+					donEntry: raw.doc_entry ?? "",          // ← ใช้ doc_entry ที่ backend ส่งใหม่
+					salesItemId: raw.sales_item_id ?? undefined,
+					salesItemCode: raw.sales_item_code ?? "",  // ← item_code จาก backend
+					items,
+				};
+
+				setFormData(formDataToSet);
+
+				if (formDataToSet.donEntry) {
+					try {
+						const salesRes = await getSalesOrderService(Number(formDataToSet.donEntry));
+						if (salesRes && salesRes.data) {
+							const data = salesRes.data;
+							setMaterialList(data.material_list || []);
+							setSalesOrders([data]);  // ให้ dropdown SO แสดงค่าที่เลือกใน view/edit
+							setFormData((prev: any) => ({
+								...prev,
+								customerCode: data.card_code,
+								customerName: data.card_name,
+								docNum: data.doc_num,
+								salesCode: data.slp_code,
+								salesName: data.slp_name,
+								teamCode: data.group_code,
+								teamName: data.group_name,
+							}));
+							// โหลด sales items เพื่อให้แสดงชื่อสินค้าใน select
+							const itemsRes = await getSalesItemsForQC("");
+							const filtered = (itemsRes?.data || []).filter(
+								(item: any) => item.doc_entry === data.doc_entry
+							);
+							setSalesItems(filtered);
+						}
+					} catch (e) {
+						console.error("Failed to fetch sales order for QC Work Order", e);
+					}
+				}
+
+			} else {
+				Swal.fire("ผิดพลาด!", result.message || "ไม่พบข้อมูล QC Work Order", "error");
+			}
 		} catch (error) {
 			console.error("Error loading QC work order:", error);
-			alert("Failed to load QC work order");
+			Swal.fire("ผิดพลาด!", "ไม่สามารถโหลดข้อมูลได้", "error");
 		} finally {
 			setLoading(false);
 		}
@@ -114,18 +195,16 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 			),
 		}));
 	};
-
-	// ✅ NEW: Handle material selection per row — auto-fills code + description
 	const handleSelectMaterial = (itemId: string, option: Material | null) => {
 		setFormData((prev) => ({
 			...prev,
 			items: prev.items.map((item) =>
 				item.id === itemId
 					? {
-							...item,
-							code: option?.item_code ?? "",
-							description: option?.item_name ?? option?.item_description ?? "",
-						}
+						...item,
+						code: option?.item_code ?? "",
+						description: option?.item_name ?? option?.item_description ?? "",
+					}
 					: item,
 			),
 		}));
@@ -137,86 +216,103 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 
 		try {
 			if (mode === "create") {
-				// ✅ formData.items is fully populated and ready to send
-				// await fetch('/api/qc-workorders', {
-				//   method: 'POST',
-				//   headers: { 'Content-Type': 'application/json' },
-				//   body: JSON.stringify(formData)
-				// });
-
-				console.log("Creating QC Work Order:", formData);
-				alert("QC Work Order created successfully!");
-				navigate("/qc-workorders");
+				const result = await createQCWorkOrder(formData);
+				if (result.success) {
+					Swal.fire("สำเร็จ!", "สร้าง QC Work Order เรียบร้อยแล้ว", "success");
+					navigate("/quality_control/qc_workorders_list");
+				} else {
+					Swal.fire("ผิดพลาด!", result.message || "ไม่สามารถสร้างข้อมูลได้", "error");
+				}
 			} else if (mode === "edit") {
-				// await fetch(`/api/qc-workorders/${qc_workorder_id}`, {
-				//   method: 'PUT',
-				//   headers: { 'Content-Type': 'application/json' },
-				//   body: JSON.stringify(formData)
-				// });
-
-				console.log("Updating QC Work Order:", formData);
-				alert("QC Work Order updated successfully!");
-				navigate(`/qc-workorders/view/${qc_workorder_id}`);
+				const result = await updateQCWorkOrder(Number(qc_workorder_id), formData);
+				if (result.success) {
+					Swal.fire("สำเร็จ!", "แก้ไข QC Work Order เรียบร้อยแล้ว", "success");
+					navigate("/quality_control/qc_workorders_list");
+				} else {
+					Swal.fire("ผิดพลาด!", result.message || "ไม่สามารถแก้ไขข้อมูลได้", "error");
+				}
 			}
 		} catch (error) {
 			console.error("Error saving QC work order:", error);
-			alert("Failed to save QC work order");
+			Swal.fire("ผิดพลาด!", "เกิดข้อผิดพลาดในการบันทึกข้อมูล", "error");
 		} finally {
 			setLoading(false);
 		}
 	};
 
-	const handleSearchSalesOrder = async () => {
-		const res = await searchSalesOrderService(searchSalesOrder);
-		setSalesOrder(res.data);
-	};
 
 	const switchToEditMode = () => {
-		navigate(`/qc-workorders/edit/${qc_workorder_id}`);
+		navigate(`/quality_control/qc_workorders_list/edit/${qc_workorder_id}`);
+	};
+
+	const handleExportPDF = async () => {
+		setPdfLoading(true);
+		try {
+			await generateQCWorkOrderPDF(formData, qc_workorder_id);
+		} catch (err) {
+			console.error("PDF export error:", err);
+			Swal.fire("ผิดพลาด!", "ไม่สามารถ export PDF ได้", "error");
+		} finally {
+			setPdfLoading(false);
+		}
 	};
 
 	const isReadOnly = mode === "view";
 
+
+	// โหลด Sales Orders เมื่อเปิดหน้า create/edit
 	useEffect(() => {
-		if (!searchSalesOrder) return;
-
-		const timeout = setTimeout(() => {
-			handleSearchSalesOrder();
-		}, 750);
-
-		return () => {
-			clearTimeout(timeout);
+		const loadInitialSalesOrders = async () => {
+			const res = await getSalesOrdersForQC("");
+			if (res && res.data) setSalesOrders(res.data);
 		};
+		if (mode === "create" || mode === "edit") {
+			loadInitialSalesOrders();
+		}
+	}, [mode]);
+
+	// Debounce search Sales Order
+	useEffect(() => {
+		const timeout = setTimeout(async () => {
+			const res = await getSalesOrdersForQC(searchSalesOrder);
+			if (res && res.data) setSalesOrders(res.data);
+		}, 750);
+		return () => clearTimeout(timeout);
 	}, [searchSalesOrder]);
 
 	const handleClickedSalesOrder = async (option: any) => {
 		if (option) {
-			const doc_entry: number = option.doc_entry;
-			setFormData((prev: any) => ({
-				...prev,
-				donEntry: doc_entry,
-			}));
-
-			const res = await getSalesOrderService(doc_entry);
-			const data = res.data;
-
-			setFormData((prev) => ({
-				...prev,
-				customerCode: data.card_code,
-				customerName: data.card_name,
-				docNum: data.doc_num,
-				docEntry: data.doc_entry,
-				salesCode: data.slp_code,
-				salesName: data.slp_name,
-				teamCode: data.group_code,
-				teamName: data.group_name,
-			}));
-
-			setMaterialList(data.material_list);
-			setSearchSalesOrder(option.doc_entry);
+			try {
+				const res = await getSalesOrderService(Number(option.doc_entry));
+				if (res && res.data) {
+					const data = res.data;
+					setFormData((prev: any) => ({
+						...prev,
+						donEntry: data.doc_entry,
+						customerCode: data.card_code,
+						customerName: data.card_name,
+						docNum: data.doc_num,
+						salesCode: data.slp_code,
+						salesName: data.slp_name,
+						teamCode: data.group_code,
+						teamName: data.group_name,
+						salesItemId: undefined, // reset item selection
+					}));
+					// โหลด sales items ของ SO นี้
+					const itemsRes = await getSalesItemsForQC("");
+					const filtered = (itemsRes?.data || []).filter(
+						(item: any) => item.doc_entry === data.doc_entry
+					);
+					setSalesItems(filtered);
+					setMaterialList(data.material_list || []);
+				}
+			} catch (e) {
+				console.error("Failed to fetch sales order info", e);
+			}
 		} else {
 			setFormData(qcWorkData);
 			setSearchSalesOrder("");
+			setSalesItems([]);
 			setMaterialList([]);
 		}
 	};
@@ -231,9 +327,22 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 						{mode === "edit" && "Edit QC Work Order"}
 					</h4>
 					{mode === "view" && (
-						<button className="btn btn-light btn-sm" onClick={switchToEditMode}>
-							<i className="bi bi-pencil"></i> Edit
-						</button>
+						<div className="d-flex gap-2">
+							<button
+								className="btn btn-danger btn-sm"
+								onClick={handleExportPDF}
+								disabled={pdfLoading}
+							>
+								{pdfLoading ? (
+									<><span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> กำลัง Export...</>
+								) : (
+									<><i className="bi bi-file-earmark-pdf me-1"></i> Export PDF</>
+								)}
+							</button>
+							<button className="btn btn-light btn-sm" onClick={switchToEditMode}>
+								<i className="bi bi-pencil"></i> Edit
+							</button>
+						</div>
 					)}
 				</div>
 
@@ -327,13 +436,14 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 										options={salesOrders}
 										formatOptionLabel={(option: any) => (
 											<div className="d-flex align-items-center gap-2">
-												<span>{option.doc_entry}</span>
+												<span className="fw-bold">{option.doc_num}</span>
+												<span className="text-muted">{option.card_name}</span>
 											</div>
 										)}
-										getOptionValue={(option) => option.doc_entry}
+										getOptionValue={(option: any) => String(option.doc_entry)}
 										value={
 											salesOrders.find(
-												(op) => op.doc_entry === formData.donEntry,
+												(op: any) => op.doc_entry === formData.donEntry
 											) || null
 										}
 										onInputChange={(inputValue, actionMeta) => {
@@ -341,15 +451,57 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 												setSearchSalesOrder(inputValue);
 											}
 										}}
-										onChange={(option: any) => {
-											handleClickedSalesOrder(option);
-										}}
+										onChange={(option: any) => handleClickedSalesOrder(option)}
 										placeholder="ค้นหาใบสั่งขาย..."
 										isClearable
 										isDisabled={isReadOnly}
 									/>
 								</div>
 
+								<div className="col-md-6">
+									<label className="form-label">รหัสสินค้า (Sales Item)</label>
+									{!isReadOnly ? (
+										<Select
+											options={salesItems}
+											formatOptionLabel={(option: any) => (
+												<div className="d-flex align-items-center gap-2">
+													<span className="fw-bold">{option.item_code}</span>
+													<span className="text-muted">{option.item_name}</span>
+												</div>
+											)}
+											getOptionValue={(option: any) => String(option.sales_item_id)}
+											value={
+												salesItems.find(
+													(op: any) => op.sales_item_id === formData.salesItemId
+												) || null
+											}
+											onChange={(option: any) => {
+												if (option) {
+													setFormData((prev: any) => ({
+														...prev,
+														salesItemId: option.sales_item_id,
+														salesItemCode: option.item_code,
+													}));
+												} else {
+													setFormData((prev: any) => ({ ...prev, salesItemId: undefined, salesItemCode: "" }));
+												}
+											}}
+											placeholder="พิมพ์เพื่อค้นหาสินค้า..."
+											isClearable
+											isSearchable
+										/>
+									) : (
+										<input
+											type="text"
+											className="form-control"
+											value={formData.salesItemCode ?? ""}
+											disabled
+										/>
+									)}
+								</div>
+							</div>
+
+							<div className="row mb-3">
 								<div className="col-md-3">
 									<label className="form-label">วันที่ย้าย</label>
 									<input
@@ -569,7 +721,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 								</div>
 							</div>
 
-							{/* ✅ Items Table — fully functional */}
+							{/*  Items Table — fully functional */}
 							<div className="row mb-3">
 								<div className="col-md-12">
 									<div className="d-flex justify-content-between align-items-center mb-2">
@@ -603,7 +755,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 											<tbody>
 												{formData.items.map((item) => (
 													<tr key={item.id}>
-														{/* ✅ Material selector — scoped to this row */}
+														{/* Material selector — scoped to this row */}
 														<td>
 															{isReadOnly ? (
 																<span className="form-control-plaintext px-2">
@@ -611,13 +763,12 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 																</span>
 															) : (
 																<Select
-																	isDisabled={materialList.length < 1}
+																	isDisabled={materialList.length < 1 || isReadOnly}
 																	options={materialList}
 																	formatOptionLabel={(option: Material) => (
 																		<div>{option.item_code}</div>
 																	)}
 																	getOptionValue={(option) => option.item_code}
-																	// ✅ Controlled: reflect current item.code
 																	value={
 																		materialList.find(
 																			(m) => m.item_code === item.code,
@@ -639,7 +790,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 															)}
 														</td>
 
-														{/* ✅ Description — auto-filled, but still editable */}
+														{/*  Description — auto-filled, but still editable */}
 														<td>
 															<input
 																type="text"
@@ -746,7 +897,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 										<button
 											type="button"
 											className="btn btn-secondary"
-											onClick={() => navigate("/qc-workorders")}
+											onClick={() => navigate("/quality_control/qc_workorders_list")}
 										>
 											{mode === "view" ? "Close" : "Cancel"}
 										</button>
@@ -780,6 +931,184 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				</div>
 			</div>
 
+			{/* ===== Hidden Printable PDF Layout ===== */}
+			<div
+				ref={printRef}
+				style={{
+					position: "absolute",
+					left: "-9999px",
+					top: 0,
+					width: "794px",
+					background: "#fff",
+					padding: "32px",
+					fontFamily: "'Sarabun', 'Tahoma', sans-serif",
+					fontSize: "12px",
+					color: "#000",
+				}}
+			>
+				{/* PDF Header */}
+				<div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+					<div style={{ flex: 1 }}>
+						{formData.customerCode && (
+							<div style={{ fontSize: 11, color: "#555" }}>{formData.customerCode}</div>
+						)}
+						{formData.docNum && (
+							<div style={{ fontSize: 11, color: "#555" }}>{formData.docNum}</div>
+						)}
+					</div>
+					<div style={{ textAlign: "center", flex: 2 }}>
+						<div style={{ fontSize: 18, fontWeight: "bold" }}>ใบสั่งงาน QC</div>
+					</div>
+					<div style={{ flex: 1, textAlign: "right", fontSize: 11 }}>
+						{formData.documentNumber && <div>เลขที่: {formData.documentNumber}</div>}
+					</div>
+				</div>
+
+				{/* Info Row */}
+				<table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+					<tbody>
+						<tr>
+							<td style={{ width: "20%", padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>วันที่</td>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.date}</td>
+							<td style={{ width: "20%", padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>พนักงานขาย</td>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.salesName}</td>
+						</tr>
+						<tr>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>ทีม</td>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.teamName}</td>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>ลูกค้า</td>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.customerName} {formData.customerCode ? `(${formData.customerCode})` : ""}</td>
+						</tr>
+						<tr>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>รหัสสินค้า (Sales Item)</td>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.donEntry}</td>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>วันที่ย้าย / ส่ง</td>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.customerReceiptNumber}</td>
+						</tr>
+					</tbody>
+				</table>
+
+				{/* Standards */}
+				<div style={{ marginBottom: 8 }}>
+					<div style={{ fontWeight: "bold", marginBottom: 4, borderBottom: "1px solid #ccc", paddingBottom: 2 }}>มาตรฐาน</div>
+					<div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+						{([
+							["ptt", "PTT"], ["chevron", "Chevron"], ["valeur", "Valeur"],
+							["ophir", "Ophir"], ["threeSpec", "3Spec"],
+							["standardOthers", `Others${formData.standardOthersText ? `: ${formData.standardOthersText}` : ""}`],
+						] as [keyof QCWorkOrderData, string][]).map(([field, label]) => (
+							<div key={field as string} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+								<div style={{
+									width: 12, height: 12, border: "1px solid #333",
+									background: formData[field] ? "#333" : "#fff",
+									display: "inline-block", flexShrink: 0,
+								}} />
+								<span>{label}</span>
+							</div>
+						))}
+					</div>
+				</div>
+
+				{/* Certificate */}
+				<div style={{ marginBottom: 8 }}>
+					<div style={{ fontWeight: "bold", marginBottom: 4, borderBottom: "1px solid #ccc", paddingBottom: 2 }}>ใบรับรอง</div>
+					<div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+						{([
+							["inHouse", "In-house"], ["thirdParty", "Third Party"], ["ndt", "NDT"],
+							["testingOthers", `Others${formData.testingOthersText ? `: ${formData.testingOthersText}` : ""}`],
+						] as [keyof QCWorkOrderData, string][]).map(([field, label]) => (
+							<div key={field as string} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+								<div style={{
+									width: 12, height: 12, border: "1px solid #333",
+									background: formData[field] ? "#333" : "#fff",
+									display: "inline-block", flexShrink: 0,
+								}} />
+								<span>{label}</span>
+							</div>
+						))}
+					</div>
+				</div>
+
+				{/* Serial Number */}
+				<div style={{ marginBottom: 8 }}>
+					<div style={{ fontWeight: "bold", marginBottom: 4, borderBottom: "1px solid #ccc", paddingBottom: 2 }}>Serial Number</div>
+					<div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+						{([
+							["continueSerial", "คล้องวางแห"], ["serialImprint", "ตอกที่ตัวสินค้า"],
+							["serialTag", "คล้องแท็ก"],
+							["serialOthers", `Others${formData.serialOthersText ? `: ${formData.serialOthersText}` : ""}`],
+						] as [keyof QCWorkOrderData, string][]).map(([field, label]) => (
+							<div key={field as string} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+								<div style={{
+									width: 12, height: 12, border: "1px solid #333",
+									background: formData[field] ? "#333" : "#fff",
+									display: "inline-block", flexShrink: 0,
+								}} />
+								<span>{label}</span>
+							</div>
+						))}
+					</div>
+				</div>
+
+				{/* Items Table */}
+				<div style={{ marginBottom: 8 }}>
+					<div style={{ fontWeight: "bold", marginBottom: 4, borderBottom: "1px solid #ccc", paddingBottom: 2 }}>รายการสินค้า</div>
+					<table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+						<thead>
+							<tr style={{ background: "#f0f0f0" }}>
+								<th style={{ border: "1px solid #999", padding: "4px 6px", textAlign: "left" }}>รหัสสินค้า</th>
+								<th style={{ border: "1px solid #999", padding: "4px 6px", textAlign: "left" }}>รายละเอียด</th>
+								<th style={{ border: "1px solid #999", padding: "4px 6px", textAlign: "center", width: 60 }}>WLL</th>
+								<th style={{ border: "1px solid #999", padding: "4px 6px", textAlign: "center", width: 60 }}>จำนวน</th>
+								<th style={{ border: "1px solid #999", padding: "4px 6px", textAlign: "left", width: 110 }}>Serial No</th>
+								<th style={{ border: "1px solid #999", padding: "4px 6px", textAlign: "left" }}>หมายเหตุ</th>
+							</tr>
+						</thead>
+						<tbody>
+							{formData.items.length > 0 ? formData.items.map((item, idx) => (
+								<tr key={idx}>
+									<td style={{ border: "1px solid #ccc", padding: "3px 6px" }}>{item.code}</td>
+									<td style={{ border: "1px solid #ccc", padding: "3px 6px" }}>{item.description}</td>
+									<td style={{ border: "1px solid #ccc", padding: "3px 6px", textAlign: "center" }}>{item.wll}</td>
+									<td style={{ border: "1px solid #ccc", padding: "3px 6px", textAlign: "center" }}>{item.quantity}</td>
+									<td style={{ border: "1px solid #ccc", padding: "3px 6px" }}>{item.serialNo}</td>
+									<td style={{ border: "1px solid #ccc", padding: "3px 6px" }}>{item.remark}</td>
+								</tr>
+							)) : (
+								<tr>
+									<td colSpan={6} style={{ border: "1px solid #ccc", padding: "6px", textAlign: "center", color: "#888" }}>ไม่มีรายการสินค้า</td>
+								</tr>
+							)}
+						</tbody>
+					</table>
+				</div>
+
+				{/* Remark & Details */}
+				{formData.generalRemark && (
+					<div style={{ marginBottom: 8 }}>
+						<span style={{ fontWeight: "bold" }}>Remark: </span>
+						<span style={{ whiteSpace: "pre-wrap" }}>{formData.generalRemark}</span>
+					</div>
+				)}
+				{formData.details && (
+					<div style={{ marginBottom: 8 }}>
+						<div style={{ fontWeight: "bold", marginBottom: 4 }}>รายละเอียดการเทส</div>
+						<div style={{ whiteSpace: "pre-wrap", border: "1px solid #ccc", padding: 6, borderRadius: 2 }}>{formData.details}</div>
+					</div>
+				)}
+
+				{/* Signature area */}
+				<div style={{ display: "flex", gap: 32, marginTop: 24 }}>
+					{["ผู้ตรวจสอบ", "ผู้อนุมัติ", "ผู้รับมอบ"].map((label) => (
+						<div key={label} style={{ flex: 1, textAlign: "center" }}>
+							<div style={{ borderBottom: "1px solid #333", marginBottom: 4, height: 40 }} />
+							<div style={{ fontSize: 11 }}>{label}</div>
+							<div style={{ fontSize: 10, color: "#777", marginTop: 2 }}>วันที่.............................</div>
+						</div>
+					))}
+				</div>
+			</div>
+
 			<style>{`
         .form-label {
           font-weight: 500;
@@ -805,7 +1134,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
           font-size: 0.875rem;
         }
       `}</style>
-		</div>
+		</div >
 	);
 };
 

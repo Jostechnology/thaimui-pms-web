@@ -69,8 +69,19 @@ export interface DashboardKPI {
 export enum WorkOrderStatusEnum {
     READY = 'READY',
     INPROGRESS = 'INPROGRESS',
+    WAIT_TEST = 'WAIT_TEST',
+    TESTING = 'TESTING',
     COMPLETED = 'COMPLETED'
 }
+
+export const WORK_ORDER_STATUS_OPTIONS: { value: WorkOrderStatusEnum; label: string }[] = [
+    { value: WorkOrderStatusEnum.READY, label: 'พร้อมดำเนินการ' },
+    { value: WorkOrderStatusEnum.INPROGRESS, label: 'กำลังดำเนินการ' },
+    { value: WorkOrderStatusEnum.WAIT_TEST, label: 'รอทดสอบ (Wait Test)' },
+    { value: WorkOrderStatusEnum.TESTING, label: 'กำลังทดสอบ (Testing)' },
+    { value: WorkOrderStatusEnum.COMPLETED, label: 'ดำเนินการเสร็จสิ้น' }
+];
+
 export enum WorkPhaseStatusEnum {
     PENDING = 'PENDING',
     INPROGRESS = 'INPROGRESS',

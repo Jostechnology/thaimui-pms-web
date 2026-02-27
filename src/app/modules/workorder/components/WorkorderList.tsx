@@ -63,6 +63,8 @@ const WorkorderList: React.FC = () => {
     const statusThaiMap: Record<string, string> = {
         READY: 'พร้อม',
         INPROGRESS: 'กำลังดำเนินงาน',
+        WAIT_TEST: 'รอทดสอบ',
+        TESTING: 'กำลังทดสอบ',
         COMPLETED: 'เสร็จสิ้น'
     };
 
