@@ -6,7 +6,7 @@ import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import Swal from 'sweetalert2';
 import './WorkorderView.css';
-import { WorkPhaseStatusEnum, type WorkOrder, type WorkPhase, type WorkPhaseBreak } from '../../../type_interface/WorkOrderType';
+import { WorkPhaseStatusEnum, type WorkOrder, type WorkPhase, type WorkPhaseBreak, type ItemComponent } from '../../../type_interface/WorkOrderType';
 import type { Employee } from '../../../type_interface/EmployeeType';
 
 // --- Helper functions ---
@@ -765,6 +765,51 @@ const WorkorderView: React.FC = () => {
                             )}
                         </div>
                     </div>
+
+                    {/* Components & Materials */}
+                    {workOrder.item_components && workOrder.item_components.length > 0 && (
+                        <div className="wo-card mb-5">
+                            <div className="wo-card-header">
+                                <h3 className="wo-card-title">ส่วนประกอบ & วัสดุ</h3>
+                                <span className="badge badge-light-info">{workOrder.item_components.length} ชิ้น</span>
+                            </div>
+                            <div className="wo-card-body">
+                                <div className="d-flex flex-column gap-4">
+                                    {workOrder.item_components.map((comp, idx) => (
+                                        <div key={comp.item_component_id} className="border rounded p-3" style={{ backgroundColor: '#f9fafb' }}>
+                                            <div className="d-flex align-items-center gap-2 mb-3">
+                                                <div className="d-flex align-items-center justify-content-center rounded-circle fw-bold"
+                                                    style={{ width: 28, height: 28, backgroundColor: '#e0e7ff', color: '#4f46e5', fontSize: 12 }}>
+                                                    {idx + 1}
+                                                </div>
+                                                <span className="fw-bold text-gray-800 fs-6">{comp.component_name}</span>
+                                            </div>
+                                            {comp.material_usages && comp.material_usages.length > 0 ? (
+                                                <div className="d-flex flex-column gap-2">
+                                                    {comp.material_usages.map(usage => (
+                                                        <div key={usage.usage_id} className="d-flex align-items-center justify-content-between px-3 py-2 rounded" style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}>
+                                                            <div className="d-flex flex-column">
+                                                                <span className="fw-semibold text-gray-700 fs-7">{usage.material_list?.item_name || '-'}</span>
+                                                                <span className="text-muted fs-8">{usage.material_list?.item_code || '-'}</span>
+                                                            </div>
+                                                            <div className="d-flex align-items-center gap-3">
+                                                                <span className="badge badge-light-primary fs-8">จำนวน: {usage.quantity_used}</span>
+                                                                {usage.material_list?.unit_price != null && (
+                                                                    <span className="text-muted fs-8">฿{usage.material_list.unit_price.toLocaleString()}/หน่วย</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-muted fs-8 text-center py-2">ไม่มีวัสดุที่ใช้</div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Current Phase Info */}
                     {workOrder.current_phase && (
