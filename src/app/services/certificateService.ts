@@ -55,3 +55,18 @@ export const getCertificateList = async (): Promise<APIResponse> => {
         return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูล Certificate" };
     }
 };
+
+export const getCertificateById = async (id: number | string): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "GET",
+            `/test_certificate/get/${id}`,
+            undefined,
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error(`getCertificateById Error (ID: ${id}):`, error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูล Certificate Detail" };
+    }
+};
