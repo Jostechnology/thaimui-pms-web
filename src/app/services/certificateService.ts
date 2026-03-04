@@ -40,3 +40,49 @@ export const createCertificate = async (data: any): Promise<APIResponse> => {
         return { success: false, message: "เกิดข้อผิดพลาดในการสร้าง Certificate" };
     }
 };
+
+export const getCertificateList = async (): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "GET",
+            "/test_certificate/get_list",
+            undefined,
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("getCertificateList Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูล Certificate" };
+    }
+};
+
+export const getCertificateById = async (id: number | string): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "GET",
+            `/test_certificate/get/${id}`,
+            undefined,
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error(`getCertificateById Error (ID: ${id}):`, error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูล Certificate Detail" };
+    }
+};
+
+export const updateCertificate = async (id: number | string, data: any): Promise<APIResponse> => {
+    console.log(`Updating Certificate (ID: ${id}) with data:`, data);
+    try {
+        const response = await front_api(
+            "PUT",
+            `/test_certificate/update/${id}`,
+            data,
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error(`updateCertificate Error (ID: ${id}):`, error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการแก้ไข Certificate" };
+    }
+};
