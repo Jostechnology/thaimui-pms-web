@@ -42,7 +42,7 @@ const WorkorderCreate: React.FC = () => {
 
     // Components - each component has multiple materials
     const [components, setComponents] = useState<ComponentItem[]>([
-        { id: 1, component_name: '', materials: [{ id: 1, material_list_id: '', quantity_used: 1 }], nextMaterialId: 2 },
+        { id: 1, component_name: '', materials: [{ id: 1, material_list_id: '', quantity_used: '' }], nextMaterialId: 2 },
     ]);
     const [nextComponentId, setNextComponentId] = useState(2);
 
@@ -105,7 +105,7 @@ const WorkorderCreate: React.FC = () => {
 
     const resetComponents = () => {
         setComponents([
-            { id: 1, component_name: '', materials: [{ id: 1, material_list_id: '', quantity_used: 1 }], nextMaterialId: 2 },
+            { id: 1, component_name: '', materials: [{ id: 1, material_list_id: '', quantity_used: '' }], nextMaterialId: 2 },
         ]);
         setNextComponentId(2);
     };
@@ -114,7 +114,7 @@ const WorkorderCreate: React.FC = () => {
     const addComponent = () => {
         setComponents(prev => [
             ...prev,
-            { id: nextComponentId, component_name: '', materials: [{ id: 1, material_list_id: '', quantity_used: 1 }], nextMaterialId: 2 }
+            { id: nextComponentId, component_name: '', materials: [{ id: 1, material_list_id: '', quantity_used: '' }], nextMaterialId: 2 }
         ]);
         setNextComponentId(prev => prev + 1);
     };
@@ -136,7 +136,7 @@ const WorkorderCreate: React.FC = () => {
                 if (comp.id === componentId) {
                     return {
                         ...comp,
-                        materials: [...comp.materials, { id: comp.nextMaterialId, material_list_id: '', quantity_used: 1 }],
+                        materials: [...comp.materials, { id: comp.nextMaterialId, material_list_id: '', quantity_used: '' }],
                         nextMaterialId: comp.nextMaterialId + 1
                     };
                 }
