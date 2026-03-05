@@ -33,6 +33,30 @@ export interface SalesItem {
     doc_num: string;
 }
 
+export interface ComponentMaterialUsage {
+    usage_id: number;
+    item_component_id: number;
+    material_list_id: number;
+    quantity_used: number;
+    material_list: {
+        material_list_id: number;
+        sales_item_id: number;
+        item_code: string;
+        item_name: string;
+        item_description: string;
+        item_num: number;
+        cost_price: number;
+        unit_price: number;
+    };
+}
+
+export interface ItemComponent {
+    item_component_id: number;
+    work_order_id: number;
+    component_name: string;
+    material_usages: ComponentMaterialUsage[];
+}
+
 
 export interface WorkOrder {
     work_order_id: number;
@@ -42,6 +66,7 @@ export interface WorkOrder {
     current_phase: WorkPhase | null;
     work_phases: WorkPhase[];
     sales_item: SalesItem | null;
+    item_components: ItemComponent[];
 }
 
 
@@ -92,4 +117,38 @@ export enum BreakTypeEnum {
     LUNCHBREAK = 'LUNCHBREAK',
     RESTBREAK = 'RESTBREAK',
     OTHER = 'OTHER'
+}
+
+export interface EmployeeBreakdown {
+    employee_id: number;
+    employee_first_name: string;
+    employee_last_name: string;
+    status: string;
+    salary_at_phase: number;
+    hourly_rate: number;
+    time_spent_seconds: number;
+    net_cost: number;
+}
+
+export interface BreakData {
+    break_id: number;
+    work_phase_id: number;
+    break_start: string;
+    break_end: string | null;
+    break_type: string;
+}
+
+export interface PhaseDetailData {
+    work_phase_id: number;
+    phase_name: string;
+    phase_status: string;
+    created_date: string;
+    start_date: string | null;
+    end_date: string | null;
+    work_order_id: number;
+    doc_num: string;
+    total_time_spent_seconds: number;
+    total_labor_cost: number;
+    employee_breakdown: EmployeeBreakdown[];
+    breaks: BreakData[];
 }
