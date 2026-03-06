@@ -207,3 +207,81 @@ export const createWorkOrder = async (payload: {
         return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
     }
 };
+
+export const getItemComponentDetail = async (itemComponentId: number) => {
+    try {
+        const response = await front_api(
+            "GET",
+            `/get_item_component_detail/${itemComponentId}`,
+            {},
+            { wrapData: false, headers: getHeaders() }
+        );
+        if (!response) return { success: false };
+        const result = await response.json();
+        return response.ok ? { ...result, success: true } : { ...result, success: false };
+    } catch (error) {
+        console.error("getItemComponentDetail Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
+export const getComponentSpecTypes = async () => {
+    try {
+        const response = await front_api(
+            "GET",
+            "/get_component_spec_types",
+            {},
+            { wrapData: false, headers: getHeaders() }
+        );
+        if (!response) return { success: false };
+        const result = await response.json();
+        return response.ok ? { ...result, success: true } : { ...result, success: false };
+    } catch (error) {
+        console.error("getComponentSpecTypes Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
+export const getComponentOptionTypes = async () => {
+    try {
+        const response = await front_api(
+            "GET",
+            "/get_component_option_types",
+            {},
+            { wrapData: false, headers: getHeaders() }
+        );
+        if (!response) return { success: false };
+        const result = await response.json();
+        return response.ok ? { ...result, success: true } : { ...result, success: false };
+    } catch (error) {
+        console.error("getComponentOptionTypes Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
+export const updateItemComponentDetail = async (
+    itemComponentId: number,
+    payload: {
+        remark?: string;
+        specs?: {
+            component_spec_type_id: number;
+            end_side: string | null;
+            bool_value?: boolean | null;
+            decimal_value?: number | null;
+            text_value?: string | null;
+        }[];
+        options?: number[];
+    }
+): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "PUT",
+            `/update_item_component_detail/${itemComponentId}`,
+            payload,
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};

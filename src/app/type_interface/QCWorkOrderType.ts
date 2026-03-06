@@ -56,3 +56,8 @@ export interface QCWorkOrderData {
   // Items
   items: QCWorkOrderItem[];
 }
+
+export type SearchQcWorkOrders = {
+  qc_work_order_id?: number;
+  qc_by : string;
+}

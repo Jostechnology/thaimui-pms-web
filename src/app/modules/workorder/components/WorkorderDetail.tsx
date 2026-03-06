@@ -7,6 +7,7 @@ import { getEmployeeList } from '../../../services/employee';
 import { getWorkOrderById, createWorkPhase, updateWorkPhase, deleteWorkPhase } from '../../../services/workorder';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
+import ItemComponentDetailModal from './ItemComponentDetailModal';
 
 interface Employee {
     citizen_id: string;
@@ -102,6 +103,7 @@ const WorkorderDetail: React.FC = () => {
     const [activePhaseId, setActivePhaseId] = useState<number | null>(null);
     const [deleteIDList, setDeleteIDList] = useState<number[]>([]);
     const [editIDList, setEditIDList] = useState<number[]>([]);
+    const [editComponentId, setEditComponentId] = useState<number | null>(null);
 
     const phaseStatusThaiMap: Record<string, string> = {
         PENDING: 'รอดําเนินการ',
@@ -626,6 +628,14 @@ const WorkorderDetail: React.FC = () => {
                                                     {comp.material_usages?.length || 0} วัสดุ
                                                 </span>
                                             </div>
+                                            <button
+                                                className="btn btn-sm btn-light-primary d-flex align-items-center gap-1 ms-auto"
+                                                style={{ padding: '6px 12px', borderRadius: '6px' }}
+                                                onClick={() => setEditComponentId(comp.item_component_id)}
+                                            >
+                                                <i className="bi bi-pencil-square" />
+                                                แก้ไขรายละเอียด
+                                            </button>
                                         </div>
                                         {comp.material_usages && comp.material_usages.length > 0 ? (
                                             <div className='d-flex flex-column gap-3'>
@@ -696,6 +706,17 @@ const WorkorderDetail: React.FC = () => {
                     </div>
                 </Modal.Body>
             </Modal>
+
+            {/* Item Component Detail Modal */}
+            {currentWorkOrder && (
+                <ItemComponentDetailModal
+                    show={editComponentId !== null}
+                    onClose={() => setEditComponentId(null)}
+                    itemComponentId={editComponentId}
+                    workOrder={currentWorkOrder as any}
+                    onSaved={() => fetchWorkorderData()}
+                />
+            )}
         </Content>
     );
 };
