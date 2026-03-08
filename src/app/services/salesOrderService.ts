@@ -89,6 +89,16 @@ export const getSalesOrdersForQC = async (search: string = "") => {
     }
 }
 
+// Mock po_reference until backend supports it
+export const getSalesOrderForCertificate = async (doc_entry: number) => {
+    const result = await getSalesOrderService(doc_entry);
+    if (result && result.success && result.data) {
+        const poRef = result.data.po_reference || result.data.num_at_card || `PO-${result.data.doc_num || doc_entry}`;
+        return { ...result, data: { ...result.data, po_reference: poRef } };
+    }
+    return result;
+};
+
 export const getSalesItemsForQC = async (search: string = "") => {
     try {
         const token = localStorage.getItem('tk-jos');

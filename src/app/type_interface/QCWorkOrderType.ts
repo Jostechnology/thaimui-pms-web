@@ -25,6 +25,7 @@ export interface QCWorkOrderData {
   inspectionDate: string
   salesItemId?: number
   salesItemCode?: string
+  quantity: number
 
   // Testing standards
   ptt: boolean;

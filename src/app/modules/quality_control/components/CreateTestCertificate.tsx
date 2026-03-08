@@ -1,109 +1,108 @@
 import React, { useState, useEffect } from "react";
 import Select from "react-select";
-import { QCWorkOrderData, SearchQcWorkOrders } from "../../../type_interface/QCWorkOrderType";
-import { qcWorkData } from "../../../libs/defaultFormData";
-import { getQCWorkOrderById, searchQcWorkOrder as searchQcWorkOrderService } from "../../../services/qcWorkOrderService";
-import { Material } from "../../../type_interface/MaterialType";
-import { useNavigate, useLocation } from "react-router-dom";
+import { SalesOrderSearch } from "../../../type_interface/SalesOrderType";
+import { searchSalesOrderService, getSalesOrderForCertificate } from "../../../services/salesOrderService";
+import { getTestResultsBySalesOrder } from "../../../services/testResultService";
+import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { createCertificate } from "../../../services/certificateService";
 
-type PageMode = "create" | "view" | "edit";
-
-// 1. Interface สำหรับ Header Form
 interface CertFormState {
     testMethod: string;
     remark: string;
     standardRef: string;
     dateOfTest: string;
     certificateNo: string;
+    customerName: string;
+    poReference: string;
 }
 
-// 2. Interface สำหรับข้อมูลตารางที่แยกชิ้นแล้ว
 interface CertItemRow {
     id: string;
+    salesItemId: number | null;
+    testResultItemId: number | null;
     itemNo: string;
-    testNo: string;
-    refNo: string;
+    testNumber: string;
+    refNumber: string;
     description: string;
     wll: string;
     loadTest: string;
 }
 
-// 3. ฟังก์ชันดึงวันที่ปัจจุบัน
 const getTodayLocalString = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+
+const StatusBadge: React.FC<{ status: string }> = ({ status }) => (
+    <span className={`badge fw-bold px-3 py-1 ${status === "PASSED" ? "badge-light-success" : "badge-light-danger"}`}>
+        {status}
+    </span>
+);
 
 const CreateTestCertificate: React.FC = () => {
     const navigate = useNavigate();
-    const location = useLocation();
 
-    // States หลัก
-    const [overallStatus, setOverallStatus] = useState<'acceptable' | 'not_acceptable' | null>('acceptable');
-    const [qcOrders, setQcOrders] = useState<SearchQcWorkOrders[]>([]);
-    const [searchQcWorkOrder, setSearchQcWorkOrder] = useState<string>("");
-    const [formData, setFormData] = useState<QCWorkOrderData>(qcWorkData);
-    const [materialList, setMaterialList] = useState<Material[]>([]);
-
-    // State สำหรับเก็บใบ QC ที่ถูกเลือก
-    const [selectedQcOrder, setSelectedQcOrder] = useState<any | null>(null);
-
-    // State สำหรับฟอร์มใบ Cert
+    const [overallStatus, setOverallStatus] = useState<'acceptable' | 'not_acceptable'>('acceptable');
+    const [salesOrderOptions, setSalesOrderOptions] = useState<SalesOrderSearch[]>([]);
+    const [searchKeyword, setSearchKeyword] = useState<string>("");
+    const [selectedSalesOrder, setSelectedSalesOrder] = useState<any | null>(null);
+    const [testResults, setTestResults] = useState<any[]>([]);
+    const [testResultsLoading, setTestResultsLoading] = useState(false);
+    const [selectedTestResult, setSelectedTestResult] = useState<any | null>(null);
     const [certForm, setCertForm] = useState<CertFormState>({
         testMethod: "Proof Load Test",
         certificateNo: "",
         remark: "",
         standardRef: "",
-        dateOfTest: getTodayLocalString()
+        dateOfTest: getTodayLocalString(),
+        customerName: "",
+        poReference: "",
     });
-
     const [certItemRows, setCertItemRows] = useState<CertItemRow[]>([]);
-    const [mode, setMode] = useState<PageMode>("create");
 
-    // Logic การ "แตกแถว"
-    useEffect(() => {
-        let expandedRows: CertItemRow[] = [];
-        let counter = 1;
+    // When a test result is selected, populate rows from its items
+    const handleSelectTestResult = (tr: any) => {
+        setSelectedTestResult(tr);
+        const items: CertItemRow[] = (tr.test_result_items || []).map((item: any, idx: number) => ({
+            id: `tr-item-${item.test_result_item_id}`,
+            salesItemId: tr.sales_item_id ?? null,
+            testResultItemId: item.test_result_item_id,
+            itemNo: String(idx + 1).padStart(2, '0'),
+            testNumber: String(item.unit_number ?? idx + 1),
+            refNumber: item.serial_no || "",
+            description: item.description || "",
+            wll: item.wll_measured != null ? String(item.wll_measured) : "",
+            loadTest: item.load_test_value != null ? String(item.load_test_value) : "",
+        }));
+        setCertItemRows(items);
+        // Auto-fill test method and standard ref from test result if cert form is still default
+        setCertForm(prev => ({
+            ...prev,
+            testMethod: tr.test_method || prev.testMethod,
+            standardRef: tr.standard_reference || prev.standardRef,
+        }));
+    };
 
-        materialList.forEach((mat: any) => {
-            //2. ดักจับ quantity ค่าว่าง ("") ให้ถือว่าเป็น 1 ชิ้นเสมอ
-            const rawQty = mat.quantity || mat.item_num || mat.Qty || mat.Quantity;
-            const qty = (rawQty === "" || rawQty == null) ? 1 : Number(rawQty);
-
-            for (let i = 0; i < qty; i++) {
-                expandedRows.push({
-                    id: `${mat.item_code || 'ITEM'}-${counter}`,
-                    itemNo: String(counter).padStart(2, '0'),
-                    testNo: "[Auto Gen]",
-                    refNo: mat.serial_no || "", // 🌟 ถ้ามี serial_no ก็เอามาเป็น Ref ซะเลย
-                    description: mat.description || `${mat.item_name || ""} ${mat.item_description || ""}`.trim(), // 🌟 ดึง description ตรงๆ
-                    wll: mat.wll || "", // 🌟 ดึง WLL ที่ผูกมาด้วย
-                    loadTest: "",
-                });
-                counter++;
-            }
+    const handleRemoveRow = (index: number) => {
+        setCertItemRows(prev => {
+            const updated = prev.filter((_, i) => i !== index);
+            return updated.map((row, i) => ({ ...row, itemNo: String(i + 1).padStart(2, '0') }));
         });
-
-        setCertItemRows(expandedRows);
-    }, [materialList]);
+    };
 
     const handleRowChange = (index: number, field: keyof CertItemRow, value: string) => {
-        const newRows = [...certItemRows];
-        newRows[index][field] = value;
-        setCertItemRows(newRows);
+        setCertItemRows(prev => {
+            const next = [...prev];
+            next[index] = { ...next[index], [field]: value };
+            return next;
+        });
     };
 
     const sanitizeNumericInput = (val: string) => {
         let s = val.replace(/[^0-9.]/g, "");
         const parts = s.split('.');
-        if (parts.length > 2) {
-            s = parts.shift() + '.' + parts.join('');
-        }
+        if (parts.length > 2) s = parts.shift() + '.' + parts.join('');
         return s;
     };
 
@@ -111,62 +110,50 @@ const CreateTestCertificate: React.FC = () => {
         const clean = sanitizeNumericInput(value);
         const num = clean === '' ? NaN : parseFloat(clean);
         if (!isNaN(num) && num < 0) return;
-
-        const newRows = [...certItemRows];
-        newRows[index][field] = clean;
-        setCertItemRows(newRows);
+        handleRowChange(index, field, clean);
     };
 
-    //ฟังก์ชัน Save ที่ปรับปรุงแล้ว
     const handleSave = async () => {
-        // ดักจับว่าเลือกใบ QC หรือยัง
-        if (!selectedQcOrder) {
-            Swal.fire("แจ้งเตือน", "กรุณาเลือกใบ QC ก่อนทำการบันทึก", "warning");
+        if (!selectedSalesOrder) {
+            Swal.fire("แจ้งเตือน", "กรุณาเลือก Sales Order ก่อนทำการบันทึก", "warning");
             return;
         }
-
+        if (!selectedTestResult) {
+            Swal.fire("แจ้งเตือน", "กรุณาเลือกผลการทดสอบก่อนทำการบันทึก", "warning");
+            return;
+        }
         if (certItemRows.length === 0) {
-            Swal.fire("แจ้งเตือน", "ไม่มีรายการสินค้าให้สร้างใบ Cert", "warning");
+            Swal.fire("แจ้งเตือน", "ไม่มีรายการสินค้าในใบ Cert", "warning");
             return;
         }
 
         const payload = {
-            //ดึง ID มาจากใบ QC ที่เลือก (รองรับทั้งฟิลด์ qc_work_order_id หรือ id)
-            qc_work_order_id: selectedQcOrder.qc_work_order_id || selectedQcOrder.id,
-
-            //ถ้าไม่ได้กรอก Certificate No. ให้ส่ง TC-AUTO-GEN ไปให้ Backend จัดการ
+            sales_order_doc_entry: selectedSalesOrder.doc_entry,
             certification_name: certForm.certificateNo.trim() !== "" ? certForm.certificateNo : "TC-AUTO-GEN",
-
             certification_date: certForm.dateOfTest,
             certification_status: overallStatus,
             remark: certForm.remark,
             standard_ref: certForm.standardRef,
             test_method: certForm.testMethod,
-            customer_name: formData.customerName,
-
+            customer_name: certForm.customerName,
+            po_reference: certForm.poReference,
             items: certItemRows.map(row => ({
+                sales_item_id: row.salesItemId,
+                test_result_item_id: row.testResultItemId,
                 item_no: row.itemNo,
-                test_no: row.testNo,
-                ref_no: row.refNo,
+                test_number: row.testNumber,
+                ref_number: row.refNumber,
                 description: row.description,
-                wll: row.wll,
-                load_test: row.loadTest
-            }))
+                wll: row.wll === "" ? null : parseFloat(row.wll),
+                load_test: row.loadTest === "" ? null : parseFloat(row.loadTest),
+            })),
         };
 
         try {
-            Swal.fire({
-                title: 'กำลังบันทึกข้อมูล...',
-                allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
-
+            Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
             const result = await createCertificate(payload);
-
             if (result && result.success) {
-                Swal.fire("สำเร็จ!", "สร้าง Test Certificate เรียบร้อยแล้ว", "success").then(() => {
-                    navigate(-1);
-                });
+                Swal.fire("สำเร็จ!", "สร้าง Test Certificate เรียบร้อยแล้ว", "success").then(() => navigate(-1));
             } else {
                 Swal.fire("ผิดพลาด!", result?.message || "ไม่สามารถบันทึกข้อมูลได้", "error");
             }
@@ -175,104 +162,156 @@ const CreateTestCertificate: React.FC = () => {
         }
     };
 
-    const handleSearchQcWorkOrder = async () => {
+    const handleSearchSalesOrder = async (keyword: string) => {
         try {
-            const res: any = await searchQcWorkOrderService(searchQcWorkOrder);
-
-            const jsonData = (res && typeof res.json === 'function') ? await res.json() : res;
-
-            const list = (jsonData && jsonData.data)
-                ? (Array.isArray(jsonData.data) ? jsonData.data : (jsonData.data.items || jsonData.data.data || []))
+            const res: any = await searchSalesOrderService(keyword);
+            const list = res?.data
+                ? (Array.isArray(res.data) ? res.data : (res.data.items || res.data.data || []))
                 : [];
-
-            setQcOrders(list);
-        } catch (error) {
-            console.error('searchQcWorkOrder error', error);
-            setQcOrders([]);
+            setSalesOrderOptions(list);
+        } catch {
+            setSalesOrderOptions([]);
         }
     };
-    const handleChangedQcOrder = async (option: any) => {
-        const selected = option || null;
-        setSelectedQcOrder(selected);
 
-        if (selected) {
-            try {
-                const targetId = selected.qc_work_order_id || selected.id || selected.doc_entry;
-                const res = await getQCWorkOrderById(targetId);
+    const handleSelectSalesOrder = async (option: any) => {
+        setSelectedSalesOrder(option || null);
+        setTestResults([]);
+        setSelectedTestResult(null);
+        setCertItemRows([]);
 
-                if (res && res.data) {
-                    // 🌟 1. ชี้เป้าไปที่ res.data.qc_items ตาม JSON ใหม่เป๊ะๆ
-                    const materials = res.data.qc_items || res.data.items || res.data.material_list || [];
-                    setMaterialList(materials);
+        if (!option) {
+            setCertForm(prev => ({ ...prev, customerName: "", poReference: "" }));
+            return;
+        }
 
-                    setFormData((prev) => ({
-                        ...prev,
-                        customerCode: res.data.card_code || prev.customerCode,
-                        customerName: res.data.card_name || prev.customerName,
-                    }));
-                } else {
-                    Swal.fire("ไม่พบข้อมูล!", `ไม่พบรายละเอียดใบ QC`, "warning");
-                    setFormData(qcWorkData);
-                    setMaterialList([]);
-                }
-            } catch (error) {
-                console.error(`Failed to fetch QC Order details`, error);
-                Swal.fire("ผิดพลาด!", `เกิดข้อผิดพลาดในการดึงข้อมูลใบ QC`, "error");
-                setFormData(qcWorkData);
-                setMaterialList([]);
-                setSelectedQcOrder(null);
+        try {
+            // Fetch SO detail for customer + PO ref
+            const soRes = await getSalesOrderForCertificate(Number(option.doc_entry));
+            if (soRes && soRes.success && soRes.data) {
+                setCertForm(prev => ({
+                    ...prev,
+                    customerName: soRes.data.card_name || "",
+                    poReference: soRes.data.po_reference || "",
+                }));
             }
-        } else {
-            setFormData(qcWorkData);
-            setMaterialList([]);
+
+            // Fetch test results for this SO
+            setTestResultsLoading(true);
+            const trRes = await getTestResultsBySalesOrder(Number(option.doc_entry));
+            if (trRes && trRes.success) {
+                setTestResults(Array.isArray(trRes.data) ? trRes.data : []);
+            }
+        } catch {
+            Swal.fire("ผิดพลาด!", "เกิดข้อผิดพลาดในการดึงข้อมูล", "error");
+            setSelectedSalesOrder(null);
+        } finally {
+            setTestResultsLoading(false);
         }
     };
 
     useEffect(() => {
-        if (!searchQcWorkOrder) return;
-        const timeout = setTimeout(() => { handleSearchQcWorkOrder(); }, 750);
+        if (!searchKeyword) return;
+        const timeout = setTimeout(() => { handleSearchSalesOrder(searchKeyword); }, 750);
         return () => clearTimeout(timeout);
-    }, [searchQcWorkOrder]);
+    }, [searchKeyword]);
 
     return (
         <div className="container-fluid px-10 py-8">
             <div className="d-flex flex-column gap-6">
 
-                {/* --- ส่วนบน: เลือก QC Work Order --- */}
+                {/* --- เลือก Sales Order --- */}
                 <div className="card shadow-sm border-0">
                     <div className="card-body p-6">
                         <div className="d-flex align-items-center mb-4">
-                            <i className="bi bi-cart fs-2 text-primary me-3"></i>
-                            <h3 className="m-0 fw-bold text-gray-800 fs-4">เลือกใบ QC (QC Work Order)</h3>
+                            <i className="bi bi-receipt fs-2 text-primary me-3"></i>
+                            <h3 className="m-0 fw-bold text-gray-800 fs-4">เลือก Sales Order</h3>
                         </div>
                         <div className="w-md-500px">
                             <Select
-                                options={qcOrders}
-
-                                getOptionLabel={(option: any) => String(option.doc_entry || option.qc_work_order_id || "QC-Order")}
-
-                                getOptionValue={(option: any) => String(option.qc_work_order_id || option.doc_entry)}
-
+                                options={salesOrderOptions}
+                                getOptionLabel={(option: any) => `${option.doc_num}`}
+                                getOptionValue={(option: any) => String(option.doc_entry)}
                                 formatOptionLabel={(option: any) => (
-                                    <div className="d-flex align-items-center gap-2">
-                                        <span>{option.doc_entry || option.qc_work_order_id || "QC-Order"}</span>
-                                    </div>
+                                    <span className="fw-bold">{option.doc_num}</span>
                                 )}
-                                value={selectedQcOrder}
+                                value={selectedSalesOrder}
                                 onInputChange={(inputValue, actionMeta) => {
-                                    if (actionMeta.action === "input-change") setSearchQcWorkOrder(inputValue);
+                                    if (actionMeta.action === "input-change") setSearchKeyword(inputValue);
                                 }}
-                                onChange={handleChangedQcOrder}
-                                placeholder="ค้นหาใบ QC..."
+                                onChange={handleSelectSalesOrder}
+                                placeholder="ค้นหา Sales Order..."
                                 isClearable
-
                                 filterOption={null}
                             />
                         </div>
                     </div>
                 </div>
 
-                {/* --- ส่วนล่าง: จำลองหน้ากระดาษ Test Certificate --- */}
+                {/* --- เลือกผลการทดสอบ --- */}
+                {selectedSalesOrder && (
+                    <div className="card shadow-sm border-0">
+                        <div className="card-body p-6">
+                            <div className="d-flex align-items-center mb-4">
+                                <i className="bi bi-clipboard2-check fs-2 text-success me-3"></i>
+                                <h3 className="m-0 fw-bold text-gray-800 fs-4">เลือกผลการทดสอบ (Test Result)</h3>
+                            </div>
+
+                            {testResultsLoading ? (
+                                <div className="text-muted py-4">
+                                    <span className="spinner-border spinner-border-sm me-2" />กำลังโหลด...
+                                </div>
+                            ) : testResults.length === 0 ? (
+                                <div className="text-center py-6 text-muted">
+                                    <i className="bi bi-clipboard2-x fs-2x d-block mb-2 text-gray-400"></i>
+                                    ไม่พบผลการทดสอบสำหรับ Sales Order นี้
+                                </div>
+                            ) : (
+                                <div className="d-flex flex-column gap-3">
+                                    {testResults.map((tr: any) => {
+                                        const isSelected = selectedTestResult?.test_result_id === tr.test_result_id;
+                                        return (
+                                            <div
+                                                key={tr.test_result_id}
+                                                className={`border rounded p-4 cursor-pointer transition-all ${isSelected ? "border-primary bg-light-primary" : "border-gray-300 hover-bg-light"}`}
+                                                style={{ cursor: "pointer" }}
+                                                onClick={() => handleSelectTestResult(tr)}
+                                            >
+                                                <div className="d-flex align-items-center gap-4 flex-wrap">
+                                                    <div className="form-check mb-0">
+                                                        <input
+                                                            type="radio"
+                                                            className="form-check-input"
+                                                            readOnly
+                                                            checked={isSelected}
+                                                        />
+                                                    </div>
+                                                    <span className="fw-bold text-gray-800">
+                                                        {tr.test_date ? tr.test_date.split("T")[0] : "-"}
+                                                    </span>
+                                                    <StatusBadge status={tr.overall_status} />
+                                                    {tr.tested_by && (
+                                                        <span className="text-muted fs-7">
+                                                            <i className="bi bi-person me-1"></i>{tr.tested_by}
+                                                        </span>
+                                                    )}
+                                                    {tr.test_method && (
+                                                        <span className="text-muted fs-7">{tr.test_method}</span>
+                                                    )}
+                                                    <span className="text-muted fs-7 ms-auto">
+                                                        {tr.test_result_items?.length ?? 0} หน่วย
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* --- จำลองหน้ากระดาษ Test Certificate --- */}
                 <div className="card shadow-sm border-0">
                     <div className="card-body p-8 p-lg-12 bg-white rounded shadow-sm border border-gray-300">
 
@@ -284,7 +323,11 @@ const CreateTestCertificate: React.FC = () => {
                             <div className="col-md-6 d-flex flex-column gap-4">
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-125px fs-5">Customer :</label>
-                                    <input type="text" className="form-control form-control-solid bg-light fw-bold" value={formData.customerName || ""} readOnly placeholder="[Auto from QC]" />
+                                    <input type="text" className="form-control form-control-solid bg-light fw-bold" value={certForm.customerName} readOnly placeholder="[Auto from Sales Order]" />
+                                </div>
+                                <div className="d-flex align-items-center">
+                                    <label className="fw-bold text-gray-800 min-w-125px fs-5">PO Ref. :</label>
+                                    <input type="text" className="form-control form-control-solid bg-light fw-bold" value={certForm.poReference} readOnly placeholder="[Auto from Sales Order]" />
                                 </div>
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-125px fs-5">Test Method :</label>
@@ -299,7 +342,7 @@ const CreateTestCertificate: React.FC = () => {
                             <div className="col-md-6 d-flex flex-column gap-4">
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-150px fs-5">Certificate No :</label>
-                                    <input type="text" className="form-control" value={certForm.certificateNo} onChange={(e) => setCertForm({ ...certForm, certificateNo: e.target.value })} placeholder="เว้นว่างไว้เพื่อ Auto Gen" />
+                                    <input disabled type="text" className="form-control" value={certForm.certificateNo} onChange={(e) => setCertForm({ ...certForm, certificateNo: e.target.value })} placeholder="เว้นว่างไว้เพื่อ Auto Gen" />
                                 </div>
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-150px fs-5">Date of Test :</label>
@@ -321,17 +364,20 @@ const CreateTestCertificate: React.FC = () => {
                                         <th className="min-w-100px border-end border-gray-400">Ref.No.</th>
                                         <th className="min-w-300px border-end border-gray-400">Description</th>
                                         <th className="w-100px border-end border-gray-400">W.L.L.<br />(MT.)</th>
-                                        <th className="w-100px">Load Test<br />(MT.)</th>
+                                        <th className="w-100px border-end border-gray-400">Load Test<br />(MT.)</th>
+                                        <th className="w-50px"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {certItemRows.length > 0 ? (
                                         certItemRows.map((row, index) => (
-                                            <tr key={index} className="text-center">
+                                            <tr key={row.id} className="text-center">
                                                 <td className="fw-bold border-end border-gray-400">{row.itemNo}</td>
-                                                <td className="text-gray-500 border-end border-gray-400">{row.testNo}</td>
                                                 <td className="border-end border-gray-400 p-1">
-                                                    <input type="text" className="form-control form-control-sm text-center border-0 bg-transparent" placeholder="-" value={row.refNo} onChange={(e) => handleRowChange(index, 'refNo', e.target.value)} />
+                                                    <input type="text" className="form-control form-control-sm text-center border-0 bg-transparent" value={row.testNumber} onChange={(e) => handleRowChange(index, 'testNumber', e.target.value)} />
+                                                </td>
+                                                <td className="border-end border-gray-400 p-1">
+                                                    <input type="text" className="form-control form-control-sm text-center border-0 bg-transparent" placeholder="-" value={row.refNumber} onChange={(e) => handleRowChange(index, 'refNumber', e.target.value)} />
                                                 </td>
                                                 <td className="border-end border-gray-400 p-1 text-start">
                                                     <textarea className="form-control form-control-sm border-0 bg-transparent resize-none" rows={2} value={row.description} onChange={(e) => handleRowChange(index, 'description', e.target.value)}></textarea>
@@ -346,16 +392,12 @@ const CreateTestCertificate: React.FC = () => {
                                                         value={row.wll}
                                                         onChange={(e) => handleNumericRowChange(index, 'wll', e.target.value)}
                                                         onBlur={(e) => {
-                                                            const v = e.target.value;
-                                                            if (v === '') return;
-                                                            const n = parseFloat(v);
-                                                            if (isNaN(n) || n < 0) {
-                                                                handleNumericRowChange(index, 'wll', '');
-                                                            }
+                                                            const n = parseFloat(e.target.value);
+                                                            if (e.target.value !== '' && (isNaN(n) || n < 0)) handleNumericRowChange(index, 'wll', '');
                                                         }}
                                                     />
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="border-end border-gray-400 p-1">
                                                     <input
                                                         type="text"
                                                         inputMode="decimal"
@@ -365,21 +407,28 @@ const CreateTestCertificate: React.FC = () => {
                                                         value={row.loadTest}
                                                         onChange={(e) => handleNumericRowChange(index, 'loadTest', e.target.value)}
                                                         onBlur={(e) => {
-                                                            const v = e.target.value;
-                                                            if (v === '') return;
-                                                            const n = parseFloat(v);
-                                                            if (isNaN(n) || n < 0) {
-                                                                handleNumericRowChange(index, 'loadTest', '');
-                                                            }
+                                                            const n = parseFloat(e.target.value);
+                                                            if (e.target.value !== '' && (isNaN(n) || n < 0)) handleNumericRowChange(index, 'loadTest', '');
                                                         }}
                                                     />
+                                                </td>
+                                                <td className="p-1">
+                                                    <button
+                                                        className="btn btn-icon btn-sm btn-light-danger"
+                                                        onClick={() => handleRemoveRow(index)}
+                                                        title="ลบแถวนี้"
+                                                    >
+                                                        <i className="bi bi-x fs-4"></i>
+                                                    </button>
                                                 </td>
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={6} className="text-center text-muted py-10">
-                                                ไม่มีรายการสินค้า (กรุณาเลือกใบ QC)
+                                            <td colSpan={7} className="text-center text-muted py-10">
+                                                {selectedTestResult
+                                                    ? "ไม่มีรายการในผลการทดสอบที่เลือก"
+                                                    : "กรุณาเลือกผลการทดสอบจากด้านบน"}
                                             </td>
                                         </tr>
                                     )}
