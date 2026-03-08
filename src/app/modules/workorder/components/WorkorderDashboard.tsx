@@ -592,8 +592,7 @@ const WorkorderDashboard: React.FC = () => {
                         <table className='table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer'>
                             <thead>
                                 <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
-                                    <th className='min-w-120px'>DOCNUM</th>
-                                    <th className='min-w-100px'>DOC ENTRY</th>
+                                    <th className='min-w-120px'>เลขที่เอกสาร</th>
                                     <th className='min-w-130px text-center'>สถานะ</th>
                                     <th className='min-w-150px'>ขั้นตอนปัจจุบัน</th>
                                     <th className='min-w-150px'>ผู้รับผิดชอบ</th>
@@ -610,9 +609,6 @@ const WorkorderDashboard: React.FC = () => {
                                         <tr key={wo.work_order_id} style={{ transition: 'background 0.15s' }}>
                                             <td>
                                                 <span className='text-gray-800 fw-bold fs-6'>{wo.doc_num}</span>
-                                            </td>
-                                            <td>
-                                                <span className='text-gray-600 fw-semibold fs-7'>{wo.doc_entry}</span>
                                             </td>
                                             <td className='text-center'>
                                                 <span className={`badge ${config.badgeClass} fw-bold px-4 py-2`}>
