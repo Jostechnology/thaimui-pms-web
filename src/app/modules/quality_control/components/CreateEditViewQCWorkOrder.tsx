@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import TestResultSection from "./TestResultSection";
 import {
 	QCWorkOrderData,
 	QCWorkOrderItem,
@@ -36,6 +37,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 	const [materialList, setMaterialList] = useState<Material[]>([]);
 
 	const printRef = useRef<HTMLDivElement>(null);
+	const [isFirstLoad, setIsFirstLoad] = useState<boolean>(false)
 
 	// Determine mode based on URL
 	useEffect(() => {
@@ -99,7 +101,8 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 					customerReceiptNumber: form.customer_receipt_number ?? "",
 					donEntry: raw.doc_entry ?? "",          // ← ใช้ doc_entry ที่ backend ส่งใหม่
 					salesItemId: raw.sales_item_id ?? undefined,
-					salesItemCode: raw.sales_item_code ?? "",  // ← item_code จาก backend
+					salesItemCode: raw.sales_item_code ?? "",
+					quantity: raw.quantity ?? 1,
 					items,
 				};
 
@@ -109,6 +112,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 					try {
 						const salesRes = await getSalesOrderService(Number(formDataToSet.donEntry));
 						if (salesRes && salesRes.data) {
+							setIsFirstLoad(true)
 							const data = salesRes.data;
 							setMaterialList(data.material_list || []);
 							setSalesOrders([data]);  // ให้ dropdown SO แสดงค่าที่เลือกใน view/edit
@@ -123,11 +127,11 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 								teamName: data.group_name,
 							}));
 							// โหลด sales items เพื่อให้แสดงชื่อสินค้าใน select
-							const itemsRes = await getSalesItemsForQC("");
-							const filtered = (itemsRes?.data || []).filter(
-								(item: any) => item.doc_entry === data.doc_entry
-							);
-							setSalesItems(filtered);
+							// const itemsRes = await getSalesItemsForQC("");
+							// const filtered = (itemsRes?.data || []).filter(
+							// 	(item: any) => item.doc_entry === data.doc_entry
+							// );
+							// setSalesItems(filtered);
 						}
 					} catch (e) {
 						console.error("Failed to fetch sales order for QC Work Order", e);
@@ -259,20 +263,11 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 
 	const isReadOnly = mode === "view";
 
-
-	// โหลด Sales Orders เมื่อเปิดหน้า create/edit
-	useEffect(() => {
-		const loadInitialSalesOrders = async () => {
-			const res = await getSalesOrdersForQC("");
-			if (res && res.data) setSalesOrders(res.data);
-		};
-		if (mode === "create" || mode === "edit") {
-			loadInitialSalesOrders();
-		}
-	}, [mode]);
-
 	// Debounce search Sales Order
 	useEffect(() => {
+		if (!isFirstLoad || isReadOnly) {
+			return
+		}
 		const timeout = setTimeout(async () => {
 			const res = await getSalesOrdersForQC(searchSalesOrder);
 			if (res && res.data) setSalesOrders(res.data);
@@ -458,7 +453,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 									/>
 								</div>
 
-								<div className="col-md-6">
+								<div className="col-md-4">
 									<label className="form-label">รหัสสินค้า (Sales Item)</label>
 									{!isReadOnly ? (
 										<Select
@@ -486,7 +481,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 													setFormData((prev: any) => ({ ...prev, salesItemId: undefined, salesItemCode: "" }));
 												}
 											}}
-											placeholder="พิมพ์เพื่อค้นหาสินค้า..."
+											placeholder={formData.salesItemCode || "พิมพ์เพื่อค้นหาสินค้า..."}
 											isClearable
 											isSearchable
 										/>
@@ -497,6 +492,20 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 											value={formData.salesItemCode ?? ""}
 											disabled
 										/>
+									)}
+								</div>
+								<div className="col-md-2">
+									<label className="form-label">จำนวน (Qty)</label>
+									{!isReadOnly ? (
+										<input
+											type="number"
+											min={1}
+											className="form-control"
+											value={formData.quantity}
+											onChange={(e) => handleInputChange("quantity", Math.max(1, parseInt(e.target.value) || 1))}
+										/>
+									) : (
+										<input type="text" className="form-control" value={formData.quantity ?? 1} disabled />
 									)}
 								</div>
 							</div>
@@ -931,7 +940,16 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				</div>
 			</div>
 
-			{/* ===== Hidden Printable PDF Layout ===== */}
+			{/* ===== Test Results Section (view mode only) ===== */}
+		{mode === "view" && qc_workorder_id && (
+			<TestResultSection
+				qcWorkOrderId={Number(qc_workorder_id)}
+				quantity={formData.quantity ?? 1}
+				salesItemDescription={formData.salesItemCode}
+			/>
+		)}
+
+		{/* ===== Hidden Printable PDF Layout ===== */}
 			<div
 				ref={printRef}
 				style={{
