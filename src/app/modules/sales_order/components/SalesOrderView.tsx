@@ -27,7 +27,8 @@ interface Material {
     item_code: string;
     item_name: string;
     item_description: string;
-    item_num: number;
+    original_num: number;
+    remaining_num: number;
     cost_price: number;
     unit_price: number;
 }
@@ -88,34 +89,6 @@ const SalesOrderView: React.FC = () => {
             fetchData();
         }
     }, [id]);
-
-    // ดึงข้อมูล stock สำหรับ material ทั้งหมดเมื่อ salesOrder โหลดเสร็จ
-    useEffect(() => {
-        if (salesOrder && salesOrder.items.length > 0) {
-            fetchStockSummaries();
-        }
-    }, [salesOrder]);
-
-    const fetchStockSummaries = async () => {
-        if (!salesOrder) return;
-        setStockLoading(true);
-        try {
-            const uniqueItemIds = [...new Set(salesOrder.items.map(i => i.sales_item_id))];
-            const allStocks: MaterialStockSummary[] = [];
-            for (const itemId of uniqueItemIds) {
-                const res = await getMaterialStockSummary(itemId);
-                if (res.success && res.data) {
-                    allStocks.push(...res.data);
-                }
-            }
-            const map: Record<number, MaterialStockSummary> = {};
-            for (const s of allStocks) {
-                map[s.material_list_id] = s;
-            }
-            setStockMap(map);
-        } catch { /* ignore */ }
-        finally { setStockLoading(false); }
-    };
 
     const openMaterialDetail = (mat: Material) => {
         setSelectedMaterialId(mat.material_list_id);
@@ -317,7 +290,7 @@ const SalesOrderView: React.FC = () => {
                     </div>
                     <div className="card-body py-3">
                         {/* Summary Cards */}
-                        {!stockLoading && Object.keys(stockMap).length > 0 && (
+                        {/* {!stockLoading && Object.keys(stockMap).length > 0 && (
                             <div className="row g-4 mb-6">
                                 <div className="col-md-3">
                                     <div className="border rounded p-4 text-center">
@@ -352,7 +325,7 @@ const SalesOrderView: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                        )}
+                        )} */}
 
                         <div className="table-responsive">
                             <table className="table align-middle gs-0 gy-4">
@@ -363,7 +336,7 @@ const SalesOrderView: React.FC = () => {
                                         <th className="min-w-200px">ชื่อวัตถุดิบ</th>
                                         <th className="min-w-100px text-end">ราคาต้นทุน</th>
                                         <th className="min-w-100px text-end">ราคา/หน่วย</th>
-                                        <th className="min-w-200px text-center pe-4 rounded-end">สถานะการใช้งาน</th>
+                                        <th className="min-w-200px text-center pe-4 rounded-end">จำนวน</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -384,7 +357,7 @@ const SalesOrderView: React.FC = () => {
                                                 className="cursor-pointer"
                                                 style={{ cursor: 'pointer' }}
                                             >
-                                                <td className="ps-4 text-gray-800 fw-bolder fs-6">{mat.item_num || '-'}</td>
+                                                <td className="ps-4 text-gray-800 fw-bolder fs-6">{mat.original_num ?? '-'}</td>
                                                 <td className="text-gray-800 fw-bold">{mat.item_code}</td>
                                                 <td>
                                                     <div className="d-flex flex-column">
@@ -396,31 +369,8 @@ const SalesOrderView: React.FC = () => {
                                                 </td>
                                                 <td className="text-end fw-bold">฿{(mat.cost_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                                                 <td className="text-end fw-bold">฿{(mat.unit_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                                                <td className="pe-4">
-                                                    {stockLoading ? (
-                                                        <div className="d-flex align-items-center justify-content-center">
-                                                            <span className="spinner-border spinner-border-sm text-muted"></span>
-                                                        </div>
-                                                    ) : stock ? (
-                                                        <div>
-                                                            <div className="d-flex justify-content-between align-items-center mb-1">
-                                                                <span className="text-muted fs-8">
-                                                                    ผลิต: {stock.used_in_production} | เทส: {stock.used_in_testing}
-                                                                </span>
-                                                                <span className={`fw-bold fs-8 ${stock.remaining_quantity <= 0 ? 'text-danger' : 'text-success'}`}>
-                                                                    เหลือ {stock.remaining_quantity}
-                                                                </span>
-                                                            </div>
-                                                            <div className="progress h-6px w-100">
-                                                                <div
-                                                                    className={`progress-bar ${progressColor}`}
-                                                                    style={{ width: `${usedPct}%` }}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-muted fs-8">-</span>
-                                                    )}
+                                                <td className="text-center fw-bold pe-4">
+                                                    เหลือ {mat.remaining_num} <span className='text-success tw-bold'>จาก {mat.original_num}</span>
                                                 </td>
                                             </tr>
                                         );

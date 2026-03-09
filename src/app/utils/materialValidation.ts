@@ -3,7 +3,7 @@ import type { MaterialStockSummary, MaterialValidationResult } from '../type_int
 
 /**
  * คำนวณยอดคงเหลือของวัตถุดิบแบบ client-side
- * ใช้ข้อมูล material.item_num เป็นจำนวนทั้งหมด
+ * ใช้ข้อมูล material.remaining_num เป็นจำนวนคงเหลือ
  * ลบด้วยจำนวนที่ใช้ไปแล้วจาก stockSummary (ถ้ามี)
  */
 export const calculateRemainingQuantity = (
@@ -13,7 +13,7 @@ export const calculateRemainingQuantity = (
     if (stockSummary) {
         return stockSummary.remaining_quantity;
     }
-    return material.item_num;
+    return material.remaining_num;
 };
 
 /**

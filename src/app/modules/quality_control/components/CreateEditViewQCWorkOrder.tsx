@@ -7,7 +7,6 @@ import {
 } from "../../../type_interface/QCWorkOrderType";
 import { qcWorkData } from "../../../libs/defaultFormData";
 import Select from "react-select";
-import { SalesOrderSearch } from "../../../type_interface/SalesOrderType";
 import {
 	getSalesOrderService,
 	getSalesOrdersForQC,
@@ -72,6 +71,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 					quantity: item.quantity ?? "",
 					serialNo: item.serial_no ?? "",
 					remark: item.item_remark ?? "",
+					material_list_id: item.material_list_id ?? undefined,
 				}));
 
 				const formDataToSet = {
@@ -208,6 +208,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 						...item,
 						code: option?.item_code ?? "",
 						description: option?.item_name ?? option?.item_description ?? "",
+						material_list_id: option?.material_list_id ?? undefined,
 					}
 					: item,
 			),
@@ -265,7 +266,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 
 	// Debounce search Sales Order
 	useEffect(() => {
-		if (!isFirstLoad || isReadOnly) {
+		if (isReadOnly) {
 			return
 		}
 		const timeout = setTimeout(async () => {

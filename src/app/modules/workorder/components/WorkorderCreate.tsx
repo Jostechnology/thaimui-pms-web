@@ -222,7 +222,7 @@ const WorkorderCreate: React.FC = () => {
         const stock = stockSummaries.find(s => s.material_list_id === materialListId);
         if (stock) return stock.remaining_quantity;
         const mat = materials.find(m => m.material_list_id === materialListId);
-        return mat ? mat.item_num : 0;
+        return mat ? mat.remaining_num : 0;
     };
 
     // Calculate total quantity used for a material across ALL components, excluding a specific row
