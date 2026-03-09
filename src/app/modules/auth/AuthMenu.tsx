@@ -197,5 +197,19 @@ export const subRoutesConfig: SubRouteType[] = [
         path: "/machine/machine_list",
         title: "",
         permission: []
+    },
+    {
+        module_code: "MACHINE_CREATE",
+        main_module_code: "MACHINE",
+        path: "/machine/machine_create",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "MACHINE_DASHBOARD",
+        main_module_code: "MACHINE",
+        path: "/machine/machine_dashboard",
+        title: "",
+        permission: []
     }
 ]

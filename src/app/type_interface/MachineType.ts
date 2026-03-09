@@ -23,5 +23,10 @@ export type MachineListResponse = {
         status: string;
     };
     items: Machine[];
+    page: number;
+    limit: number;
     total: number;
+    total_pages: number;
+    prev_page: number | null;
+    next_page: number | null;
 }

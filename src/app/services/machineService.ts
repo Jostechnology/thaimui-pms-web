@@ -33,11 +33,15 @@ const handleResponse = async <T = any>(response: Response | false | undefined): 
 
 // เส้น List บังคับเลยว่า data ที่ได้ต้องเป็นโครงสร้างของ MachineListResponse
 export const getMachineList = async (
+    page: number = 1,
+    limit: number = 10,
     search: string = "",
     status: string = ""
 ): Promise<APIResponse<MachineListResponse>> => {
     try {
         const params = new URLSearchParams();
+        params.append("page", page.toString());
+        params.append("limit", limit.toString());
         if (search) params.append("search", search);
         if (status) params.append("status", status);
 
@@ -70,5 +74,20 @@ export const getMachineById = async (id: number | string): Promise<APIResponse<M
     } catch (error) {
         console.error("getMachineById Error:", error);
         return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
+export const createMachine = async (data: any): Promise<APIResponse<Machine>> => {
+    try {
+        const response = await front_api(
+            "POST",
+            "/create_machine",
+            data,
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse<Machine>(response); 
+    } catch (error) {
+        console.error("createMachine Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการสร้างข้อมูลเครื่องจักร" };
     }
 };
