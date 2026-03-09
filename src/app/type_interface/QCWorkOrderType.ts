@@ -6,6 +6,7 @@ export interface QCWorkOrderItem {
   quantity: string;
   serialNo: string;
   remark: string;
+  material_list_id?: number;
 }
 
 export interface QCWorkOrderData {
