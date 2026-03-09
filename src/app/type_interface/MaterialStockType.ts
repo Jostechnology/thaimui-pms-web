@@ -31,7 +31,7 @@ export interface ComponentMaterialUsageRecord {
 /**
  * สรุปยอดคงเหลือของวัตถุดิบแต่ละรายการ
  * คำนวณจาก:
- *   remaining = item_num
+ *   remaining = remaining_num
  *     - SUM(t_component_material_usage.quantity_used)   -- ใช้ในผลิต
  *     - SUM(t_material_transaction.amount WHERE type='REMOVE') -- ใช้ในเทส/อื่นๆ
  */
@@ -41,7 +41,7 @@ export interface MaterialStockSummary {
     item_code: string;
     item_name: string;
     item_description: string;
-    /** จำนวนทั้งหมดที่มี (จาก t_material_list.item_num) */
+    /** จำนวนทั้งหมดที่มี (จาก t_material_list.original_num) */
     total_quantity: number;
     /** จำนวนที่ใช้ไปในการผลิต (SUM จาก t_component_material_usage) */
     used_in_production: number;

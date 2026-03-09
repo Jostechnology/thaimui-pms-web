@@ -44,7 +44,8 @@ export interface ComponentMaterialUsage {
         item_code: string;
         item_name: string;
         item_description: string;
-        item_num: number;
+        original_num: number;
+        remaining_num: number;
         cost_price: number;
         unit_price: number;
     };
