@@ -5,9 +5,13 @@ import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import { searchSalesOrderService, getSalesOrderService } from '../../../services/salesOrderService';
 import { createWorkOrder } from '../../../services/workorder';
+import { getMaterialStockSummary, validateMaterialStock } from '../../../services/materialStockService';
 import type { SalesOrderSearch, SalesOrderDetail } from '../../../type_interface/SalesOrderType';
 import type { SalesItem } from '../../../type_interface/SalesItemType';
 import type { Material } from '../../../type_interface/MaterialType';
+import type { MaterialStockSummary as MaterialStockSummaryData } from '../../../type_interface/MaterialStockType';
+import { aggregateMaterialUsageFromComponents, validateMaterialQuantities, buildValidationSummaryMessage } from '../../../utils/materialValidation';
+import MaterialStockSummary from '../../../custom_components/MaterialStockSummary';
 import Swal from 'sweetalert2';
 
 interface MaterialRow {
@@ -39,6 +43,9 @@ const WorkorderCreate: React.FC = () => {
 
     // Materials for chosen sales item
     const [materials, setMaterials] = useState<Material[]>([]);
+
+    // Stock summary - ยอดคงเหลือจริงจาก backend (รวมที่ใช้ไปใน WO/QC อื่นแล้ว)
+    const [stockSummaries, setStockSummaries] = useState<MaterialStockSummaryData[]>([]);
 
     // Components - each component has multiple materials
     const [components, setComponents] = useState<ComponentItem[]>([
@@ -89,10 +96,11 @@ const WorkorderCreate: React.FC = () => {
         })();
     }, [selectedDocEntry]);
 
-    // ─── When Sales Item changes, update material list ─────────
+    // ─── When Sales Item changes, update material list & fetch stock ─
     useEffect(() => {
         if (selectedSalesItemId === '') {
             setMaterials([]);
+            setStockSummaries([]);
             resetComponents();
             return;
         }
@@ -101,6 +109,16 @@ const WorkorderCreate: React.FC = () => {
             setMaterials(item.material_list || []);
         }
         resetComponents();
+
+        // ดึงยอดคงเหลือจริงจาก backend
+        (async () => {
+            try {
+                const res = await getMaterialStockSummary(selectedSalesItemId as number);
+                if (res && res.success && res.data) {
+                    setStockSummaries(res.data);
+                }
+            } catch { /* fallback ใช้ item_num */ }
+        })();
     }, [selectedSalesItemId]);
 
     const resetComponents = () => {
@@ -199,6 +217,14 @@ const WorkorderCreate: React.FC = () => {
             .filter((id): id is number => id !== '');
     };
 
+    // ดึงจำนวนคงเหลือจริงของวัตถุดิบ (จาก stock summary หรือ fallback เป็น item_num)
+    const getAvailableQuantity = (materialListId: number): number => {
+        const stock = stockSummaries.find(s => s.material_list_id === materialListId);
+        if (stock) return stock.remaining_quantity;
+        const mat = materials.find(m => m.material_list_id === materialListId);
+        return mat ? mat.item_num : 0;
+    };
+
     // Calculate total quantity used for a material across ALL components, excluding a specific row
     const getTotalUsedForMaterial = (materialListId: number, excludeComponentId?: number, excludeMaterialRowId?: number): number => {
         let total = 0;
@@ -252,6 +278,37 @@ const WorkorderCreate: React.FC = () => {
                 return;
             }
         }
+
+        // ── Client-side stock validation ──
+        const usageMap = aggregateMaterialUsageFromComponents(components);
+        const requests = Array.from(usageMap.entries()).map(([id, qty]) => ({
+            material_list_id: id,
+            quantity_needed: qty,
+        }));
+        const clientValidation = validateMaterialQuantities(requests, materials, stockSummaries);
+        const invalidItems = clientValidation.filter(r => !r.is_valid);
+
+        if (invalidItems.length > 0) {
+            const msg = buildValidationSummaryMessage(clientValidation);
+            Swal.fire('วัตถุดิบไม่เพียงพอ', msg, 'error');
+            return;
+        }
+
+        // ── Server-side stock validation (double-check) ──
+        try {
+            const serverCheck = await validateMaterialStock({
+                sales_item_id: selectedSalesItemId as number,
+                materials: requests,
+            });
+            if (serverCheck.success && serverCheck.data && !serverCheck.data.is_valid) {
+                const serverIssues = (serverCheck.data.results || []).filter((r: { is_valid: boolean }) => !r.is_valid);
+                const lines = serverIssues.map(
+                    (i: { item_name: string; requested_quantity: number; available_quantity: number }) => `• ${i.item_name}: ขอใช้ ${i.requested_quantity} คงเหลือ ${i.available_quantity}`
+                );
+                Swal.fire('วัตถุดิบไม่เพียงพอ (ตรวจสอบจากระบบ)', lines.join('\n'), 'error');
+                return;
+            }
+        } catch { /* หาก server validate ไม่ได้ ให้ใช้ client validation ที่ผ่านแล้ว */ }
 
         const confirm = await Swal.fire({
             title: 'ยืนยันการสร้างใบสั่งผลิต?',
@@ -384,6 +441,14 @@ const WorkorderCreate: React.FC = () => {
                 </div>
             </div>
 
+            {/* ── Section: Stock Summary ── */}
+            {selectedSalesItemId !== '' && stockSummaries.length > 0 && (
+                <MaterialStockSummary
+                    salesItemId={selectedSalesItemId as number}
+                    externalData={stockSummaries}
+                />
+            )}
+
             {/* ── Section: Components & Materials ── */}
             {selectedSalesItemId !== '' && <><div className="d-flex justify-content-between align-items-center mb-5">
                 <div className="d-flex align-items-center">
@@ -462,7 +527,8 @@ const WorkorderCreate: React.FC = () => {
                                 {comp.materials.map((mat, matIdx) => {
                                     const selectedMaterial = materials.find(m => m.material_list_id === mat.material_list_id);
                                     const usedByOthers = selectedMaterial ? getTotalUsedForMaterial(selectedMaterial.material_list_id, comp.id, mat.id) : 0;
-                                    const maxQty = selectedMaterial ? selectedMaterial.item_num - usedByOthers : 1;
+                                    const availableFromStock = selectedMaterial ? getAvailableQuantity(selectedMaterial.material_list_id) : 0;
+                                    const maxQty = selectedMaterial ? availableFromStock - usedByOthers : 1;
                                     const remaining = selectedMaterial ? maxQty - (Number(mat.quantity_used) || 0) : 0;
 
                                     // Filter available materials for this dropdown

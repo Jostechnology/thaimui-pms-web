@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate, useParams } from "react-router-dom";
 import { getSalesOrderById } from '../../../services/salesOrder';
+import { getMaterialStockSummary } from '../../../services/materialStockService';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
+import type { MaterialStockSummary } from '../../../type_interface/MaterialStockType';
+import MaterialUsageDetailModal from '../../Tracking/components/MaterialUsageDetailModal';
 
 interface SalesItem {
     sales_item_id: number;
@@ -54,6 +57,11 @@ const SalesOrderView: React.FC = () => {
 
     const [salesOrder, setSalesOrder] = useState<SalesOrder | null>(null);
     const [dataLoading, setDataLoading] = useState(true);
+    const [stockMap, setStockMap] = useState<Record<number, MaterialStockSummary>>({});
+    const [stockLoading, setStockLoading] = useState(false);
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [selectedMaterialId, setSelectedMaterialId] = useState<number | null>(null);
+    const [selectedMaterialName, setSelectedMaterialName] = useState('');
 
     const fetchData = async () => {
         setLoading();
@@ -80,6 +88,40 @@ const SalesOrderView: React.FC = () => {
             fetchData();
         }
     }, [id]);
+
+    // ดึงข้อมูล stock สำหรับ material ทั้งหมดเมื่อ salesOrder โหลดเสร็จ
+    useEffect(() => {
+        if (salesOrder && salesOrder.items.length > 0) {
+            fetchStockSummaries();
+        }
+    }, [salesOrder]);
+
+    const fetchStockSummaries = async () => {
+        if (!salesOrder) return;
+        setStockLoading(true);
+        try {
+            const uniqueItemIds = [...new Set(salesOrder.items.map(i => i.sales_item_id))];
+            const allStocks: MaterialStockSummary[] = [];
+            for (const itemId of uniqueItemIds) {
+                const res = await getMaterialStockSummary(itemId);
+                if (res.success && res.data) {
+                    allStocks.push(...res.data);
+                }
+            }
+            const map: Record<number, MaterialStockSummary> = {};
+            for (const s of allStocks) {
+                map[s.material_list_id] = s;
+            }
+            setStockMap(map);
+        } catch { /* ignore */ }
+        finally { setStockLoading(false); }
+    };
+
+    const openMaterialDetail = (mat: Material) => {
+        setSelectedMaterialId(mat.material_list_id);
+        setSelectedMaterialName(mat.item_name);
+        setShowDetailModal(true);
+    };
 
     const formatDateTime = (dateStr: string | null) => {
         if (!dateStr) return '-';
@@ -212,9 +254,10 @@ const SalesOrderView: React.FC = () => {
                         <table className="table align-middle gs-0 gy-4">
                             <thead>
                                 <tr className="fw-bolder text-muted bg-light">
-                                    <th className="ps-4 min-w-80px rounded-start">ลำดับ</th>
+                                    <th className="ps-4 min-w-50px rounded-start">ลำดับ</th>
                                     <th className="min-w-100px">รหัสสินค้า</th>
                                     <th className="min-w-200px">รายละเอียดสินค้า</th>
+                                    <th className="min-w-80px text-center">จำนวน</th>
                                     <th className="min-w-100px text-end">ราคาต้นทุน</th>
                                     <th className="min-w-100px text-end pe-4 rounded-end">ราคา/หน่วย</th>
                                 </tr>
@@ -224,7 +267,7 @@ const SalesOrderView: React.FC = () => {
                                     salesOrder.items.map((item, index) => (
                                         <tr key={index}>
                                             <td className="ps-4">
-                                                <span className="text-gray-800 fw-bolder d-block fs-6">{item.item_num || '-'}</span>
+                                                <span className="text-gray-800 fw-bolder d-block fs-6">{index + 1}</span>
                                             </td>
                                             <td>
                                                 <span className="text-muted fw-bold d-block fs-7">{item.item_code}</span>
@@ -234,6 +277,9 @@ const SalesOrderView: React.FC = () => {
                                                     <span className="text-gray-800 fw-bolder fs-6">{item.item_name}</span>
                                                     <span className="text-muted fw-bold d-block fs-7">{item.item_description || '-'}</span>
                                                 </div>
+                                            </td>
+                                            <td className="text-center">
+                                                <span className="text-gray-800 fw-bolder d-block fs-6">{item.item_num || '-'}</span>
                                             </td>
                                             <td className="text-end">
                                                 <span className="text-gray-800 fw-bolder d-block fs-6">฿{(item.cost_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
@@ -254,42 +300,145 @@ const SalesOrderView: React.FC = () => {
                 </div>
             </div>
 
-            {/* ===== Material List ===== */}
+            {/* ===== Material List with Stock Overview ===== */}
             {salesOrder.material_list && salesOrder.material_list.length > 0 && (
                 <div className="card shadow-sm mb-8">
                     <div className="card-header align-items-center py-5">
                         <h3 className="card-title fw-bolder align-items-start flex-column">
-                            <span className="card-label fw-bolder text-gray-800"><i className="bi bi-tools fs-2 me-2 text-warning"></i> รายการวัตถุดิบ ({salesOrder.material_list.length})</span>
+                            <span className="card-label fw-bolder text-gray-800">
+                                <i className="bi bi-tools fs-2 me-2 text-warning"></i> รายการวัตถุดิบ ({salesOrder.material_list.length})
+                            </span>
                         </h3>
+                        <div className="card-toolbar">
+                            <span className="text-muted fs-7">
+                                <i className="bi bi-hand-index me-1"></i>คลิกที่รายการเพื่อดูรายละเอียดการใช้งาน
+                            </span>
+                        </div>
                     </div>
                     <div className="card-body py-3">
+                        {/* Summary Cards */}
+                        {!stockLoading && Object.keys(stockMap).length > 0 && (
+                            <div className="row g-4 mb-6">
+                                <div className="col-md-3">
+                                    <div className="border rounded p-4 text-center">
+                                        <div className="text-muted fw-semibold fs-7 mb-1">วัตถุดิบทั้งหมด</div>
+                                        <div className="fs-2 fw-bold text-gray-800">
+                                            {Object.values(stockMap).reduce((sum, s) => sum + s.total_quantity, 0)}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="col-md-3">
+                                    <div className="border rounded p-4 text-center">
+                                        <div className="text-muted fw-semibold fs-7 mb-1">ใช้ในผลิต</div>
+                                        <div className="fs-2 fw-bold text-primary">
+                                            {Object.values(stockMap).reduce((sum, s) => sum + s.used_in_production, 0)}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="col-md-3">
+                                    <div className="border rounded p-4 text-center">
+                                        <div className="text-muted fw-semibold fs-7 mb-1">ใช้ในเทส / อื่นๆ</div>
+                                        <div className="fs-2 fw-bold text-info">
+                                            {Object.values(stockMap).reduce((sum, s) => sum + s.used_in_testing, 0)}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="col-md-3">
+                                    <div className="border rounded p-4 text-center">
+                                        <div className="text-muted fw-semibold fs-7 mb-1">คงเหลือ</div>
+                                        <div className={`fs-2 fw-bold ${Object.values(stockMap).some(s => s.remaining_quantity <= 0) ? 'text-danger' : 'text-success'}`}>
+                                            {Object.values(stockMap).reduce((sum, s) => sum + s.remaining_quantity, 0)}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="table-responsive">
                             <table className="table align-middle gs-0 gy-4">
                                 <thead>
                                     <tr className="fw-bolder text-muted bg-light">
-                                        <th className="ps-4 min-w-80px rounded-start">ลำดับ</th>
+                                        <th className="ps-4 min-w-60px rounded-start">จำนวน</th>
                                         <th className="min-w-100px">รหัสวัตถุดิบ</th>
                                         <th className="min-w-200px">ชื่อวัตถุดิบ</th>
                                         <th className="min-w-100px text-end">ราคาต้นทุน</th>
-                                        <th className="min-w-100px text-end pe-4 rounded-end">ราคา/หน่วย</th>
+                                        <th className="min-w-100px text-end">ราคา/หน่วย</th>
+                                        <th className="min-w-200px text-center pe-4 rounded-end">สถานะการใช้งาน</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {salesOrder.material_list.map((mat, index) => (
-                                        <tr key={index}>
-                                            <td className="ps-4 text-gray-800 fw-bolder fs-6">{mat.item_num || '-'}</td>
-                                            <td className="text-gray-800 fw-bold">{mat.item_code}</td>
-                                            <td className="text-gray-800 fw-bolder fs-6">{mat.item_name}</td>
-                                            <td className="text-end fw-bold">฿{(mat.cost_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                                            <td className="text-end pe-4 fw-bold">฿{(mat.unit_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                                        </tr>
-                                    ))}
+                                    {salesOrder.material_list.map((mat, index) => {
+                                        const stock = stockMap[mat.material_list_id];
+                                        const usedPct = stock && stock.total_quantity > 0
+                                            ? Math.min(100, ((stock.used_in_production + stock.used_in_testing) / stock.total_quantity) * 100)
+                                            : 0;
+                                        const progressColor = !stock ? 'bg-secondary'
+                                            : stock.remaining_quantity <= 0 ? 'bg-danger'
+                                            : usedPct >= 80 ? 'bg-warning'
+                                            : 'bg-success';
+
+                                        return (
+                                            <tr
+                                                key={index}
+                                                onClick={() => openMaterialDetail(mat)}
+                                                className="cursor-pointer"
+                                                style={{ cursor: 'pointer' }}
+                                            >
+                                                <td className="ps-4 text-gray-800 fw-bolder fs-6">{mat.item_num || '-'}</td>
+                                                <td className="text-gray-800 fw-bold">{mat.item_code}</td>
+                                                <td>
+                                                    <div className="d-flex flex-column">
+                                                        <span className="text-gray-800 fw-bolder fs-6">{mat.item_name}</span>
+                                                        {mat.item_description && (
+                                                            <span className="text-muted fs-7">{mat.item_description}</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="text-end fw-bold">฿{(mat.cost_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                                <td className="text-end fw-bold">฿{(mat.unit_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                                <td className="pe-4">
+                                                    {stockLoading ? (
+                                                        <div className="d-flex align-items-center justify-content-center">
+                                                            <span className="spinner-border spinner-border-sm text-muted"></span>
+                                                        </div>
+                                                    ) : stock ? (
+                                                        <div>
+                                                            <div className="d-flex justify-content-between align-items-center mb-1">
+                                                                <span className="text-muted fs-8">
+                                                                    ผลิต: {stock.used_in_production} | เทส: {stock.used_in_testing}
+                                                                </span>
+                                                                <span className={`fw-bold fs-8 ${stock.remaining_quantity <= 0 ? 'text-danger' : 'text-success'}`}>
+                                                                    เหลือ {stock.remaining_quantity}
+                                                                </span>
+                                                            </div>
+                                                            <div className="progress h-6px w-100">
+                                                                <div
+                                                                    className={`progress-bar ${progressColor}`}
+                                                                    style={{ width: `${usedPct}%` }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-muted fs-8">-</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* Material Usage Detail Modal */}
+            <MaterialUsageDetailModal
+                show={showDetailModal}
+                onHide={() => setShowDetailModal(false)}
+                materialListId={selectedMaterialId}
+                materialName={selectedMaterialName}
+            />
         </Content>
     );
 };
