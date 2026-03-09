@@ -9,6 +9,8 @@ const SettingPage = lazy(() => import("../modules/menu_setting/SettingPage"));
 const EmployeePage = lazy(() => import("../modules/Employee/employeePage"));
 const WorkorderDashboard = lazy(() => import("../modules/workorder/components/WorkorderDashboard"));
 const QualityControlPage = lazy(() => import("../modules/quality_control/QualityControlPage"));
+const SalesOrderPage = lazy(() => import("../modules/sales_order/SalesOrderPage"));
+const TrackingPage = lazy(() => import("../modules/Tracking/TrackingPage"));
 const PrivateRoutes = () => {
   return (
     <Routes>
@@ -64,11 +66,27 @@ const PrivateRoutes = () => {
 
         <Route
           path="quality_control/*"
-            element={
-              <SuspensedView>
-                <QualityControlPage />
-              </SuspensedView>
-            }
+          element={
+            <SuspensedView>
+              <QualityControlPage />
+            </SuspensedView>
+          }
+        />
+        <Route
+          path="sales_order/*"
+          element={
+            <SuspensedView>
+              <SalesOrderPage />
+            </SuspensedView>
+          }
+        />
+        <Route
+          path="tracking/*"
+          element={
+            <SuspensedView>
+              <TrackingPage />
+            </SuspensedView>
+          }
         />
       </Route>
     </Routes>
