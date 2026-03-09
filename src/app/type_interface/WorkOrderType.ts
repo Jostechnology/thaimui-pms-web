@@ -50,11 +50,44 @@ export interface ComponentMaterialUsage {
     };
 }
 
+export interface ComponentSpecType {
+    component_spec_type_id: number;
+    component_spec_type_name: string;
+    spec_type: 'boolean' | 'decimal' | 'text';
+}
+
+export interface ComponentSpec {
+    component_spec_id: number;
+    item_component_id: number;
+    component_spec_type_id: number;
+    end_side: 'top' | 'bottom' | null;
+    bool_value: boolean | null;
+    decimal_value: number | null;
+    text_value: string | null;
+    component_spec_type: ComponentSpecType;
+}
+
+export interface ComponentOptionType {
+    component_option_type_id: number;
+    component_option_type_name: string;
+}
+
+export interface ComponentOption {
+    component_option_id: number;
+    component_option_type_id: number;
+    item_component_id: number;
+    component_option_type: ComponentOptionType;
+}
+
 export interface ItemComponent {
     item_component_id: number;
     work_order_id: number;
     component_name: string;
     material_usages: ComponentMaterialUsage[];
+    component_specs: ComponentSpec[];
+    component_options: ComponentOption[];
+    remark: string | null;
+    img_url: string | null;
 }
 
 

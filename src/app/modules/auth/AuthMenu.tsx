@@ -1,11 +1,9 @@
-import path from "path";
-
 export interface RouteType {
     module_code: string;
     path: string;
     title: string;
     permission: string[];
-    main_module_code? : string;
+    main_module_code?: string;
 }
 
 export interface SubRouteType extends RouteType {
@@ -47,8 +45,8 @@ export const mainRoutesConfig: MainRouteType[] = [
         permission: []
     },
     {
-        module_code:"EMPLOYEE",
-        path:"/employee",
+        module_code: "EMPLOYEE",
+        path: "/employee",
         title: "",
         fontIcon: "bi-people",
         icon: "bi bi-people",
@@ -64,6 +62,24 @@ export const mainRoutesConfig: MainRouteType[] = [
         subMenu: [],
         permission: []
     },
+    {
+        module_code: "SALE_ORDER",
+        path: "/sales_order",
+        title: "",
+        fontIcon: "bi-cart",
+        icon: "bi bi-cart",
+        subMenu: [],
+        permission: []
+    },
+    {
+        module_code: "TRACKING",
+        path: "/tracking",
+        title: "",
+        fontIcon: "bi-graph-up",
+        icon: "bi bi-graph-up",
+        subMenu: [],
+        permission: []
+    }
 ]
 
 export const subRoutesConfig: SubRouteType[] = [
@@ -83,60 +99,87 @@ export const subRoutesConfig: SubRouteType[] = [
         permission: []
     },
     {
-        module_code:"MODULE_MANAGEMENT",
+        module_code: "MODULE_MANAGEMENT",
         main_module_code: "SETTING",
-        path:"/setting/module_management",
+        path: "/setting/module_management",
         title: "",
-        permission:[]
+        permission: []
     },
     {
-        module_code:"USER_MANAGEMENT",
+        module_code: "USER_MANAGEMENT",
         main_module_code: "SETTING",
-        path:"/setting/user_management",
+        path: "/setting/user_management",
         title: "",
-        permission:[]
+        permission: []
     },
     {
-        module_code:"EMPLOYEE_LIST",
+        module_code: "EMPLOYEE_LIST",
         main_module_code: "EMPLOYEE",
-        path:"/employee/employee_list",
+        path: "/employee/employee_list",
         title: "",
-        permission:[]
+        permission: []
     },
     {
-        module_code:"DASHBOARD",
+        module_code: "DASHBOARD",
         main_module_code: "WORKORDERS",
-        path:"/workorder/workorders_dashboard",
+        path: "/workorder/workorders_dashboard",
         title: "",
-        permission:[]
+        permission: []
     },
     {
-        module_code:"WORKORDERS_LIST",
+        module_code: "WORKORDERS_LIST",
         main_module_code: "WORKORDERS",
-        path:"/workorder/workorders_list",
+        path: "/workorder/workorders_list",
         title: "",
-        permission:[]
+        permission: []
     },
     {
-        module_code:"EMPLOYEE_SAL",
+        module_code: "EMPLOYEE_SAL",
         main_module_code: "EMPLOYEE",
-        path:"/employee/employee_salary_history",
+        path: "/employee/employee_salary_history",
         title: "",
-        permission:[]
+        permission: []
     },
     {
-        module_code:"QC_WORKORDERS",
+        module_code: "QC_WORKORDERS",
         main_module_code: "QC",
-        path:"/quality_control/qc_workorders_list",
+        path: "/quality_control/qc_workorders_list",
         title: "",
-        permission:[]
+        permission: []
     },
     {
-        module_code:"QC_TEST_CERT",
+        module_code: "QC_TEST_CERT",
         main_module_code: "QC",
-        path:"/quality_control/qc_test_cert_list",
+        path: "/quality_control/qc_test_cert_list",
         title: "",
-        permission:[]
+        permission: []
+    },
+    {
+        module_code: "SALE_ORD_LIST",
+        main_module_code: "SALE_ORDER",
+        path: "/sales_order/list",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "SALE_ORD_DASHBOARD",
+        main_module_code: "SALE_ORDER",
+        path: "/sales_order/dashboard",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "TEST_TRACKING",
+        main_module_code: "TRACKING",
+        path: "/tracking/test_tracking",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "PRODUCTION_TRACKING",
+        main_module_code: "TRACKING",
+        path: "/tracking/production_tracking",
+        title: "",
+        permission: []
     }
- 
 ]
