@@ -46,7 +46,7 @@ const MachineList: React.FC = () => {
             case 'IDLE':
                 return { label: 'รอการใช้งาน', color: 'warning' };
             case 'OFFLINE':
-                return { label: 'ออฟไลน์ (ปิดเครื่อง)', color: 'secondary' };
+                return { label: 'ออฟไลน์ (ปิดเครื่อง)', color: 'dark' };
             default:
                 return { label: status || 'ไม่ทราบสถานะ', color: 'secondary' };
         }
@@ -90,12 +90,14 @@ const MachineList: React.FC = () => {
     return (
         <Content>
             {/* Header: หัวข้อ */}
-            <div className="d-flex flex-wrap flex-stack mb-6">
-                <h3 className="fw-bolder my-2">
+            <div className="mb-6">
+                <h1 className="text-gray-900 fw-bold fs-2qx mb-1">
+                    <i className="bi bi-gear-wide text-primary fs-2qx me-3"></i>
                     Machine Equipment List
-                    <span className="fs-6 text-gray-400 fw-bold ms-4">Manage your factory assets in table view.</span>
-                </h3>
-                {/* ปุ่ม Add New (เผื่อพี่แคมป์เอาไปต่อยอด) */}
+                </h1>
+                <span className="text-muted fw-semibold fs-6">
+                    จัดการเครื่องจักร (Machine Equipment)
+                </span>
                 <div className="d-flex align-items-center my-2">
                     <button
                         className="btn btn-primary btn-sm"
@@ -106,7 +108,7 @@ const MachineList: React.FC = () => {
                     </button>
                 </div>
             </div>
-
+            
             <div className="card">
                 {/* 1. Card Header: โซน Search & Filter */}
                 <div className="card-header border-0 pt-6">
@@ -212,8 +214,11 @@ const MachineList: React.FC = () => {
 
                                                 {/* คอลัมน์ที่ 5: ปุ่มจัดการ */}
                                                 <td className="text-end">
-                                                    <button className="btn btn-light btn-active-light-primary btn-sm">
-                                                        View
+                                                    <button
+                                                        className="btn btn-light btn-active-light-primary btn-sm"
+                                                        onClick={() => navigate(`/machine/machine_update/${machine.machine_id}`)}
+                                                    >
+                                                        <i className="bi bi-pencil-square me-1"></i> View / Edit
                                                     </button>
                                                 </td>
                                             </tr>

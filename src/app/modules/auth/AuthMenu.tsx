@@ -1,3 +1,5 @@
+import { MdFactory } from "react-icons/md";
+
 export interface RouteType {
     module_code: string;
     path: string;
@@ -14,6 +16,7 @@ export interface MainRouteType extends RouteType {
     fontIcon: string;
     icon: string;
     subMenu: SubRouteType[];
+    customIcon?: string;
 }
 
 export const mainRoutesConfig: MainRouteType[] = [
@@ -84,8 +87,9 @@ export const mainRoutesConfig: MainRouteType[] = [
         module_code: "MACHINE",
         path: "/machine",
         title: "",
-        fontIcon: "bi-graph-up",
-        icon: "bi bi-graph-up",
+        fontIcon: "bi-gear-wide-connected",
+        icon: "wrench",
+        customIcon: "/media/icons/machine.svg",
         subMenu: [],
         permission: []
     }

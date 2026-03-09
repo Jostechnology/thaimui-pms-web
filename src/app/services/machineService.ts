@@ -91,3 +91,35 @@ export const createMachine = async (data: any): Promise<APIResponse<Machine>> =>
         return { success: false, message: "เกิดข้อผิดพลาดในการสร้างข้อมูลเครื่องจักร" };
     }
 };
+
+// Update Machine
+export const updateMachine = async (id: number | string, data: any): Promise<APIResponse<Machine>> => {
+    try {
+        const response = await front_api(
+            "PUT",
+            `/update_machine/${id}`,
+            data,
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse<Machine>(response);
+    } catch (error) {
+        console.error("updateMachine Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการอัปเดตข้อมูลเครื่องจักร" };
+    }
+};
+
+// Delete Machine
+export const deleteMachine = async (id: number | string): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "DELETE", 
+            `/delete_machine/${id}`,
+            {},
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("deleteMachine Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการลบข้อมูลเครื่องจักร" };
+    }
+};

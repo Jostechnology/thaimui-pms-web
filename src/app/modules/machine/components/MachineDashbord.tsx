@@ -80,11 +80,11 @@ const MachineDashboard: React.FC = () => {
     return (
         <Content>
             {/* 1. Header: หัวข้อ และ ป้าย Auto-Refresh */}
-            <div className="d-flex flex-wrap flex-stack mb-6">
-                <h3 className="fw-bolder my-2">
+            <div className="mb-6">
+                <h1 className="text-gray-900 fw-bold fs-2qx mb-1">
+                    <i className="bi bi-bar-chart-fill text-primary fs-2qx me-3"></i>
                     Machine Fleet Status
-                    <span className="fs-6 text-gray-400 fw-bold ms-4">Real-time health telemetry across all production units.</span>
-                </h3>
+                </h1>
                 <div className="d-flex align-items-center my-2">
                     <span className="badge badge-light-success fs-base px-4 py-2" title="ระบบรีเฟรชอัตโนมัติทุก 1 นาที">
                         <span className="bullet bullet-dot bg-success me-2 spinner-grow spinner-grow-sm" style={{ width: '0.5rem', height: '0.5rem' }}></span>
