@@ -17,6 +17,10 @@ interface WorkorderData {
     sales_item: {
         item_name: string;
         item_description: string;
+        producing_qty: number;
+        produced_qty: number;
+        queued_for_test_qty: number;
+        tested_qty: number;
     };
     status: string;
     created_date: string;
@@ -328,10 +332,16 @@ const WorkorderList: React.FC = () => {
                                             </td>
 
                                             <td className='text-center'>
-                                                <div className="d-flex align-items-center">
-                                                    <span className='text-gray-800 fw-bold text-hover-primary mb-1 fs-6'>
+                                                <div className="d-flex flex-column align-items-center gap-1">
+                                                    <span className='text-gray-800 fw-bold text-hover-primary fs-6'>
                                                         {item.sales_item?.item_name || 'N/A'}
                                                     </span>
+                                                    <div className='d-flex flex-wrap justify-content-center gap-1'>
+                                                        <span className='badge badge-light-warning fs-9' title='กำลังผลิต'>ผลิต: {item.sales_item?.producing_qty ?? 0}</span>
+                                                        <span className='badge badge-light-primary fs-9' title='ผลิตแล้ว'>เสร็จ: {item.sales_item?.produced_qty ?? 0}</span>
+                                                        <span className='badge badge-light-info fs-9' title='รอทดสอบ'>รอเทส: {item.sales_item?.queued_for_test_qty ?? 0}</span>
+                                                        <span className='badge badge-light-success fs-9' title='ทดสอบแล้ว'>เทสแล้ว: {item.sales_item?.tested_qty ?? 0}</span>
+                                                    </div>
                                                 </div>
                                             </td>
 

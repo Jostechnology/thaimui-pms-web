@@ -31,6 +31,10 @@ export interface SalesItem {
     cost_price: number;
     unit_price: number;
     doc_num: string;
+    producing_qty: number;
+    produced_qty: number;
+    queued_for_test_qty: number;
+    tested_qty: number;
 }
 
 export interface ComponentMaterialUsage {

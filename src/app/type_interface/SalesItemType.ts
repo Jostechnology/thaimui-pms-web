@@ -13,4 +13,8 @@ export type SalesItem = {
     doc_entry: number;
     material_list: Material[];
     work_order: any | null;
+    producing_qty: number;
+    produced_qty: number;
+    queued_for_test_qty: number;
+    tested_qty: number;
 };

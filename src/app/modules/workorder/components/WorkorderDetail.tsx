@@ -27,6 +27,10 @@ interface SalesItem {
     item_num: number;
     sales_item_id: number;
     unit_price: number;
+    producing_qty: number;
+    produced_qty: number;
+    queued_for_test_qty: number;
+    tested_qty: number;
 }
 
 // ข้อมูล Phase จาก Backend
@@ -564,7 +568,15 @@ const WorkorderDetail: React.FC = () => {
                                         <div className='mb-4 p-3 bg-light-warning rounded border border-dashed border-warning'>
                                             <span className='text-warning fw-bold fs-8 d-block mb-2 text-uppercase'>รายการสินค้า:</span>
                                             {phase.items.map((item, idx) => (
-                                                <div key={item.sales_item_id || idx} className='fs-7 text-gray-700 fw-semibold'>• {item.item_name} ({item.item_num})</div>
+                                                <div key={item.sales_item_id || idx} className='mb-2'>
+                                                    <div className='fs-7 text-gray-700 fw-semibold'>• {item.item_name} ({item.item_num})</div>
+                                                    <div className='d-flex flex-wrap gap-1 ms-3 mt-1'>
+                                                        <span className='badge badge-light-warning fs-9' title='กำลังผลิต'>ผลิต: {item.producing_qty ?? 0}</span>
+                                                        <span className='badge badge-light-primary fs-9' title='ผลิตแล้ว'>เสร็จ: {item.produced_qty ?? 0}</span>
+                                                        <span className='badge badge-light-info fs-9' title='รอทดสอบ'>รอเทส: {item.queued_for_test_qty ?? 0}</span>
+                                                        <span className='badge badge-light-success fs-9' title='ทดสอบแล้ว'>เทสแล้ว: {item.tested_qty ?? 0}</span>
+                                                    </div>
+                                                </div>
                                             ))}
                                         </div>
                                     )}
