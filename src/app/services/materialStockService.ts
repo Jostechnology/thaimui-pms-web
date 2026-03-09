@@ -5,6 +5,7 @@ import type {
     MaterialValidationResponse,
     MaterialTransaction,
     MaterialUsageDetail,
+    MaterialHistoryRecord,
 } from "../type_interface/MaterialStockType";
 
 interface APIResponse {
@@ -37,6 +38,7 @@ const handleResponse = async (response: Response | false | undefined): Promise<A
 
 /**
  * ดึงสรุปยอดคงเหลือวัตถุดิบทั้งหมดของ Sales Item
+ * ใช้ endpoint ใหม่ /material/summary → transform response ให้ตรง MaterialStockSummary
  */
 export const getMaterialStockSummary = async (
     salesItemId: number
@@ -44,11 +46,25 @@ export const getMaterialStockSummary = async (
     try {
         const response = await front_api(
             "GET",
-            `/material_stock/summary/${salesItemId}`,
+            `/material/summary/${salesItemId}`,
             {},
             { wrapData: false, headers: getHeaders() }
         );
-        return await handleResponse(response);
+        const result = await handleResponse(response);
+        if (result.success && Array.isArray(result.data)) {
+            result.data = result.data.map((item: any) => ({
+                material_list_id: item.material_list_id,
+                sales_item_id: salesItemId,
+                item_code: item.item_code,
+                item_name: item.item_name,
+                item_description: '',
+                total_quantity: item.planned_qty,
+                used_in_production: 0,
+                used_in_testing: item.actual_used,
+                remaining_quantity: item.planned_qty - item.actual_used,
+            }));
+        }
+        return result;
     } catch (error) {
         console.error("getMaterialStockSummary Error:", error);
         return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
@@ -64,7 +80,7 @@ export const validateMaterialStock = async (
     try {
         const response = await front_api(
             "POST",
-            "/material_stock/validate",
+            "/material/validate",
             payload,
             { wrapData: false, headers: getHeaders() }
         );
@@ -80,11 +96,11 @@ export const validateMaterialStock = async (
  */
 export const getMaterialUsageDetail = async (
     materialListId: number
-): Promise<APIResponse & { data?: MaterialUsageDetail }> => {
+): Promise<APIResponse & { data?: MaterialHistoryRecord[] }> => {
     try {
         const response = await front_api(
             "GET",
-            `/material_stock/usage_detail/${materialListId}`,
+            `/material/history/${materialListId}`,
             {},
             { wrapData: false, headers: getHeaders() }
         );
@@ -109,7 +125,7 @@ export const getMaterialTransactions = async (
 
         const response = await front_api(
             "GET",
-            `/material_stock/transactions/${salesItemId}?${params.toString()}`,
+            `/material/transactions/${salesItemId}?${params.toString()}`,
             {},
             { wrapData: false, headers: getHeaders() }
         );
@@ -135,7 +151,7 @@ export const getAllMaterialTracking = async (
         const queryStr = searchParams.toString();
         const response = await front_api(
             "GET",
-            `/material_stock/tracking${queryStr ? `?${queryStr}` : ''}`,
+            `/material/tracking${queryStr ? `?${queryStr}` : ''}`,
             {},
             { wrapData: false, headers: getHeaders() }
         );

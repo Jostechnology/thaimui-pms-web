@@ -82,6 +82,20 @@ export interface MaterialUsageDetail {
 }
 
 /**
+ * ประวัติการเคลื่อนไหวของวัตถุดิบ จาก /api/material/history
+ * transaction_id อาจเป็น "PU-{id}" (ผลิต) หรือตัวเลข (transaction)
+ * document_code อาจเป็น doc_num (number) หรือ related_document_code (string)
+ */
+export interface MaterialHistoryRecord {
+    transaction_id: number | string;
+    action_type: string;
+    amount: number;
+    document_code: string | number;
+    action_by: string | null;
+    action_date: string | null;
+}
+
+/**
  * ผลลัพธ์การ validate จำนวนวัตถุดิบ
  */
 export interface MaterialValidationResult {
