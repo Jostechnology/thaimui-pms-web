@@ -316,7 +316,6 @@ const ItemComponentDetailModal: React.FC<Props> = ({
                                                 <th className="py-3">รหัสวัสดุ</th>
                                                 <th className="py-3">รายละเอียด</th>
                                                 <th className="py-3 text-center">จำนวน</th>
-                                                <th className="py-3 text-end">หน่วย</th>
                                                 <th className="py-3 text-end pe-4">ราคา/หน่วย</th>
                                             </tr>
                                         </thead>
@@ -340,7 +339,6 @@ const ItemComponentDetailModal: React.FC<Props> = ({
                                                             x{usage.quantity_used}
                                                         </span>
                                                     </td>
-                                                    <td className="text-end text-muted fs-8">ตัว/ชุด</td>
                                                     <td className="text-end pe-4 fw-semibold">
                                                         ฿{usage.material_list?.unit_price?.toLocaleString() || '0'}
                                                     </td>
@@ -362,7 +360,7 @@ const ItemComponentDetailModal: React.FC<Props> = ({
 
                         {/* Remark */}
                         <div className="card border-0 shadow-sm mb-5">
-                            <div className="card-header bg-white border-bottom d-flex align-items-center gap-2 py-3">
+                            <div className="card-header bg-white border-bottom d-flex align-items-center justify-content-start gap-2 py-3">
                                 <i className="bi bi-chat-left-text text-warning fs-5" />
                                 <span className="fw-bold text-dark fs-6">หมายเหตุ</span>
                             </div>
@@ -384,10 +382,9 @@ const ItemComponentDetailModal: React.FC<Props> = ({
 
                         {/* Bottom Section: Specs + Options + Image */}
                         <div className="row g-4">
-                            {/* Spec Table (Left) */}
                             <div className="col-lg-5">
                                 <div className="card border-0 shadow-sm h-100">
-                                    <div className="card-header bg-white border-bottom d-flex align-items-center gap-2 py-3">
+                                    <div className="card-header bg-white border-bottom d-flex align-items-center justify-content-start gap-2 py-3">
                                         <i className="bi bi-list-check text-success fs-5" />
                                         <span className="fw-bold text-dark fs-6">สเปคของสินค้า</span>
                                     </div>
@@ -510,7 +507,7 @@ const ItemComponentDetailModal: React.FC<Props> = ({
                             {/* Option Table (Middle) */}
                             <div className="col-lg-3">
                                 <div className="card border-0 shadow-sm h-100">
-                                    <div className="card-header bg-white border-bottom d-flex align-items-center gap-2 py-3">
+                                    <div className="card-header bg-white border-bottom d-flex align-items-center justify-content-start gap-2 py-3">
                                         <i className="bi bi-toggles text-info fs-5" />
                                         <span className="fw-bold text-dark fs-6">ตัวเลือก</span>
                                     </div>
@@ -563,7 +560,7 @@ const ItemComponentDetailModal: React.FC<Props> = ({
                             {/* Image (Right) */}
                             <div className="col-lg-4">
                                 <div className="card border-0 shadow-sm h-100">
-                                    <div className="card-header bg-white border-bottom d-flex align-items-center gap-2 py-3">
+                                    <div className="card-header bg-white border-bottom d-flex align-items-center justify-content-start gap-2 py-3">
                                         <i className="bi bi-image text-danger fs-5" />
                                         <span className="fw-bold text-dark fs-6">แบบแปลนชุดประกอบ</span>
                                     </div>
