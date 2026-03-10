@@ -8,6 +8,7 @@ import Swal from 'sweetalert2';
 import './WorkorderView.css';
 import { WorkPhaseStatusEnum, type WorkOrder, type WorkPhase, type WorkPhaseBreak, type ItemComponent } from '../../../type_interface/WorkOrderType';
 import type { Employee } from '../../../type_interface/EmployeeType';
+import ItemComponentDetailModal from './ItemComponentDetailModal';
 
 // --- Helper functions ---
 const getPhaseStatusColor = (status: string) => {
@@ -219,7 +220,7 @@ const WorkorderView: React.FC = () => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
     const [clickedBarPixel, setClickedBarPixel] = useState<{ barCenterPx: number; trackWidthPx: number } | null>(null);
-
+    const [viewComponentId, setViewComponentId] = useState<number | null>(null);
     const fetchData = async () => {
         setLoading();
         setDataLoading(true);
@@ -783,6 +784,14 @@ const WorkorderView: React.FC = () => {
                                                     {idx + 1}
                                                 </div>
                                                 <span className="fw-bold text-gray-800 fs-6">{comp.component_name}</span>
+                                            <button
+                                                className="btn btn-sm btn-light-primary d-flex align-items-center gap-1 ms-auto"
+                                                style={{ padding: '6px 12px', borderRadius: '6px' }}
+                                                onClick={() => setViewComponentId(comp.item_component_id)}
+                                            >
+                                                <i className="bi bi-eye" />
+                                                ดูรายละเอียด
+                                            </button>
                                             </div>
                                             {comp.material_usages && comp.material_usages.length > 0 ? (
                                                 <div className="d-flex flex-column gap-2">
@@ -859,6 +868,15 @@ const WorkorderView: React.FC = () => {
                     )}
                 </div>
             </div>
+            {
+                <ItemComponentDetailModal
+                    show={viewComponentId !== null}
+                    itemComponentId={viewComponentId}
+                    workOrder={workOrder}
+                    mode="view"
+                    onClose={() => setViewComponentId(null)}
+                />
+            }
         </Content>
     );
 };

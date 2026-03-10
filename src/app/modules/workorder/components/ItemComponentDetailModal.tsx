@@ -21,6 +21,7 @@ interface Props {
     itemComponentId: number | null;
     workOrder: WorkOrder;
     onSaved?: () => void;
+    mode: 'view' | 'edit';
 }
 
 // ---- Spec row local state ----
@@ -38,10 +39,12 @@ const ItemComponentDetailModal: React.FC<Props> = ({
     itemComponentId,
     workOrder,
     onSaved,
+    mode
 }) => {
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
 
+    const isEditMode = mode === 'edit';
     const [component, setComponent] = useState<ItemComponent | null>(null);
     const [specTypes, setSpecTypes] = useState<ComponentSpecType[]>([]);
     const [optionTypes, setOptionTypes] = useState<ComponentOptionType[]>([]);
@@ -221,7 +224,7 @@ const ItemComponentDetailModal: React.FC<Props> = ({
                     <div
                         className="modal-header py-3 px-5"
                         style={{
-                            background: 'linear-gradient(135deg, #1a237e 0%, #283593 50%, #3949ab 100%)',
+                            background: 'rgba(32, 226, 64, 1)',
                             color: '#fff',
                         }}
                     >
@@ -247,9 +250,9 @@ const ItemComponentDetailModal: React.FC<Props> = ({
                             </div>
                         </div>
                         <button
-                            className="btn btn-sm btn-icon"
+                            className="btn btn-sm btn-icon "
                             onClick={onClose}
-                            style={{ color: '#fff', opacity: 0.8 }}
+                            style={{ color: '#000000ff', opacity: 1 }}
                         >
                             <i className="bi bi-x-lg fs-3" />
                         </button>
@@ -376,6 +379,7 @@ const ItemComponentDetailModal: React.FC<Props> = ({
                                         border: '1px solid #dee2e6',
                                         borderRadius: 8,
                                     }}
+                                    disabled = {!isEditMode}
                                 />
                             </div>
                         </div>
@@ -432,6 +436,7 @@ const ItemComponentDetailModal: React.FC<Props> = ({
                                                                                     e.target.checked
                                                                                 )
                                                                             }
+                                                                            disabled = {!isEditMode}
                                                                             style={{ width: 18, height: 18 }}
                                                                         />
                                                                     </div>
@@ -460,6 +465,7 @@ const ItemComponentDetailModal: React.FC<Props> = ({
                                                                             )
                                                                         }
                                                                         placeholder="0"
+                                                                        disabled = {!isEditMode}
                                                                     />
                                                                 );
                                                             }
@@ -479,6 +485,7 @@ const ItemComponentDetailModal: React.FC<Props> = ({
                                                                         )
                                                                     }
                                                                     placeholder="..."
+                                                                    disabled = {!isEditMode}
                                                                 />
                                                             );
                                                         };
@@ -537,6 +544,7 @@ const ItemComponentDetailModal: React.FC<Props> = ({
                                                         checked={selectedOptions.has(ot.component_option_type_id)}
                                                         onChange={() => toggleOption(ot.component_option_type_id)}
                                                         style={{ width: 16, height: 16 }}
+                                                        disabled = {!isEditMode}
                                                     />
                                                     <span
                                                         className="fs-8 fw-semibold"
@@ -599,9 +607,9 @@ const ItemComponentDetailModal: React.FC<Props> = ({
                     >
                         <button className="btn btn-light px-5" onClick={onClose} disabled={saving}>
                             <i className="bi bi-x-circle me-2" />
-                            ยกเลิก
+                            {isEditMode ? 'ยกเลิก' : 'ปิด'}
                         </button>
-                        <button
+                        {isEditMode && <button
                             className="btn btn-primary px-5 d-flex align-items-center gap-2"
                             onClick={handleSave}
                             disabled={saving}
@@ -617,7 +625,7 @@ const ItemComponentDetailModal: React.FC<Props> = ({
                                     บันทึก
                                 </>
                             )}
-                        </button>
+                        </button>}
                     </div>
                 </div>
             </div>
