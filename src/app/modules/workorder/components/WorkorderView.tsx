@@ -737,6 +737,30 @@ const WorkorderView: React.FC = () => {
                                         <span className="wo-item-label">เลขที่เอกสาร</span>
                                         <span className="wo-item-value">{workOrder.sales_item.doc_num}</span>
                                     </div>
+                                    <div className="wo-item-row">
+                                        <span className="wo-item-label">จำนวนทั้งหมด</span>
+                                        <span className="wo-item-value fw-bold">{workOrder.sales_item.item_num}</span>
+                                    </div>
+                                    <div className="separator separator-dashed my-4"></div>
+                                    <div className="d-flex flex-column gap-2">
+                                        <span className="text-muted fw-bold fs-8 text-uppercase">ความคืบหน้าการผลิต</span>
+                                        <div className="d-flex align-items-center justify-content-between">
+                                            <span className="text-gray-600 fs-7">กำลังผลิต</span>
+                                            <span className="badge badge-light-warning fw-bold">{workOrder.sales_item.producing_qty ?? 0}</span>
+                                        </div>
+                                        <div className="d-flex align-items-center justify-content-between">
+                                            <span className="text-gray-600 fs-7">ผลิตแล้ว</span>
+                                            <span className="badge badge-light-primary fw-bold">{workOrder.sales_item.produced_qty ?? 0}</span>
+                                        </div>
+                                        <div className="d-flex align-items-center justify-content-between">
+                                            <span className="text-gray-600 fs-7">รอทดสอบ</span>
+                                            <span className="badge badge-light-info fw-bold">{workOrder.sales_item.queued_for_test_qty ?? 0}</span>
+                                        </div>
+                                        <div className="d-flex align-items-center justify-content-between">
+                                            <span className="text-gray-600 fs-7">ทดสอบแล้ว</span>
+                                            <span className="badge badge-light-success fw-bold">{workOrder.sales_item.tested_qty ?? 0}</span>
+                                        </div>
+                                    </div>
                                     <div className="wo-cost-summary mt-5">
                                         <div className="wo-cost-row">
                                             <span>ราคาต้นทุน</span>

@@ -17,6 +17,10 @@ interface WorkorderData {
     sales_item: {
         item_name: string;
         item_description: string;
+        producing_qty: number;
+        produced_qty: number;
+        queued_for_test_qty: number;
+        tested_qty: number;
     };
     status: string;
     created_date: string;
@@ -327,12 +331,10 @@ const WorkorderList: React.FC = () => {
                                                 </div>
                                             </td>
 
-                                            <td className='text-center'>
-                                                <div className="d-flex align-items-center">
-                                                    <span className='text-gray-800 fw-bold text-hover-primary mb-1 fs-6'>
+                                            <td className='text-start'>
+                                                    <span className='text-gray-800 fw-bold text-hover-primary fs-6'>
                                                         {item.sales_item?.item_name || 'N/A'}
                                                     </span>
-                                                </div>
                                             </td>
 
                                             <td className='text-center'>

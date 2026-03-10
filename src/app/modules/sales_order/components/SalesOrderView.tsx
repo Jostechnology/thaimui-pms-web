@@ -19,6 +19,10 @@ interface SalesItem {
     work_order_id: number;
     unit_price: number;
     cost_price: number;
+    producing_qty: number;
+    produced_qty: number;
+    queued_for_test_qty: number;
+    tested_qty: number;
 }
 
 interface Material {
@@ -232,7 +236,8 @@ const SalesOrderView: React.FC = () => {
                                     <th className="min-w-200px">รายละเอียดสินค้า</th>
                                     <th className="min-w-80px text-center">จำนวน</th>
                                     <th className="min-w-100px text-end">ราคาต้นทุน</th>
-                                    <th className="min-w-100px text-end pe-4 rounded-end">ราคา/หน่วย</th>
+                                    <th className="min-w-100px text-end">ราคา/หน่วย</th>
+                                    <th className="min-w-200px text-center pe-4 rounded-end">ความคืบหน้าการผลิต</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -257,14 +262,39 @@ const SalesOrderView: React.FC = () => {
                                             <td className="text-end">
                                                 <span className="text-gray-800 fw-bolder d-block fs-6">฿{(item.cost_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                             </td>
-                                            <td className="text-end pe-4">
+                                            <td className="text-end">
                                                 <span className="text-gray-800 fw-bolder d-block fs-6">฿{(item.unit_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            </td>
+                                            <td className="text-center pe-4">
+                                                <div className="d-flex flex-wrap justify-content-center gap-1">
+                                                    <span className="badge badge-light-warning fw-bold fs-8" title="กำลังผลิต">
+                                                        <i className="bi bi-gear-fill me-1"></i>{item.producing_qty ?? 0}
+                                                    </span>
+                                                    <span className="badge badge-light-primary fw-bold fs-8" title="ผลิตแล้ว">
+                                                        <i className="bi bi-check2 me-1"></i>{item.produced_qty ?? 0}
+                                                    </span>
+                                                    <span className="badge badge-light-info fw-bold fs-8" title="รอทดสอบ">
+                                                        <i className="bi bi-hourglass-split me-1"></i>{item.queued_for_test_qty ?? 0}
+                                                    </span>
+                                                    <span className="badge badge-light-success fw-bold fs-8" title="ทดสอบแล้ว">
+                                                        <i className="bi bi-patch-check-fill me-1"></i>{item.tested_qty ?? 0}
+                                                    </span>
+                                                </div>
+                                                <div className="d-flex justify-content-center gap-2 mt-1">
+                                                    <span className="text-muted fs-9">ผลิต</span>
+                                                    <span className="text-muted fs-9">·</span>
+                                                    <span className="text-muted fs-9">เสร็จ</span>
+                                                    <span className="text-muted fs-9">·</span>
+                                                    <span className="text-muted fs-9">รอเทส</span>
+                                                    <span className="text-muted fs-9">·</span>
+                                                    <span className="text-muted fs-9">เทสแล้ว</span>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={6} className="text-center py-6 text-muted fs-6">ไม่พบรายการสินค้า</td>
+                                        <td colSpan={7} className="text-center py-6 text-muted fs-6">ไม่พบรายการสินค้า</td>
                                     </tr>
                                 )}
                             </tbody>
