@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Content } from '../../../../_metronic/layout/components/content';
-import { getMachineList } from '../../../services/machineService.ts';
+import { getMachineList, deleteMachine } from '../../../services/machineService.ts';
 import type { Machine } from '../../../type_interface/MachineType';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
@@ -87,6 +87,30 @@ const MachineList: React.FC = () => {
         }
     };
 
+    const handleDelete = async (machineId: number, machineCode: string) => {
+        const confirm = await Swal.fire({
+            title: 'ยืนยันการลบ?',
+            text: `คุณแน่ใจหรือไม่ที่จะลบเครื่องจักร "${machineCode}" ออกจากระบบ?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'ใช่, ลบเลย!',
+            cancelButtonText: 'ยกเลิก',
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            reverseButtons: true,
+        });
+
+        if (confirm.isConfirmed) {
+            const res = await deleteMachine(String(machineId));
+            if (res.success) {
+                await Swal.fire('ลบสำเร็จ!', 'ข้อมูลเครื่องจักรถูกลบแล้ว', 'success');
+                fetchMachines(currentPage, itemsPerPage, searchTerm, statusFilter);
+            } else {
+                Swal.fire('ล้มเหลว', res.message || 'ไม่สามารถลบได้', 'error');
+            }
+        }
+    };
+
     return (
         <Content>
             {/* Header: หัวข้อ */}
@@ -108,7 +132,7 @@ const MachineList: React.FC = () => {
                     </button>
                 </div>
             </div>
-            
+
             <div className="card">
                 {/* 1. Card Header: โซน Search & Filter */}
                 <div className="card-header border-0 pt-6">
@@ -155,7 +179,7 @@ const MachineList: React.FC = () => {
                                     <th className="min-w-150px">Manufacturer</th>
                                     <th className="min-w-125px">Purchase Date</th>
                                     <th className="min-w-125px">Status</th>
-                                    <th className="text-end min-w-100px">Actions</th>
+                                    <th className="text-end min-w-50px">Actions</th>
                                 </tr>
                             </thead>
 
@@ -215,10 +239,22 @@ const MachineList: React.FC = () => {
                                                 {/* คอลัมน์ที่ 5: ปุ่มจัดการ */}
                                                 <td className="text-end">
                                                     <button
-                                                        className="btn btn-light btn-active-light-primary btn-sm"
+                                                        className="btn btn-light-primary btn-sm me-2"
+                                                        onClick={() => navigate(`/machine/machine_detail/${machine.machine_id}`)}
+                                                    >
+                                                        <i className="bi bi-eye me-1"></i>
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-light-warning btn-sm me-2"
                                                         onClick={() => navigate(`/machine/machine_update/${machine.machine_id}`)}
                                                     >
-                                                        <i className="bi bi-pencil-square me-1"></i> View / Edit
+                                                        <i className="bi bi-pencil-square me-1"></i>
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-light-danger btn-sm"
+                                                        onClick={() => handleDelete(machine.machine_id, machine.machine_code)}
+                                                    >
+                                                        <i className="bi bi-trash3-fill me-1"></i>
                                                     </button>
                                                 </td>
                                             </tr>

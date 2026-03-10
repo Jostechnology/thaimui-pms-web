@@ -93,34 +93,34 @@ const MachineUpdate: React.FC = () => {
         setErrors(prev => ({ ...prev, [name]: validate(formData)[name as keyof FormErrors] }));
     };
 
-    //Delete (ลบ)
-    const handleDelete = async () => {
-        if (!id) return;
+    // //Delete (ลบ)
+    // const handleDelete = async () => {
+    //     if (!id) return;
 
-        const confirm = await Swal.fire({
-            title: 'อันตราย! ยืนยันการลบ?',
-            text: `คุณแน่ใจหรือไม่ที่จะลบเครื่องจักร "${formData.machine_code}" ออกจากระบบ? (การกระทำนี้อาจไม่สามารถกู้คืนได้)`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'ใช่, ลบเลย!',
-            cancelButtonText: 'ยกเลิก',
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            reverseButtons: true,
-        });
+    //     const confirm = await Swal.fire({
+    //         title: 'อันตราย! ยืนยันการลบ?',
+    //         text: `คุณแน่ใจหรือไม่ที่จะลบเครื่องจักร "${formData.machine_code}" ออกจากระบบ? (การกระทำนี้อาจไม่สามารถกู้คืนได้)`,
+    //         icon: 'warning',
+    //         showCancelButton: true,
+    //         confirmButtonText: 'ใช่, ลบเลย!',
+    //         cancelButtonText: 'ยกเลิก',
+    //         confirmButtonColor: '#d33',
+    //         cancelButtonColor: '#3085d6',
+    //         reverseButtons: true,
+    //     });
 
-        if (confirm.isConfirmed) {
-            setIsSubmitting(true);
-            const res = await deleteMachine(id);
-            if (res.success) {
-                await Swal.fire('ลบสำเร็จ!', 'ข้อมูลเครื่องจักรถูกลบแล้ว', 'success');
-                navigate('/machine/machine_list');
-            } else {
-                Swal.fire('ล้มเหลว', res.message || 'ไม่สามารถลบได้', 'error');
-            }
-            setIsSubmitting(false);
-        }
-    };
+    //     if (confirm.isConfirmed) {
+    //         setIsSubmitting(true);
+    //         const res = await deleteMachine(id);
+    //         if (res.success) {
+    //             await Swal.fire('ลบสำเร็จ!', 'ข้อมูลเครื่องจักรถูกลบแล้ว', 'success');
+    //             navigate('/machine/machine_list');
+    //         } else {
+    //             Swal.fire('ล้มเหลว', res.message || 'ไม่สามารถลบได้', 'error');
+    //         }
+    //         setIsSubmitting(false);
+    //     }
+    // };
 
     //Update (อัปเดต)
     const handleSubmit = async (e: React.FormEvent) => {
@@ -383,15 +383,6 @@ const MachineUpdate: React.FC = () => {
                         {/* ── Action Buttons (รวมปุ่ม Delete ไว้ฝั่งซ้าย) ── */}
                         <div className="card">
                             <div className="card-body d-flex justify-content-between align-items-center py-5">
-                                {/* ปุ่มลบ (ซ้ายสุด) */}
-                                <button
-                                    type="button"
-                                    className="btn btn-light-danger"
-                                    onClick={handleDelete}
-                                    disabled={isSubmitting}
-                                >
-                                    <i className="bi bi-trash3-fill me-1"></i> ลบเครื่องจักร
-                                </button>
 
                                 {/* กลุ่มปุ่ม Save/Cancel (ขวาสุด) */}
                                 <div className="d-flex gap-3">
