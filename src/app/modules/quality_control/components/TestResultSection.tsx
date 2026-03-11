@@ -10,6 +10,7 @@ interface Props {
     qcWorkOrderId: number;
     quantity: number;
     salesItemDescription?: string;
+    testResultsPre : any[]
 }
 
 interface TestResultItemForm {
@@ -64,9 +65,9 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => (
     </span>
 );
 
-const TestResultSection: React.FC<Props> = ({ qcWorkOrderId, quantity, salesItemDescription = "" }) => {
-    const [testResults, setTestResults] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+const TestResultSection: React.FC<Props> = ({ qcWorkOrderId, quantity, salesItemDescription = "", testResultsPre }) => {
+    const [testResults, setTestResults] = useState<any[]>(testResultsPre);
+    const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -81,10 +82,6 @@ const TestResultSection: React.FC<Props> = ({ qcWorkOrderId, quantity, salesItem
             setLoading(false);
         }
     };
-
-    useEffect(() => {
-        if (qcWorkOrderId) loadTestResults();
-    }, [qcWorkOrderId]);
 
     const handleFormChange = (field: keyof Omit<TestResultForm, "items">, value: string) => {
         setForm((prev) => ({ ...prev, [field]: value }));

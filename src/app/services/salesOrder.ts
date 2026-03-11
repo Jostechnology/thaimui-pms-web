@@ -12,8 +12,12 @@ export interface SalesOrderSummary {
     group_code: string;
     group_name: string;
     created_date: string;
-    sales_items_count: number;
-    work_orders_count: number;
+    items_total: number;
+    wo_count: number;
+    wo_completed: number;
+    qc_count: number;
+    qc_passed: number;
+    qc_failed: number;
 }
 
 export const getSalesOrderList = async (

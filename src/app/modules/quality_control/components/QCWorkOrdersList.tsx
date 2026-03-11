@@ -10,6 +10,19 @@ import { useSearchParams } from 'react-router-dom';
 import TablePaginator from '../../../custom_components/TablePaginator';
 import { getUserAction } from '../../../helpers/pageAccess';
 import { useMasterData } from '../../../context/MasterDataContext';
+import { formatThaiDate } from '../../../helpers/dataHelpers';
+import SalesItemTrackingModal from './SalesItemTrackingModal';
+
+interface SalesItem {
+    sales_item_id: number;
+    produced_qty: number;
+    queued_for_test_qty: number;
+    tested_qty: number;
+    item_name: string;
+    item_code: string;
+    doc_num: number;
+    item_num: number;
+}
 
 interface QCWorkOrderData {
     qc_work_order_id: number;
@@ -20,6 +33,8 @@ interface QCWorkOrderData {
     remark: string | null;
     created_date: string;
     updated_date: string | null;
+    quantity: number;
+    sales_item: SalesItem | null;
 }
 
 const QC_STATUS_OPTIONS = [
@@ -129,6 +144,9 @@ const QCWorkOrdersList: React.FC = () => {
         }
     };
 
+    const [showTrackingModal, setShowTrackingModal] = useState(false);
+    const [selectedSalesItemId, setSelectedSalesItemId] = useState<number | null>(null);
+
     const { masterData } = useMasterData()
     const actionList = masterData.actionList
     const allowedActions = getUserAction(actionList, "QC", "QC_WORKORDERS")
@@ -138,15 +156,15 @@ const QCWorkOrdersList: React.FC = () => {
             {/* Header Section */}
             <div className='d-flex flex-stack mb-10'>
                 <div className='d-flex flex-column'>
-                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>Quality Control Work Orders</h1>
-                    <span className='text-muted fw-semibold fs-6'>จัดการและติดตามใบสั่งเทส QC</span>
+                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>ใบสั่งเทส</h1>
+                    <span className='text-muted fw-semibold fs-6'>จัดการและติดตามใบสั่งเทส</span>
                 </div>
                 {allowedActions.create && <div className='d-flex align-items-center gap-2'>
                     <button
                         className='btn btn-primary fw-bold px-6 shadow-sm'
                         onClick={() => navigate("create")}
                     >
-                        <i className='bi bi-plus-lg me-2 fs-4'></i> สร้างใบสั่งเทส QC
+                        <i className='bi bi-plus-lg me-2 fs-4'></i> สร้างใบสั่งเทส
                     </button>
                 </div>}
             </div>
@@ -277,19 +295,18 @@ const QCWorkOrdersList: React.FC = () => {
                         <table className='table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer'>
                             <thead>
                                 <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
-                                    <th className='min-w-80px'>ID</th>
-                                    <th className='min-w-125px text-center'>QC STATUS</th>
-                                    <th className='min-w-125px text-center'>QC DATE</th>
-                                    <th className='min-w-125px'>QC BY</th>
-                                    <th className='min-w-200px'>REMARK</th>
-                                    <th className='min-w-125px text-center'>CREATED</th>
+                                    <th className='min-w-125px text-center'>หมายเลขใบสั่งเทส</th>
+                                    <th className='min-w-200px'>สินค้า</th>
+                                    <th className='min-w-125px text-center'>จำนวนที่ขอทดสอบ</th>
+                                    <th className='min-w-150px text-center'>ความพร้อม</th>
+                                    <th className='min-w-125px text-center'>วันที่สร้าง</th>
                                     <th className='text-end min-w-100px'>ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody className='text-gray-600 fw-semibold'>
                                 {dataLoading ? (
                                     <tr>
-                                        <td colSpan={7} className='text-center p-20'>
+                                        <td colSpan={6} className='text-center p-20'>
                                             <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
                                             <span className="ms-3 text-gray-500">กำลังดึงข้อมูล...</span>
                                         </td>
@@ -297,44 +314,66 @@ const QCWorkOrdersList: React.FC = () => {
                                 ) : qcWorkOrders.length > 0 ? (
                                     qcWorkOrders.map((item) => (
                                         <tr key={item.qc_work_order_id} className="hover:bg-light-primary transition-all">
-                                            <td>
-                                                <span className='text-gray-800 fw-bold fs-6'>#{item.qc_work_order_id}</span>
+                                            <td className='text-center'>
+                                                หมายเลขไอดี {item.qc_work_order_id}
                                             </td>
 
+                                            <td>
+                                                {item.sales_item ? (
+                                                    <>
+                                                        <span className='text-gray-900 fw-bold d-block'>{item.sales_item.item_name} <span className='text-muted fs-7'>{item.sales_item.item_code}</span></span>
+                                                        <span className='text-muted fs-7'>ใบสั่งขาย {item.sales_item.doc_num}</span>
+                                                    </>
+                                                ) : (
+                                                    <span className='text-muted'>-</span>
+                                                )}
+                                            </td>
 
                                             <td className='text-center'>
-                                                <span className={`badge ${getStatusBadge(item.qc_status)} fw-bold px-4 py-3`}>
-                                                    {getStatusLabel(item.qc_status)}
-                                                </span>
+                                                <span className='fw-bold text-gray-800'>{item.quantity}</span>
+                                                <span className='text-muted fs-7 ms-1'>ชิ้น</span>
+                                            </td>
+
+                                            <td className='text-center'>
+                                                {(() => {
+                                                    const produced = item.sales_item?.produced_qty ?? 0;
+                                                    const queued = item.sales_item?.queued_for_test_qty ?? 0;
+                                                    const tested = item.sales_item?.tested_qty ?? 0;
+                                                    const allocated = queued + tested;
+                                                    const available = produced - allocated;
+                                                    const needed = item.quantity ?? 0;
+                                                    const ready = needed <= available;
+                                                    return ready ? (
+                                                        <span className='badge badge-light-success fw-bold px-4 py-3'>
+                                                            <i className='bi bi-check-circle me-1'></i> พร้อม
+                                                        </span>
+                                                    ) : (
+                                                        <div className='d-flex flex-column align-items-center gap-1'>
+                                                            <span
+                                                                className='badge badge-light-danger fw-bold px-3 py-2'
+                                                                style={{ cursor: item.sales_item ? 'pointer' : 'default', transition: 'opacity 0.15s' }}
+                                                                onMouseEnter={e => { if (item.sales_item) (e.currentTarget as HTMLElement).style.opacity = '0.75'; }}
+                                                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+                                                                onClick={() => {
+                                                                    if (item.sales_item) {
+                                                                        setSelectedSalesItemId(item.sales_item.sales_item_id);
+                                                                        setShowTrackingModal(true);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <i className='bi bi-exclamation-circle me-1'></i> ยังไม่พร้อม
+                                                            </span>
+                                                            <span className='text-muted fs-8'>
+                                                                ผลิตแล้ว {produced} · จัดสรรแล้ว {allocated} · ต้องการ {needed}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
 
                                             <td className='text-center'>
                                                 <span className="text-gray-700 fw-bold">
-                                                    {item.qc_date ? new Date(item.qc_date).toLocaleDateString('th-TH', {
-                                                        day: '2-digit',
-                                                        month: 'short',
-                                                        year: 'numeric'
-                                                    }) : '-'}
-                                                </span>
-                                            </td>
-
-                                            <td>
-                                                <span className='text-gray-800 fw-semibold'>{item.qc_by || '-'}</span>
-                                            </td>
-
-                                            <td>
-                                                <span className='text-muted fs-7 text-truncate d-inline-block' style={{ maxWidth: '200px' }}>
-                                                    {item.remark || '-'}
-                                                </span>
-                                            </td>
-
-                                            <td className='text-center'>
-                                                <span className="text-gray-700 fw-bold">
-                                                    {item.created_date ? new Date(item.created_date).toLocaleDateString('th-TH', {
-                                                        day: '2-digit',
-                                                        month: 'short',
-                                                        year: 'numeric'
-                                                    }) : '-'}
+                                                    {formatThaiDate(item.created_date)}
                                                 </span>
                                             </td>
 
@@ -367,7 +406,7 @@ const QCWorkOrdersList: React.FC = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={8} className='text-center p-20'>
+                                        <td colSpan={6} className='text-center p-20'>
                                             <div className='d-flex flex-column flex-center'>
                                                 <i className='bi bi-search fs-3x text-gray-300 mb-4'></i>
                                                 <span className='text-gray-500'>ไม่พบข้อมูล QC Work Order ในระบบ</span>
@@ -391,6 +430,11 @@ const QCWorkOrdersList: React.FC = () => {
                     </div>
                 </div>
             </div>
+            <SalesItemTrackingModal
+                show={showTrackingModal}
+                onHide={() => setShowTrackingModal(false)}
+                salesItemId={selectedSalesItemId}
+            />
         </Content>
     );
 }
