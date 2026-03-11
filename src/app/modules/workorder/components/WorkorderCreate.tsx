@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Select from 'react-select';
 import { Content } from '../../../../_metronic/layout/components/content';
 import { useNavigate } from 'react-router-dom';
 import { useAppLoading } from '../../../context/AppLoadingContext';
@@ -34,6 +35,8 @@ const WorkorderCreate: React.FC = () => {
 
     // Sales Order search & selection
     const [salesOrderOptions, setSalesOrderOptions] = useState<SalesOrderSearch[]>([]);
+    const [soSearchKeyword, setSoSearchKeyword] = useState<string>('');
+    const [selectedSalesOrder, setSelectedSalesOrder] = useState<SalesOrderSearch | null>(null);
     const [selectedDocEntry, setSelectedDocEntry] = useState<number | ''>('');
     const [salesOrderDetail, setSalesOrderDetail] = useState<SalesOrderDetail | null>(null);
 
@@ -55,17 +58,23 @@ const WorkorderCreate: React.FC = () => {
 
     const [submitting, setSubmitting] = useState(false);
 
-    // Load initial sales order list on mount
+    const handleSearchSalesOrder = async (keyword: string) => {
+        try {
+            const res: any = await searchSalesOrderService(keyword);
+            const list = res?.data
+                ? (Array.isArray(res.data) ? res.data : (res.data.items || res.data.data || []))
+                : [];
+            setSalesOrderOptions(list);
+        } catch {
+            setSalesOrderOptions([]);
+        }
+    };
+
     useEffect(() => {
-        (async () => {
-            try {
-                const res = await searchSalesOrderService('');
-                if (res && res.success) {
-                    setSalesOrderOptions(res.data?.items || res.data || []);
-                }
-            } catch { /* ignore */ }
-        })();
-    }, []);
+        if (!soSearchKeyword) return;
+        const timeout = setTimeout(() => { handleSearchSalesOrder(soSearchKeyword); }, 750);
+        return () => clearTimeout(timeout);
+    }, [soSearchKeyword]);
 
     // ─── Fetch Sales Order Detail when selected ────────────────
     useEffect(() => {
@@ -75,6 +84,7 @@ const WorkorderCreate: React.FC = () => {
             setMaterials([]);
             setSelectedSalesItemId('');
             resetComponents();
+            setSalesOrderOptions([]);
             return;
         }
         (async () => {
@@ -296,18 +306,19 @@ const WorkorderCreate: React.FC = () => {
 
         // ── Server-side stock validation (double-check) ──
         try {
-            const serverCheck = await validateMaterialStock({
-                sales_item_id: selectedSalesItemId as number,
-                materials: requests,
-            });
-            if (serverCheck.success && serverCheck.data && !serverCheck.data.is_valid) {
-                const serverIssues = (serverCheck.data.results || []).filter((r: { is_valid: boolean }) => !r.is_valid);
-                const lines = serverIssues.map(
-                    (i: { item_name: string; requested_quantity: number; available_quantity: number }) => `• ${i.item_name}: ขอใช้ ${i.requested_quantity} คงเหลือ ${i.available_quantity}`
-                );
-                Swal.fire('วัตถุดิบไม่เพียงพอ (ตรวจสอบจากระบบ)', lines.join('\n'), 'error');
-                return;
-            }
+            // const serverCheck = await validateMaterialStock({
+            //     sales_item_id: selectedSalesItemId as number,
+            //     materials: requests,
+            // });
+            // if (serverCheck.success && serverCheck.data && !serverCheck.data.is_valid) {
+            //     const serverIssues = (serverCheck.data.results || []).filter((r: { is_valid: boolean }) => !r.is_valid);
+            //     const lines = serverIssues.map(
+            //         (i: { item_name: string; requested_quantity: number; available_quantity: number }) => `• ${i.item_name}: ขอใช้ ${i.requested_quantity} คงเหลือ ${i.available_quantity}`
+            //     );
+            //     Swal.fire('วัตถุดิบไม่เพียงพอ (ตรวจสอบจากระบบ)', lines.join('\n'), 'error');
+            //     return;
+            // }
+            throw new Error("")
         } catch { /* หาก server validate ไม่ได้ ให้ใช้ client validation ที่ผ่านแล้ว */ }
 
         const confirm = await Swal.fire({
@@ -392,22 +403,26 @@ const WorkorderCreate: React.FC = () => {
                             <label className="form-label fw-bold fs-6 text-gray-800 required">
                                 เลือกใบสั่งขาย (Sales Order)
                             </label>
-                            <select
-                                className="form-select form-select-solid"
-                                value={selectedDocEntry}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setSelectedDocEntry(val === '' ? '' : Number(val));
+                            <Select
+                                options={salesOrderOptions}
+                                getOptionLabel={(option: any) => `${option.doc_num}`}
+                                getOptionValue={(option: any) => String(option.doc_entry)}
+                                formatOptionLabel={(option: any) => (
+                                    <span className="fw-bold">{option.doc_num}</span>
+                                )}
+                                value={selectedSalesOrder}
+                                onInputChange={(inputValue, actionMeta) => {
+                                    if (actionMeta.action === 'input-change') setSoSearchKeyword(inputValue);
+                                }}
+                                onChange={(option) => {
+                                    setSelectedSalesOrder(option);
+                                    setSelectedDocEntry(option ? Number(option.doc_entry) : '');
                                     setSelectedSalesItemId('');
                                 }}
-                            >
-                                <option value="">-- เลือกใบสั่งขาย --</option>
-                                {salesOrderOptions.map((so) => (
-                                    <option key={so.doc_entry} value={so.doc_entry}>
-                                        {so.doc_num}
-                                    </option>
-                                ))}
-                            </select>
+                                placeholder="ค้นหาใบสั่งขาย..."
+                                isClearable
+                                filterOption={null}
+                            />
                         </div>
 
                         {/* Sales Item */}

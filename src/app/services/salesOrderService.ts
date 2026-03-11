@@ -66,29 +66,6 @@ export const getSalesOrderService = async (doc_entry: number) => {
     }
 }
 
-export const getSalesOrdersForQC = async (search: string = "") => {
-    try {
-        const token = localStorage.getItem('tk-jos');
-        const headers = { "Authorization": `Bearer ${token}` };
-        const params = new URLSearchParams();
-        if (search) params.append("search", search);
-
-        const response = await front_api(
-            "GET",
-            `/get_sales_orders_for_qc?${params.toString()}`,
-            {},
-            { wrapData: false, headers }
-        );
-
-        if (!response) return false;
-        const result = await response.json();
-        return response.ok ? { ...result, success: true } : { ...result, success: false };
-    } catch (error) {
-        console.error("getSalesOrdersForQC Error:", error);
-        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
-    }
-}
-
 // Mock po_reference until backend supports it
 export const getSalesOrderForCertificate = async (doc_entry: number) => {
     const result = await getSalesOrderService(doc_entry);
@@ -99,16 +76,14 @@ export const getSalesOrderForCertificate = async (doc_entry: number) => {
     return result;
 };
 
-export const getSalesItemsForQC = async (search: string = "") => {
+export const getSalesItemsFromSalesOrder = async (doc_entry: number) => {
     try {
         const token = localStorage.getItem('tk-jos');
         const headers = { "Authorization": `Bearer ${token}` };
-        const params = new URLSearchParams();
-        if (search) params.append("search", search);
 
         const response = await front_api(
             "GET",
-            `/get_sales_items_for_qc?${params.toString()}`,
+            `/sales_order/${doc_entry}/sales_items`,
             {},
             { wrapData: false, headers }
         );
@@ -117,7 +92,7 @@ export const getSalesItemsForQC = async (search: string = "") => {
         const result = await response.json();
         return response.ok ? { ...result, success: true } : { ...result, success: false };
     } catch (error) {
-        console.error("getSalesItemsForQC Error:", error);
+        console.error("getSalesItemsFromSalesOrder Error:", error);
         return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
     }
 }

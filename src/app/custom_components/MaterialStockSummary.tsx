@@ -86,8 +86,8 @@ const MaterialStockSummary: React.FC<Props> = ({ salesItemId, externalData }) =>
                         </thead>
                         <tbody>
                             {summaries.map(item => {
-                                const usedPct = item.total_quantity > 0
-                                    ? ((item.used_in_production + item.used_in_testing) / item.total_quantity) * 100
+                                const remainingPct = item.total_quantity > 0
+                                    ? (item.remaining_quantity / item.total_quantity) * 100
                                     : 0;
 
                                 return (
@@ -103,11 +103,11 @@ const MaterialStockSummary: React.FC<Props> = ({ salesItemId, externalData }) =>
                                             </span>
                                         </td>
                                         <td>
-                                            <div className="progress h-6px">
+                                            <div className="progress h-6px bg-light-secondary">
                                                 <div
                                                     className={`progress-bar ${getProgressColor(item)}`}
                                                     role="progressbar"
-                                                    style={{ width: `${Math.min(usedPct, 100)}%` }}
+                                                    style={{ width: remainingPct > 0 ? `${Math.min(remainingPct, 100)}%` : '100%', opacity: remainingPct > 0 ? 1 : 0.25 }}
                                                 ></div>
                                             </div>
                                         </td>
