@@ -128,7 +128,7 @@ const WorkorderList: React.FC = () => {
                     items = filtered;
                 }
                 setWorkorders(items);
-                setTotalPages(result.data.total_pages);
+                setTotalPages(result.pagination?.pages ?? 0);
             } else {
                 setWorkorders([]);
                 setTotalPages(0);
@@ -383,6 +383,7 @@ const WorkorderList: React.FC = () => {
                                                     <i className='bi bi-pencil-square fs-3'></i>
                                                 </button>
                                             </td>
+                                            
                                         </tr>
                                     ))
                                 ) : (

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react"
 import { useMasterData } from "../context/MasterDataContext";
 import { KTIcon } from "../../_metronic/helpers";
+import { TransformedPermission } from "../type_interface/SettingType";
 
 interface TableActionProps {
     isViewBtnShow?: boolean;
@@ -9,6 +10,7 @@ interface TableActionProps {
     handleView?: () => void;
     handleEdit?: () => void;
     handleDelete?: () => void;
+    permissions?: TransformedPermission;
 }
 
 // ใช้กับตารางหน้า List รายการหลักเท่านั้น :)
@@ -19,6 +21,7 @@ const TableActionButton: React.FC<TableActionProps> = ({
     handleView=() => {},
     handleEdit=() => {},
     handleDelete=() => {},
+    permissions,
 }) => {
 
     const { masterData } = useMasterData();
@@ -37,10 +40,16 @@ const TableActionButton: React.FC<TableActionProps> = ({
     }
 
     useEffect(() => {
+        if (permissions) {
+            setIsViewAllow(permissions.view);
+            setIsEditAllow(permissions.edit);
+            setIsDeleteAllow(permissions.delete);
+            return;
+        }
         if (actionList.length > 0) {
             managePermission();
         }
-    }, [masterData.actionList])
+    }, [masterData.actionList, permissions])
 
     return (
         <>

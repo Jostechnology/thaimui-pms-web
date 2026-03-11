@@ -18,7 +18,7 @@ export interface SalesOrderSummary {
 
 export const getSalesOrderList = async (
     page: number,
-    limit: number,
+    per_page: number,
     search: string = ""
 ) => {
     try {
@@ -26,7 +26,7 @@ export const getSalesOrderList = async (
 
         const params = new URLSearchParams({
             page: page.toString(),
-            limit: limit.toString(),
+            per_page: per_page.toString(),
         });
 
         if (search) params.append("search", search);
@@ -50,7 +50,7 @@ export const getSalesOrderList = async (
         const result = await response.json();
 
         if (response.ok) {
-            return { ...result.data, success: true };
+            return { data: result.data, pagination: result.pagination, success: true };
         } else {
             return { ...result, success: false };
         }

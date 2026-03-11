@@ -9,8 +9,8 @@ import { qcWorkData } from "../../../libs/defaultFormData";
 import Select from "react-select";
 import {
 	getSalesOrderService,
-	getSalesOrdersForQC,
-	getSalesItemsForQC,
+	searchSalesOrderService,
+	getSalesItemsFromSalesOrder,
 } from "../../../services/salesOrderService";
 import { Material } from "../../../type_interface/MaterialType";
 import { createQCWorkOrder, updateQCWorkOrder, getQCWorkOrderById } from "../../../services/qcWorkOrderService";
@@ -114,7 +114,6 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 						if (salesRes && salesRes.data) {
 							setIsFirstLoad(true)
 							const data = salesRes.data;
-							setMaterialList(data.material_list || []);
 							setSalesOrders([data]);  // ให้ dropdown SO แสดงค่าที่เลือกใน view/edit
 							setFormData((prev: any) => ({
 								...prev,
@@ -127,11 +126,9 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 								teamName: data.group_name,
 							}));
 							// โหลด sales items เพื่อให้แสดงชื่อสินค้าใน select
-							// const itemsRes = await getSalesItemsForQC("");
-							// const filtered = (itemsRes?.data || []).filter(
-							// 	(item: any) => item.doc_entry === data.doc_entry
-							// );
-							// setSalesItems(filtered);
+							setSalesItems(data.items);
+							setMaterialList(data?.material_list || []);
+							
 						}
 					} catch (e) {
 						console.error("Failed to fetch sales order for QC Work Order", e);
@@ -215,6 +212,12 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 		}));
 	};
 
+	const getMateriakInFormData = (itemId : string) => {
+		const item = formData.items.find((prev) => prev.id === itemId)
+		const material = materialList.find((ml) => ml.material_list_id == item?.material_list_id)
+		return material
+	}
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setLoading(true);
@@ -270,7 +273,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 			return
 		}
 		const timeout = setTimeout(async () => {
-			const res = await getSalesOrdersForQC(searchSalesOrder);
+			const res = await searchSalesOrderService(searchSalesOrder);
 			if (res && res.data) setSalesOrders(res.data);
 		}, 750);
 		return () => clearTimeout(timeout);
@@ -295,12 +298,8 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 						salesItemId: undefined, // reset item selection
 					}));
 					// โหลด sales items ของ SO นี้
-					const itemsRes = await getSalesItemsForQC("");
-					const filtered = (itemsRes?.data || []).filter(
-						(item: any) => item.doc_entry === data.doc_entry
-					);
-					setSalesItems(filtered);
-					setMaterialList(data.material_list || []);
+					setSalesItems(data.items || []);
+					setMaterialList(data.material_list);
 				}
 			} catch (e) {
 				console.error("Failed to fetch sales order info", e);
@@ -310,6 +309,10 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 			setSearchSalesOrder("");
 			setSalesItems([]);
 			setMaterialList([]);
+			setFormData((prev: any) => ({
+				...prev,
+				salesItemId: undefined, // reset item selection
+			}));
 		}
 	};
 
@@ -426,14 +429,14 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 							</div>
 
 							<div className="row mb-3">
-								<div className="col-md-6">
+								<div className="col-md-5">
 									<label className="form-label">ใบสั่งขายเลขที่</label>
+									
 									<Select
 										options={salesOrders}
 										formatOptionLabel={(option: any) => (
 											<div className="d-flex align-items-center gap-2">
 												<span className="fw-bold">{option.doc_num}</span>
-												<span className="text-muted">{option.card_name}</span>
 											</div>
 										)}
 										getOptionValue={(option: any) => String(option.doc_entry)}
@@ -448,13 +451,14 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 											}
 										}}
 										onChange={(option: any) => handleClickedSalesOrder(option)}
+										filterOption={null}
 										placeholder="ค้นหาใบสั่งขาย..."
 										isClearable
 										isDisabled={isReadOnly}
 									/>
 								</div>
 
-								<div className="col-md-4">
+								<div className="col-md-5">
 									<label className="form-label">รหัสสินค้า (Sales Item)</label>
 									{!isReadOnly ? (
 										<Select
@@ -482,9 +486,9 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 													setFormData((prev: any) => ({ ...prev, salesItemId: undefined, salesItemCode: "" }));
 												}
 											}}
-											placeholder={formData.salesItemCode || "พิมพ์เพื่อค้นหาสินค้า..."}
+											placeholder={formData.salesItemCode || "กรุณาเลือกใบสั่งขายก่อน"}
 											isClearable
-											isSearchable
+											isSearchable={false}
 										/>
 									) : (
 										<input
@@ -754,9 +758,9 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 													<th style={{ width: "15%" }}>รหัสสินค้า</th>
 													<th style={{ width: "25%" }}>รายละเอียด</th>
 													<th style={{ width: "10%" }}>WLL</th>
-													<th style={{ width: "10%" }}>จำนวน</th>
+													<th style={{ width: "15%" }}>จำนวน</th>
 													<th style={{ width: "15%" }}>Serial No</th>
-													<th style={{ width: "15%" }}>หมายเหตุ</th>
+													<th style={{ width: "10%" }}>หมายเหตุ</th>
 													{!isReadOnly && (
 														<th style={{ width: "5%" }}>Action</th>
 													)}
@@ -829,7 +833,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 																disabled={isReadOnly}
 															/>
 														</td>
-														<td>
+														<td className="d-flex gap-1 align-items-center">
 															<input
 																type="number"
 																min={0}
@@ -843,7 +847,9 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 																	)
 																}
 																disabled={isReadOnly}
+																style={{width : "65%"}}
 															/>
+															{getMateriakInFormData(item.id) && <span className="fw-bold text-danger">{`(เหลือ ${getMateriakInFormData(item.id)?.remaining_num})`}</span>}
 														</td>
 														<td>
 															<input
