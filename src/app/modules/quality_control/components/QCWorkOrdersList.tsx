@@ -63,7 +63,7 @@ const QCWorkOrdersList: React.FC = () => {
             const result = await getQCWorkOrderList(currentPage, pageConfig, keyword, statusFilter);
             if (result && result.success) {
                 setQCWorkOrders(result.data.items);
-                setTotalPages(result.data.total_pages);
+                setTotalPages(result.pagination?.pages ?? 0);
             } else {
                 setQCWorkOrders([]);
                 setTotalPages(0);

@@ -111,14 +111,14 @@ export const createUser = async (username: string , password: string , role_id: 
 }
 export const getUserList = async (
     page: number,
-    limit: number,
+    per_page: number,
     search: string = "",
     roleId?: number | string,
 ) => {
     try {
         const params = new URLSearchParams({
             page: page.toString(),
-            pageConfig: limit.toString(),
+            per_page: per_page.toString(),
         });
         
         if (search) params.append("search", search); 
