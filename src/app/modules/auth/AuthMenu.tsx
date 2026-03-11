@@ -1,3 +1,5 @@
+import { MdFactory } from "react-icons/md";
+
 export interface RouteType {
     module_code: string;
     path: string;
@@ -14,6 +16,7 @@ export interface MainRouteType extends RouteType {
     fontIcon: string;
     icon: string;
     subMenu: SubRouteType[];
+    customIcon?: string;
 }
 
 export const mainRoutesConfig: MainRouteType[] = [
@@ -86,6 +89,16 @@ export const mainRoutesConfig: MainRouteType[] = [
         title: "",
         fontIcon: "bi-hammer",
         icon: "bi bi-hammer",
+        subMenu: [],
+        permission: []
+    },
+    {
+        module_code: "MACHINE",
+        path: "/machine",
+        title: "",
+        fontIcon: "bi-gear-wide-connected",
+        icon: "wrench",
+        customIcon: "/media/icons/machine.svg",
         subMenu: [],
         permission: []
     }
@@ -195,6 +208,27 @@ export const subRoutesConfig: SubRouteType[] = [
         module_code: "PM_ITEM",
         main_module_code: "PM_MACHINE",
         path: "/pm_machine/item",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "MACHINE_LIST",
+        main_module_code: "MACHINE",
+        path: "/machine/machine_list",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "MACHINE_CREATE",
+        main_module_code: "MACHINE",
+        path: "/machine/machine_create",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "MACHINE_DASHBOARD",
+        main_module_code: "MACHINE",
+        path: "/machine/machine_dashboard",
         title: "",
         permission: []
     }
