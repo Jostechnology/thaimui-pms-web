@@ -72,6 +72,7 @@ export const getMachineList = async (search: string = "") => {
         const params = new URLSearchParams({
             page: "1",
             limit: "999",
+            status: "DOWN",
         });
         if (search) params.append("search", search);
 
