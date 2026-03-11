@@ -6,7 +6,7 @@ import { getMaterialStockSummary } from '../../../services/materialStockService'
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import type { MaterialStockSummary } from '../../../type_interface/MaterialStockType';
-import MaterialUsageDetailModal from '../../Tracking/components/MaterialUsageDetailModal';
+import MaterialUsageDetailModal from '../../tracking/components/MaterialUsageDetailModal';
 
 interface SalesItem {
     sales_item_id: number;
@@ -374,8 +374,8 @@ const SalesOrderView: React.FC = () => {
                                             : 0;
                                         const progressColor = !stock ? 'bg-secondary'
                                             : stock.remaining_quantity <= 0 ? 'bg-danger'
-                                            : usedPct >= 80 ? 'bg-warning'
-                                            : 'bg-success';
+                                                : usedPct >= 80 ? 'bg-warning'
+                                                    : 'bg-success';
 
                                         return (
                                             <tr
