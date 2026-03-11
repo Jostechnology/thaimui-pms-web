@@ -79,6 +79,15 @@ export const mainRoutesConfig: MainRouteType[] = [
         icon: "bi bi-graph-up",
         subMenu: [],
         permission: []
+    },
+    {
+        module_code: "PM_MACHINE",
+        path: "/pm_machine",
+        title: "",
+        fontIcon: "bi-hammer",
+        icon: "bi bi-hammer",
+        subMenu: [],
+        permission: []
     }
 ]
 
@@ -179,6 +188,13 @@ export const subRoutesConfig: SubRouteType[] = [
         module_code: "PRODUCTION_TRACKING",
         main_module_code: "TRACKING",
         path: "/tracking/production_tracking",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "PM_ITEM",
+        main_module_code: "PM_MACHINE",
+        path: "/pm_machine/item",
         title: "",
         permission: []
     }
