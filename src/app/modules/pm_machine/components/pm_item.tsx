@@ -6,8 +6,6 @@ import { Content } from '../../../../_metronic/layout/components/content';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import { getpmMachineList, createpmMachine, getMachineList } from '../../../services/pm_machineService';
-import TablePaginator from '../../../custom_components/TablePaginator';
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PmRepairItem {
@@ -292,27 +290,30 @@ const AddRepairModal: React.FC<AddRepairModalProps> = ({ show, onHide, onSuccess
 const PmRepairList: React.FC = () => {
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
-
     const [repairs, setRepairs] = useState<PmRepairItem[]>([]);
     const [dataLoading, setDataLoading] = useState(false);
     const [totalPages, setTotalPages] = useState(0);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [pageConfig] = useState(10);
+    const [totalItems, setTotalItems] = useState(0);
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [itemsPerPage, setItemsPerPage] = useState<number>(10);
     const [searchTerm, setSearchTerm] = useState('');
-    const [keyword, setKeyword] = useState('');
+    const [statusFilter, setStatusFilter] = useState<string>('');
     const [showAddModal, setShowAddModal] = useState(false);
 
-    const fetchRepairs = async () => {
+    const fetchRepairs = async (page: number, per_page: number, search: string, status: string) => {
         setDataLoading(true);
         setLoading();
         try {
-            const res = await getpmMachineList(currentPage, pageConfig, keyword);
+            const res = await getpmMachineList(page, per_page, search, status);
             if (res && res.success) {
                 setRepairs(res.items || []);
                 setTotalPages(res.total_pages || 0);
+                setTotalItems(res.total || 0);
+                setCurrentPage(res.page || page);
             } else {
                 setRepairs([]);
                 setTotalPages(0);
+                setTotalItems(0);
             }
         } catch {
             alertMessage('เกิดข้อผิดพลาดในการดึงข้อมูล');
@@ -322,9 +323,32 @@ const PmRepairList: React.FC = () => {
         }
     };
 
+    // Debounce search & pagination
     useEffect(() => {
-        fetchRepairs();
-    }, [currentPage, keyword, pageConfig]);
+        const timeoutId = setTimeout(() => {
+            fetchRepairs(currentPage, itemsPerPage, searchTerm, statusFilter);
+        }, 500);
+        return () => clearTimeout(timeoutId);
+    }, [searchTerm, statusFilter, currentPage, itemsPerPage]);
+
+    // Reset page to 1 when search changes
+    // Reset page to 1 when search or filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter]);
+
+    // Handle Page Change
+    const handlePageChange = (newPage: number) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+        }
+    };
+
+    // Handle Per-Page Change
+    const handleLimitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setItemsPerPage(Number(e.target.value));
+        setCurrentPage(1);
+    };
 
     const formatDate = (dateStr: string) => {
         if (!dateStr) return '-';
@@ -401,19 +425,25 @@ const PmRepairList: React.FC = () => {
                                 placeholder="ค้นหาชื่อเครื่องจักร"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        setKeyword(searchTerm);
-                                        setCurrentPage(1);
-                                    }
-                                }}
                             />
                         </div>
                     </div>
-                    <div className="card-toolbar">
+                    <div className="card-toolbar d-flex align-items-center gap-3">
+                        <div className="d-flex align-items-center">
+                            <label className="fs-7 fw-bold text-gray-700 me-3">ประเภท:</label>
+                            <select
+                                className="form-select form-select-solid form-select-sm w-150px"
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                            >
+                                <option value="">ทั้งหมด</option>
+                                <option value="Preventive">ซ่อมบำรุงเชิงป้องกัน</option>
+                                <option value="Corrective">ซ่อมบำรุงเชิงแก้ไข</option>
+                            </select>
+                        </div>
                         <button
                             className="btn btn-sm btn-light-primary fw-bold"
-                            onClick={fetchRepairs}
+                            onClick={() => fetchRepairs(currentPage, itemsPerPage, searchTerm, statusFilter)}
                             title="รีเฟรช"
                         >
                             <i className="bi bi-arrow-clockwise me-1"></i>
@@ -465,7 +495,7 @@ const PmRepairList: React.FC = () => {
                                     repairs.map((item, index) => (
                                         <tr key={item.maintenance_id}>
                                             <td className="ps-4 text-muted">
-                                                {(currentPage - 1) * pageConfig + index + 1}
+                                                {(currentPage - 1) * itemsPerPage + index + 1}
                                             </td>
                                             <td>
                                                 <div className="d-flex align-items-center">
@@ -506,14 +536,71 @@ const PmRepairList: React.FC = () => {
                         </table>
                     </div>
 
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="d-flex justify-content-center mt-5">
-                            <TablePaginator
-                                currentPage={currentPage}
-                                totalPages={totalPages}
-                                setCurrentPage={setCurrentPage}
-                            />
+                    {/* ==================== PAGINATION ==================== */}
+                    {!dataLoading && repairs.length > 0 && (
+                        <div className='row mt-5'>
+                            <div className='col-sm-12 col-md-5 d-flex align-items-center justify-content-center justify-content-md-start'>
+                                <div className='dataTables_length'>
+                                    <label>
+                                        <select
+                                            className='form-select form-select-sm form-select-solid shadow-sm'
+                                            value={itemsPerPage}
+                                            onChange={handleLimitChange}
+                                            disabled={dataLoading}
+                                        >
+                                            <option value='10'>10</option>
+                                            <option value='25'>25</option>
+                                            <option value='50'>50</option>
+                                            <option value='100'>100</option>
+                                        </select>
+                                    </label>
+                                </div>
+                                <div className='dataTables_info mx-4 text-muted' role='status' aria-live='polite'>
+                                    แสดง {repairs.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} ถึง {Math.min(currentPage * itemsPerPage, totalItems)} จาก {totalItems} รายการ
+                                </div>
+                            </div>
+                            <div className='col-sm-12 col-md-7 d-flex align-items-center justify-content-center justify-content-md-end'>
+                                <div className='dataTables_paginate paging_simple_numbers'>
+                                    <ul className='pagination'>
+                                        <li className={`paginate_button page-item previous ${currentPage === 1 ? 'disabled' : ''}`}>
+                                            <button onClick={() => handlePageChange(currentPage - 1)} className='page-link' disabled={currentPage === 1 || dataLoading}>
+                                                <i className='previous'></i>
+                                            </button>
+                                        </li>
+                                        {[...Array(totalPages)].map((_, index) => {
+                                            const pageNumber = index + 1;
+                                            if (
+                                                pageNumber === 1 ||
+                                                pageNumber === totalPages ||
+                                                (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                                            ) {
+                                                return (
+                                                    <li key={pageNumber} className={`paginate_button page-item ${currentPage === pageNumber ? 'active' : ''}`}>
+                                                        <button onClick={() => handlePageChange(pageNumber)} className='page-link' disabled={dataLoading}>
+                                                            {pageNumber}
+                                                        </button>
+                                                    </li>
+                                                );
+                                            } else if (
+                                                pageNumber === currentPage - 2 ||
+                                                pageNumber === currentPage + 2
+                                            ) {
+                                                return (
+                                                    <li key={pageNumber} className="paginate_button page-item disabled">
+                                                        <span className="page-link">...</span>
+                                                    </li>
+                                                );
+                                            }
+                                            return null;
+                                        })}
+                                        <li className={`paginate_button page-item next ${currentPage === totalPages || totalPages === 0 ? 'disabled' : ''}`}>
+                                            <button onClick={() => handlePageChange(currentPage + 1)} className='page-link' disabled={currentPage === totalPages || totalPages === 0 || dataLoading}>
+                                                <i className='next'></i>
+                                            </button>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -523,7 +610,7 @@ const PmRepairList: React.FC = () => {
             <AddRepairModal
                 show={showAddModal}
                 onHide={() => setShowAddModal(false)}
-                onSuccess={fetchRepairs}
+                onSuccess={() => fetchRepairs(currentPage, itemsPerPage, searchTerm, statusFilter)}
             />
         </Content>
     );

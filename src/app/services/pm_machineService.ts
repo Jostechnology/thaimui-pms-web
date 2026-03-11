@@ -3,7 +3,8 @@ import { front_api } from "./apiConfig";
 export const getpmMachineList = async (
     page: number,
     per_page: number,
-    search: string = ""
+    search: string = "",
+    status: string = ""
 ) => {
     try {
         const token = localStorage.getItem('tk-jos');
@@ -14,6 +15,7 @@ export const getpmMachineList = async (
         });
 
         if (search) params.append("search", search);
+        if (status) params.append("status", status);
 
         const headers = {
             "Authorization": `Bearer ${token}`
