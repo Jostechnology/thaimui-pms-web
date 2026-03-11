@@ -7,6 +7,7 @@ import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import type { MaterialStockSummary } from '../../../type_interface/MaterialStockType';
 import MaterialUsageDetailModal from '../../Tracking/components/MaterialUsageDetailModal';
+import SalesItemTrackingModal from '../../quality_control/components/SalesItemTrackingModal';
 
 interface SalesItem {
     sales_item_id: number;
@@ -67,6 +68,8 @@ const SalesOrderView: React.FC = () => {
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [selectedMaterialId, setSelectedMaterialId] = useState<number | null>(null);
     const [selectedMaterialName, setSelectedMaterialName] = useState('');
+    const [showTrackingModal, setShowTrackingModal] = useState(false);
+    const [selectedSalesItemId, setSelectedSalesItemId] = useState<number | null>(null);
 
     const fetchData = async () => {
         setLoading();
@@ -158,7 +161,7 @@ const SalesOrderView: React.FC = () => {
                 <div className="d-flex gap-3 mt-3 mt-md-0">
                     <div className="d-flex align-items-center bg-light p-3 rounded">
                         <div className="d-flex flex-column text-end">
-                            <span className="text-muted fs-8 fw-bolder text-uppercase">วันที่แจ้งงาน</span>
+                            <span className="text-muted fs-8 fw-bolder text-uppercase">วันที่สร้าง</span>
                             <span className="fw-bolder text-gray-800 fs-6">{formatDate(salesOrder.created_date)}</span>
                         </div>
                     </div>
@@ -225,6 +228,11 @@ const SalesOrderView: React.FC = () => {
                     <h3 className="card-title fw-bolder align-items-start flex-column">
                         <span className="card-label fw-bolder text-gray-800"><i className="bi bi-box-seam fs-2 me-2 text-primary"></i> รายการสินค้า ({salesOrder.items.length})</span>
                     </h3>
+                    <div className="card-toolbar">
+                        <span className="text-muted fs-7">
+                            <i className="bi bi-hand-index me-1"></i>คลิกที่รายการเพื่อดูสถานะการผลิตและทดสอบ
+                        </span>
+                    </div>
                 </div>
                 <div className="card-body py-3">
                     <div className="table-responsive">
@@ -243,7 +251,11 @@ const SalesOrderView: React.FC = () => {
                             <tbody>
                                 {salesOrder.items && salesOrder.items.length > 0 ? (
                                     salesOrder.items.map((item, index) => (
-                                        <tr key={index}>
+                                        <tr
+                                            key={index}
+                                            onClick={() => { setSelectedSalesItemId(item.sales_item_id); setShowTrackingModal(true); }}
+                                            style={{ cursor: 'pointer' }}
+                                        >
                                             <td className="ps-4">
                                                 <span className="text-gray-800 fw-bolder d-block fs-6">{index + 1}</span>
                                             </td>
@@ -418,6 +430,13 @@ const SalesOrderView: React.FC = () => {
                 onHide={() => setShowDetailModal(false)}
                 materialListId={selectedMaterialId}
                 materialName={selectedMaterialName}
+            />
+
+            {/* Sales Item Tracking Modal */}
+            <SalesItemTrackingModal
+                show={showTrackingModal}
+                onHide={() => setShowTrackingModal(false)}
+                salesItemId={selectedSalesItemId}
             />
         </Content>
     );

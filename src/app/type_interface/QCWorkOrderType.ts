@@ -18,7 +18,7 @@ export interface QCWorkOrderData {
   customerName: string;
   docNum: string;
   customerReceiptNumber: string;
-  donEntry: string
+  docEntry: string
   salesName: string
   salesCode: string
   teamCode: string

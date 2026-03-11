@@ -126,8 +126,8 @@ const SalesOrderList: React.FC = () => {
                                         <th className='min-w-200px'>ข้อมูลลูกค้า</th>
                                         <th className='min-w-150px'>ตัวแทนขาย</th>
                                         <th className='min-w-150px'>สาขา</th>
-                                        <th className='min-w-120px text-center'>สินค้า / ใบสั่งงาน</th>
-                                        <th className='min-w-125px text-center'>วันที่แจ้ง</th>
+                                        <th className='min-w-200px'>ความคืบหน้า</th>
+                                        <th className='min-w-125px text-center'>วันที่สร้าง</th>
                                         <th className='text-end min-w-50px'>จัดการ</th>
                                     </tr>
                                 </thead>
@@ -166,12 +166,66 @@ const SalesOrderList: React.FC = () => {
                                                         <span className="text-gray-800 fw-bold fs-6">{so.bpl_name || '-'}</span>
                                                     </div>
                                                 </td>
-                                                <td className="text-center">
-                                                    <div className="d-flex flex-column gap-1 align-items-center">
-                                                        <span className="badge badge-light-primary fs-7 w-100px">{so.sales_items_count} สินค้า</span>
-                                                        {so.work_orders_count > 0 && (
-                                                            <span className="badge badge-light-success fs-7 w-100px">{so.work_orders_count} ใบสั่งงาน</span>
-                                                        )}
+                                                <td>
+                                                    <div className="d-flex flex-column gap-2" style={{ minWidth: 160 }}>
+                                                        {/* Work Order progress */}
+                                                        <div>
+                                                            <div className="d-flex justify-content-between align-items-center mb-1">
+                                                                <span className="text-muted fs-8 fw-semibold">
+                                                                    <i className="bi bi-gear me-1"></i>ใบสั่งผลิต
+                                                                </span>
+                                                                <span className="text-gray-700 fw-bold fs-8">
+                                                                    {so.wo_completed}/{so.wo_count}
+                                                                </span>
+                                                            </div>
+                                                            <div className="h-6px rounded bg-light">
+                                                                <div
+                                                                    className="h-6px rounded"
+                                                                    style={{
+                                                                        width: so.wo_count > 0 ? `${Math.round((so.wo_completed / so.wo_count) * 100)}%` : '0%',
+                                                                        backgroundColor: so.wo_count > 0 && so.wo_completed === so.wo_count ? '#50cd89' : '#009ef7',
+                                                                        transition: 'width 0.3s',
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* QC progress */}
+                                                        <div>
+                                                            <div className="d-flex justify-content-between align-items-center mb-1">
+                                                                <span className="text-muted fs-8 fw-semibold">
+                                                                    <i className="bi bi-clipboard2-check me-1"></i>QC
+                                                                </span>
+                                                                <span className="text-gray-700 fw-bold fs-8">
+                                                                    {so.qc_passed}/{so.qc_count}
+                                                                    {so.qc_failed > 0 && (
+                                                                        <span className="text-danger ms-1">({so.qc_failed} ไม่ผ่าน)</span>
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                            <div className="h-6px rounded bg-light d-flex overflow-hidden">
+                                                                {so.qc_count > 0 && so.qc_passed > 0 && (
+                                                                    <div
+                                                                        className="h-6px"
+                                                                        style={{
+                                                                            width: `${Math.round((so.qc_passed / so.qc_count) * 100)}%`,
+                                                                            backgroundColor: '#50cd89',
+                                                                            transition: 'width 0.3s',
+                                                                        }}
+                                                                    />
+                                                                )}
+                                                                {so.qc_count > 0 && so.qc_failed > 0 && (
+                                                                    <div
+                                                                        className="h-6px"
+                                                                        style={{
+                                                                            width: `${Math.round((so.qc_failed / so.qc_count) * 100)}%`,
+                                                                            backgroundColor: '#f1416c',
+                                                                            transition: 'width 0.3s',
+                                                                        }}
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td className='text-center'>

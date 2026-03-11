@@ -76,6 +76,27 @@ export const getSalesOrderForCertificate = async (doc_entry: number) => {
     return result;
 };
 
+export const getSalesItemTracking = async (salesItemId: number) => {
+    try {
+        const token = localStorage.getItem('tk-jos');
+        const headers = { "Authorization": `Bearer ${token}` };
+
+        const response = await front_api(
+            "GET",
+            `/sales_item/${salesItemId}/tracking`,
+            {},
+            { wrapData: false, headers }
+        );
+
+        if (!response) return { success: false };
+        const result = await response.json();
+        return response.ok ? { ...result, success: true } : { ...result, success: false };
+    } catch (error) {
+        console.error("getSalesItemTracking Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+}
+
 export const getSalesItemsFromSalesOrder = async (doc_entry: number) => {
     try {
         const token = localStorage.getItem('tk-jos');

@@ -228,7 +228,7 @@ const WorkorderView: React.FC = () => {
             if (result && result.success && result.data) {
                 setWorkOrder(result.data);
             } else {
-                alertMessage("ไม่สามารถดึงข้อมูลใบสั่งงานได้");
+                alertMessage("ไม่สามารถดึงข้อมูลใบสั่งผลิตได้");
             }
         } catch (error) {
             console.error(error);
@@ -319,7 +319,7 @@ const WorkorderView: React.FC = () => {
             <Content>
                 <div className="d-flex flex-column flex-center py-20">
                     <i className="bi bi-exclamation-triangle fs-3x text-warning mb-4" />
-                    <span className="text-gray-600 fs-5">ไม่พบข้อมูลใบสั่งงาน</span>
+                    <span className="text-gray-600 fs-5">ไม่พบข้อมูลใบสั่งผลิต</span>
                     <button className="btn btn-primary mt-5" onClick={() => navigate('/workorder/workorders_list')}>
                         กลับหน้ารายการ
                     </button>
