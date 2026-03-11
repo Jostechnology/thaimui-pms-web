@@ -39,7 +39,7 @@ export async function generateQCWorkOrderPDF(formData: QCWorkOrderData, qcWorkOr
             <td></td><td></td><td></td><td></td><td></td>
         </tr>`).join("");
 
-    const docNum = formData.docNum ?? formData.donEntry ?? "";
+    const docNum = formData.docNum ?? formData.docEntry ?? "";
     const customerDisplay = [formData.customerCode, formData.customerName].filter(Boolean).join(" / ");
 
     const html = `
@@ -58,7 +58,7 @@ export async function generateQCWorkOrderPDF(formData: QCWorkOrderData, qcWorkOr
         <div style="position:absolute;top:24px;right:36px;font-size:9px;border:1px solid #000;padding:2px 6px;">FR-WH-QC-001</div>
 
         <!-- Title -->
-        <div style="text-align:center;font-size:18px;font-weight:bold;margin-bottom:10px;">ใบสั่งงาน QC</div>
+        <div style="text-align:center;font-size:18px;font-weight:bold;margin-bottom:10px;">ใบสั่งเทส</div>
 
         <!-- Header table -->
         <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:0;">

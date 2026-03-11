@@ -258,7 +258,7 @@ const WorkorderList: React.FC = () => {
                             <input
                                 type='text'
                                 className='form-control form-control-solid w-250px ps-12'
-                                placeholder='ค้นหาจากรหัสใบสั่งงาน'
+                                placeholder='ค้นหาจากรหัสใบสั่งผลิต'
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && setKeyword(searchTerm)}
@@ -305,13 +305,13 @@ const WorkorderList: React.FC = () => {
                         <table className='table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer'>
                             <thead>
                                 <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
-                                    <th className='min-w-100px'>รหัสใบสั่งงาน</th>
+                                    <th className='min-w-100px'>รหัสใบสั่งผลิต</th>
                                     <th className='min-w-125px'>สินค้า</th>
                                     <th className='min-w-100px'>รายละเอียด</th>
                                     <th className='min-w-150px text-center'>ช่วงการดำเนินงานล่าสุด</th>
                                     <th className='min-w-125px text-center'>วันที่สร้าง</th>
                                     <th className='min-w-125px text-center'>สถานะ</th>
-                                    <th className='text-end min-w-50px'>จัดการใบสั่งงาน</th>
+                                    <th className='text-end min-w-50px'>จัดการใบสั่งผลิต</th>
                                 </tr>
                             </thead>
                             <tbody className='text-gray-600 fw-semibold'>
@@ -391,7 +391,7 @@ const WorkorderList: React.FC = () => {
                                         <td colSpan={6} className='text-center p-20'>
                                             <div className='d-flex flex-column flex-center'>
                                                 <i className='bi bi-search fs-3x text-gray-300 mb-4'></i>
-                                                <span className='text-gray-500'>ไม่พบข้อมูลใบสั่งงานในระบบ</span>
+                                                <span className='text-gray-500'>ไม่พบข้อมูลใบสั่งผลิตในระบบ</span>
                                             </div>
                                         </td>
                                     </tr>

@@ -258,7 +258,7 @@ const WorkorderDashboard: React.FC = () => {
     // ==========================================
     const kpiCards = [
         {
-            title: 'ใบสั่งงานทั้งหมด',
+            title: 'ใบสั่งผลิตทั้งหมด',
             value: kpi.total,
             icon: 'bi-clipboard2-data',
             bgClass: 'bg-light-primary',
@@ -309,7 +309,7 @@ const WorkorderDashboard: React.FC = () => {
                         Work Order Dashboard
                     </h1>
                     <span className='text-muted fw-semibold fs-6'>
-                        ภาพรวมและติดตามสถานะใบสั่งงานทั้งหมดในระบบ
+                        ภาพรวมและติดตามสถานะใบสั่งผลิตทั้งหมดในระบบ
                         {workOrders.length > 0 && (
                             <span className='ms-2 text-primary fw-bold'>({workOrders.length} รายการ)</span>
                         )}
@@ -362,8 +362,8 @@ const WorkorderDashboard: React.FC = () => {
                     <div className='card card-flush shadow-sm border-0 h-100'>
                         <div className='card-header border-0 pt-6'>
                             <h3 className='card-title align-items-start flex-column'>
-                                <span className='card-label fw-bold text-gray-900'>สถานะใบสั่งงาน</span>
-                                <span className='text-muted mt-1 fw-semibold fs-7'>จำนวนใบสั่งงานแยกตามสถานะ</span>
+                                <span className='card-label fw-bold text-gray-900'>สถานะใบสั่งผลิต</span>
+                                <span className='text-muted mt-1 fw-semibold fs-7'>จำนวนใบสั่งผลิตแยกตามสถานะ</span>
                             </h3>
                         </div>
                         <div className='card-body pt-2 pb-4'>
@@ -458,7 +458,7 @@ const WorkorderDashboard: React.FC = () => {
             <div className='card card-flush shadow-sm border-0 mb-8'>
                 <div className='card-header border-0 pt-6'>
                     <h3 className='card-title align-items-start flex-column'>
-                        <span className='card-label fw-bold text-gray-900'>ใบสั่งงานล่าสุด</span>
+                        <span className='card-label fw-bold text-gray-900'>ใบสั่งผลิตล่าสุด</span>
                         <span className='text-muted mt-1 fw-semibold fs-7'>แสดง {recentOrders.length} รายการล่าสุด</span>
                     </h3>
                     <div className='card-toolbar'>
@@ -475,7 +475,7 @@ const WorkorderDashboard: React.FC = () => {
                         <table className='table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer'>
                             <thead>
                                 <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
-                                    <th className='min-w-120px'>รหัสใบสั่งงาน</th>
+                                    <th className='min-w-120px'>รหัสใบสั่งผลิต</th>
                                     <th className='min-w-150px'>สินค้า</th>
                                     <th className='min-w-130px text-center'>สถานะ</th>
                                     <th className='min-w-150px'>ขั้นตอนปัจจุบัน</th>
@@ -570,7 +570,7 @@ const WorkorderDashboard: React.FC = () => {
                                     <tr>
                                         <td colSpan={7} className='text-center py-15'>
                                             <i className='bi bi-inbox fs-3x text-gray-300 mb-4 d-block'></i>
-                                            <span className='text-muted'>ไม่พบข้อมูลใบสั่งงาน</span>
+                                            <span className='text-muted'>ไม่พบข้อมูลใบสั่งผลิต</span>
                                         </td>
                                     </tr>
                                 )}
@@ -598,9 +598,9 @@ const WorkorderDashboard: React.FC = () => {
                                 </span>
                             </div>
                             <div className='d-flex flex-column'>
-                                <span className='text-white fw-bold fs-3'>สร้างใบสั่งงานใหม่</span>
+                                <span className='text-white fw-bold fs-3'>สร้างใบสั่งผลิตใหม่</span>
                                 <span className='text-white text-opacity-75 fw-semibold fs-7'>
-                                    เปิดใบสั่งงานและกำหนดขั้นตอนการผลิต
+                                    เปิดใบสั่งผลิตและกำหนดขั้นตอนการผลิต
                                 </span>
                             </div>
                             <i className='bi bi-chevron-right text-white fs-2x ms-auto'></i>
@@ -623,9 +623,9 @@ const WorkorderDashboard: React.FC = () => {
                                 </span>
                             </div>
                             <div className='d-flex flex-column'>
-                                <span className='text-white fw-bold fs-3'>ดูใบสั่งงานทั้งหมด</span>
+                                <span className='text-white fw-bold fs-3'>ดูใบสั่งผลิตทั้งหมด</span>
                                 <span className='text-white text-opacity-75 fw-semibold fs-7'>
-                                    จัดการ ค้นหา และติดตามใบสั่งงานทุกรายการ
+                                    จัดการ ค้นหา และติดตามใบสั่งผลิตทุกรายการ
                                 </span>
                             </div>
                             <i className='bi bi-chevron-right text-white fs-2x ms-auto'></i>

@@ -9,11 +9,12 @@ export const qcWorkData: QCWorkOrderData = {
     docNum: "",
     customerReceiptNumber: "",
     inspectionDate: "",
-    donEntry: "",
+    docEntry: "",
     salesName: "",
     salesCode: "",
     teamCode: "",
     teamName: "",
+    quantity : 0,
 
     ptt: false,
     chevron: false,

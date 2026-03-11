@@ -326,7 +326,7 @@ const WorkorderCreate: React.FC = () => {
             text: 'ระบบจะสร้างใบสั่งผลิตตามข้อมูลที่กรอก',
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'สร้างใบสั่งงาน',
+            confirmButtonText: 'สร้างใบสั่งผลิต',
             cancelButtonText: 'ยกเลิก',
         });
 
@@ -634,7 +634,7 @@ const WorkorderCreate: React.FC = () => {
                     ) : (
                         <>
                             <i className="bi bi-check-circle me-2"></i>
-                            สร้างใบสั่งงาน (Create)
+                            สร้างใบสั่งผลิต (Create)
                         </>
                     )}
                 </button>

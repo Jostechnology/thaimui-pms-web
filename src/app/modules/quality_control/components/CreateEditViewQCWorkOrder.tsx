@@ -37,6 +37,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 
 	const printRef = useRef<HTMLDivElement>(null);
 	const [isFirstLoad, setIsFirstLoad] = useState<boolean>(false)
+	const [testResults, setTestResults] = useState<any[]>([])
 
 	// Determine mode based on URL
 	useEffect(() => {
@@ -99,7 +100,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 					generalRemark: form.general_remark ?? "",
 					details: form.details ?? "",
 					customerReceiptNumber: form.customer_receipt_number ?? "",
-					donEntry: raw.doc_entry ?? "",          // ← ใช้ doc_entry ที่ backend ส่งใหม่
+					docEntry: raw.doc_entry ?? "",          // ← ใช้ doc_entry ที่ backend ส่งใหม่
 					salesItemId: raw.sales_item_id ?? undefined,
 					salesItemCode: raw.sales_item_code ?? "",
 					quantity: raw.quantity ?? 1,
@@ -107,10 +108,11 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				};
 
 				setFormData(formDataToSet);
+				setTestResults(raw.test_results)
 
-				if (formDataToSet.donEntry) {
+				if (formDataToSet.docEntry) {
 					try {
-						const salesRes = await getSalesOrderService(Number(formDataToSet.donEntry));
+						const salesRes = await getSalesOrderService(Number(formDataToSet.docEntry));
 						if (salesRes && salesRes.data) {
 							setIsFirstLoad(true)
 							const data = salesRes.data;
@@ -274,7 +276,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 		}
 		const timeout = setTimeout(async () => {
 			const res = await searchSalesOrderService(searchSalesOrder);
-			if (res && res.data) setSalesOrders(res.data);
+			if (res && res.data) setSalesOrders(res.data.items);
 		}, 750);
 		return () => clearTimeout(timeout);
 	}, [searchSalesOrder]);
@@ -287,7 +289,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 					const data = res.data;
 					setFormData((prev: any) => ({
 						...prev,
-						donEntry: data.doc_entry,
+						docEntry: data.doc_entry,
 						customerCode: data.card_code,
 						customerName: data.card_name,
 						docNum: data.doc_num,
@@ -320,11 +322,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 		<div className="container-fluid py-4">
 			<div className="card">
 				<div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-					<h4 className="mb-0">
-						{mode === "create" && "Create QC Work Order"}
-						{mode === "view" && "View QC Work Order"}
-						{mode === "edit" && "Edit QC Work Order"}
-					</h4>
+					
 					{mode === "view" && (
 						<div className="d-flex gap-2">
 							<button
@@ -357,7 +355,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 							{/* Header Section */}
 							<div className="row mb-4">
 								<div className="col-md-12 text-center mb-3">
-									<h5 className="fw-bold">ใบสั่งงาน QC</h5>
+									<h5 className="fw-bold">ใบสั่งเทส</h5>
 								</div>
 							</div>
 
@@ -442,7 +440,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 										getOptionValue={(option: any) => String(option.doc_entry)}
 										value={
 											salesOrders.find(
-												(op: any) => op.doc_entry === formData.donEntry
+												(op: any) => op.doc_entry === formData.docEntry
 											) || null
 										}
 										onInputChange={(inputValue, actionMeta) => {
@@ -953,6 +951,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				qcWorkOrderId={Number(qc_workorder_id)}
 				quantity={formData.quantity ?? 1}
 				salesItemDescription={formData.salesItemCode}
+				testResultsPre={testResults}
 			/>
 		)}
 
@@ -982,7 +981,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 						)}
 					</div>
 					<div style={{ textAlign: "center", flex: 2 }}>
-						<div style={{ fontSize: 18, fontWeight: "bold" }}>ใบสั่งงาน QC</div>
+						<div style={{ fontSize: 18, fontWeight: "bold" }}>ใบสั่งเทส</div>
 					</div>
 					<div style={{ flex: 1, textAlign: "right", fontSize: 11 }}>
 						{formData.documentNumber && <div>เลขที่: {formData.documentNumber}</div>}
@@ -1006,7 +1005,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 						</tr>
 						<tr>
 							<td style={{ padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>รหัสสินค้า (Sales Item)</td>
-							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.donEntry}</td>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.docEntry}</td>
 							<td style={{ padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>วันที่ย้าย / ส่ง</td>
 							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.customerReceiptNumber}</td>
 						</tr>

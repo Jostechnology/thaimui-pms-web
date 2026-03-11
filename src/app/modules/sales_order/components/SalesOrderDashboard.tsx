@@ -135,7 +135,7 @@ const SalesOrderDashboard: React.FC = () => {
             subtitle: 'Total Sales Items',
         },
         {
-            title: 'ใบสั่งงานที่ผูกไว้',
+            title: 'ใบสั่งผลิตที่ผูกไว้',
             value: kpi.totalWorkOrders,
             icon: 'bi-gear-wide-connected',
             bgClass: 'bg-light-info',
@@ -284,7 +284,7 @@ const SalesOrderDashboard: React.FC = () => {
                                     <th className='min-w-200px'>ลูกค้า</th>
                                     <th className='min-w-150px'>ตัวแทนขาย</th>
                                     <th className='min-w-150px'>สาขา</th>
-                                    <th className='min-w-100px text-center'>สินค้า/ใบสั่งงาน</th>
+                                    <th className='min-w-100px text-center'>สินค้า/ใบสั่งผลิต</th>
                                     <th className='min-w-120px text-center'>วันที่ระบบแจ้ง</th>
                                     <th className='min-w-80px text-center'>จัดการ</th>
                                 </tr>
@@ -305,7 +305,7 @@ const SalesOrderDashboard: React.FC = () => {
                                             <div className="d-flex flex-column gap-1 align-items-center">
                                                 <span className="badge badge-light-primary px-2">{so.sales_items_count} สินค้า</span>
                                                 {so.work_orders_count > 0 && (
-                                                    <span className="badge badge-light-success px-2">{so.work_orders_count} ใบสั่งงาน</span>
+                                                    <span className="badge badge-light-success px-2">{so.work_orders_count} ใบสั่งผลิต</span>
                                                 )}
                                             </div>
                                         </td>
