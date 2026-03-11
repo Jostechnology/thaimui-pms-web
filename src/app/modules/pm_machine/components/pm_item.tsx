@@ -1,35 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import Select from 'react-select';
 import { Content } from '../../../../_metronic/layout/components/content';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
-import { getPmRepairList, createPmRepair } from '../../../services/pm_machineService';
+import { getpmMachineList, createpmMachine, getMachineList } from '../../../services/pm_machineService';
 import TablePaginator from '../../../custom_components/TablePaginator';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PmRepairItem {
-    repair_id: number;
-    machine_name: string;
-    repair_date: string;
-    repair_cost: number;
-    note?: string;
+    maintenance_id: number;
+    machine_id: number;
+    maintenance_date: string;
+    maintenance_type: string;
+    description: string | null;
+    performed_by: string | null;
+    fix_cost: number | null;
+    machine?: { machine_id: number; machine_name: string; machine_code: string };
     created_date?: string;
 }
 
 interface AddRepairForm {
-    machine_name: string;
-    repair_date: Date | null;
-    repair_cost: string;
-    note: string;
+    machine_id: string;
+    maintenance_date: Date | null;
+    maintenance_type: string;
+    description: string;
+    performed_by: string;
+    fix_cost: string;
 }
 
 const INITIAL_FORM: AddRepairForm = {
-    machine_name: '',
-    repair_date: new Date(),
-    repair_cost: '',
-    note: '',
+    machine_id: '',
+    maintenance_date: new Date(),
+    maintenance_type: 'Corrective',
+    description: '',
+    performed_by: '',
+    fix_cost: '',
 };
 
 // ─── Add Repair Modal ────────────────────────────────────────────────────────
@@ -44,26 +52,47 @@ const AddRepairModal: React.FC<AddRepairModalProps> = ({ show, onHide, onSuccess
     const { openAlertModal } = useAlertModal();
     const [loading, setLoading] = useState(false);
     const [form, setForm] = useState<AddRepairForm>(INITIAL_FORM);
+    const [machines, setMachines] = useState<any[]>([]);
+    const [searchMachine, setSearchMachine] = useState('');
 
+    // Load machines on modal open
     useEffect(() => {
-        if (show) setForm(INITIAL_FORM);
+        if (show) {
+            setForm(INITIAL_FORM);
+            setSearchMachine('');
+            const loadMachines = async () => {
+                const res = await getMachineList('');
+                if (res.success) setMachines(res.items);
+            };
+            loadMachines();
+        }
     }, [show]);
+
+    // Debounce search machines
+    useEffect(() => {
+        if (!show) return;
+        const timeout = setTimeout(async () => {
+            const res = await getMachineList(searchMachine);
+            if (res.success) setMachines(res.items);
+        }, 500);
+        return () => clearTimeout(timeout);
+    }, [searchMachine]);
 
     const handleChange = (field: keyof AddRepairForm, value: any) => {
         setForm(prev => ({ ...prev, [field]: value }));
     };
 
     const validate = (): boolean => {
-        if (!form.machine_name.trim()) {
-            openAlertModal('กรุณาระบุชื่อเครื่องจักร', () => { }, false);
+        if (!form.machine_id.trim()) {
+            openAlertModal('กรุณาระบุรหัสเครื่องจักร', () => { }, false);
             return false;
         }
-        if (!form.repair_date) {
+        if (!form.maintenance_date) {
             openAlertModal('กรุณาเลือกวันที่ซ่อม', () => { }, false);
             return false;
         }
-        if (!form.repair_cost || isNaN(Number(form.repair_cost)) || Number(form.repair_cost) < 0) {
-            openAlertModal('กรุณาระบุราคาซ่อมที่ถูกต้อง', () => { }, false);
+        if (!form.maintenance_type.trim()) {
+            openAlertModal('กรุณาระบุประเภทการซ่อม', () => { }, false);
             return false;
         }
         return true;
@@ -74,12 +103,13 @@ const AddRepairModal: React.FC<AddRepairModalProps> = ({ show, onHide, onSuccess
         setLoading(true);
         try {
             const payload = {
-                machine_name: form.machine_name.trim(),
-                repair_date: form.repair_date!.toISOString().split('T')[0],
-                repair_cost: Number(form.repair_cost),
-                note: form.note.trim(),
+                machine_id: Number(form.machine_id),
+                maintenance_date: form.maintenance_date!.toISOString().split('T')[0],
+                maintenance_type: form.maintenance_type.trim(),
+                description: form.description.trim() || null,
+                fix_cost: form.fix_cost ? Number(form.fix_cost) : 0,
             };
-            const res = await createPmRepair(payload);
+            const res = await createpmMachine(payload);
             if (res && res.success) {
                 openAlertModal('บันทึกรายการซ่อมสำเร็จ', () => {
                     onSuccess();
@@ -123,65 +153,100 @@ const AddRepairModal: React.FC<AddRepairModalProps> = ({ show, onHide, onSuccess
                                 handleSubmit();
                             }}
                         >
-                            {/* เครื่องจักร */}
+                            {/* เครื่องจักร (Machine ID) */}
                             <div className="fv-row mb-7">
                                 <label className="required fs-6 fw-semibold mb-2">
                                     <i className="bi bi-gear-wide-connected me-1 text-primary"></i>
                                     เครื่องจักร
                                 </label>
-                                <input
-                                    type="text"
-                                    className="form-control form-control-solid"
-                                    placeholder="ระบุชื่อหรือรหัสเครื่องจักร"
-                                    value={form.machine_name}
-                                    onChange={(e) => handleChange('machine_name', e.target.value)}
+                                <Select
+                                    options={machines}
+                                    formatOptionLabel={(option: any) => (
+                                        <div className="d-flex align-items-center gap-2">
+                                            <span className="fw-bold">{option.machine_code}</span>
+                                            <span className="text-muted">— {option.machine_name}</span>
+                                        </div>
+                                    )}
+                                    getOptionValue={(option: any) => String(option.machine_id)}
+                                    value={machines.find((m: any) => String(m.machine_id) === form.machine_id) || null}
+                                    onInputChange={(inputValue, actionMeta) => {
+                                        if (actionMeta.action === 'input-change') {
+                                            setSearchMachine(inputValue);
+                                        }
+                                    }}
+                                    onChange={(option: any) => {
+                                        handleChange('machine_id', option ? String(option.machine_id) : '');
+                                    }}
+                                    placeholder="พิมพ์เพื่อค้นหาเครื่องจักร..."
+                                    isClearable
+                                    isSearchable
+                                    noOptionsMessage={() => 'ไม่พบเครื่องจักร'}
+                                    menuPortalTarget={document.body}
+                                    styles={{
+                                        menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                                        control: (base) => ({ ...base, backgroundColor: '#f5f8fa', border: 'none' }),
+                                    }}
                                 />
                             </div>
 
                             {/* วันที่ซ่อม + ราคา */}
                             <div className="row g-6 mb-7">
-                                <div className="col-md-6 fv-row">
+                                <div className="col-md-4 fv-row">
                                     <label className="required fs-6 fw-semibold mb-2">
                                         <i className="bi bi-calendar3 me-1 text-primary"></i>
                                         วันที่ซ่อม
                                     </label>
                                     <DatePicker
-                                        selected={form.repair_date}
-                                        onChange={(date) => handleChange('repair_date', date)}
+                                        selected={form.maintenance_date}
+                                        onChange={(date) => handleChange('maintenance_date', date)}
                                         dateFormat="dd/MM/yyyy"
                                         className="form-control form-control-solid w-100"
                                         placeholderText="เลือกวันที่"
                                     />
                                 </div>
-                                <div className="col-md-6 fv-row">
-                                    <label className="required fs-6 fw-semibold mb-2">
-                                        <i className="bi bi-currency-exchange me-1 text-primary"></i>
-                                        ราคาซ่อม (บาท)
+                                <div className="col-md-4 fv-row">
+                                    <label className="fs-6 fw-semibold mb-2">
+                                        <i className="bi bi-cash-stack me-1 text-success"></i>
+                                        ราคา (บาท)
                                     </label>
                                     <input
                                         type="number"
-                                        min="0"
-                                        step="0.01"
                                         className="form-control form-control-solid"
                                         placeholder="0.00"
-                                        value={form.repair_cost}
-                                        onChange={(e) => handleChange('repair_cost', e.target.value)}
+                                        value={form.fix_cost}
+                                        onChange={(e) => handleChange('fix_cost', e.target.value)}
+                                        min="0"
+                                        step="0.01"
                                     />
+                                </div>
+                                <div className="col-md-4 fv-row">
+                                    <label className="required fs-6 fw-semibold mb-2">
+                                        <i className="bi bi-tools me-1 text-primary"></i>
+                                        ประเภท
+                                    </label>
+                                    <select
+                                        className="form-select form-select-solid"
+                                        value={form.maintenance_type}
+                                        onChange={(e) => handleChange('maintenance_type', e.target.value)}
+                                    >
+                                        <option value="Corrective">Corrective</option>
+                                        <option value="Preventive">Preventive</option>
+                                    </select>
                                 </div>
                             </div>
 
-                            {/* หมายเหตุ */}
+                            {/* รายละเอียด */}
                             <div className="fv-row mb-2">
                                 <label className="fs-6 fw-semibold mb-2">
                                     <i className="bi bi-sticky me-1 text-muted"></i>
-                                    หมายเหตุ
+                                    รายละเอียด
                                 </label>
                                 <textarea
                                     className="form-control form-control-solid"
                                     rows={3}
                                     placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"
-                                    value={form.note}
-                                    onChange={(e) => handleChange('note', e.target.value)}
+                                    value={form.description}
+                                    onChange={(e) => handleChange('description', e.target.value)}
                                 />
                             </div>
                         </form>
@@ -241,10 +306,10 @@ const PmRepairList: React.FC = () => {
         setDataLoading(true);
         setLoading();
         try {
-            const res = await getPmRepairList(currentPage, pageConfig, keyword);
+            const res = await getpmMachineList(currentPage, pageConfig, keyword);
             if (res && res.success) {
-                setRepairs(res.data?.items || []);
-                setTotalPages(res.data?.total_pages || 0);
+                setRepairs(res.items || []);
+                setTotalPages(res.total_pages || 0);
             } else {
                 setRepairs([]);
                 setTotalPages(0);
@@ -271,12 +336,11 @@ const PmRepairList: React.FC = () => {
         });
     };
 
-    const formatCost = (cost: number) =>
-        cost != null
-            ? cost.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-            : '-';
-
-    const totalCost = repairs.reduce((sum, r) => sum + (r.repair_cost || 0), 0);
+    const formatDate2 = (dateStr?: string) => {
+        if (!dateStr) return '-';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    };
 
     return (
         <Content>
@@ -315,25 +379,6 @@ const PmRepairList: React.FC = () => {
                                     {repairs.length}
                                 </span>
                                 <span className="text-gray-500 fw-semibold fs-6 mt-1">รายการซ่อมทั้งหมด</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div className="col-md-4">
-                    <div className="card card-flush shadow-sm h-100 py-5 px-6 border-0">
-                        <div className="d-flex align-items-center">
-                            <div className="symbol symbol-50px me-5">
-                                <span className="symbol-label bg-light-warning">
-                                    <i className="bi bi-currency-exchange text-warning fs-2x"></i>
-                                </span>
-                            </div>
-                            <div className="d-flex flex-column">
-                                <span className="fs-2hx fw-bold text-gray-900 lh-1 ls-n2">
-                                    ฿{formatCost(totalCost)}
-                                </span>
-                                <span className="text-gray-500 fw-semibold fs-6 mt-1">
-                                    ค่าซ่อมรวม (หน้านี้)
-                                </span>
                             </div>
                         </div>
                     </div>
@@ -386,22 +431,23 @@ const PmRepairList: React.FC = () => {
                                     <th className="ps-4">#</th>
                                     <th>เครื่องจักร</th>
                                     <th>วันที่ซ่อม</th>
-                                    <th className="text-end">ราคาซ่อม (บาท)</th>
-                                    <th>หมายเหตุ</th>
+                                    <th>ประเภท</th>
+                                    <th>ราคา (บาท)</th>
+                                    <th>รายละเอียด</th>
                                     <th>วันที่บันทึก</th>
                                 </tr>
                             </thead>
                             <tbody className="text-gray-700 fw-semibold">
                                 {dataLoading ? (
                                     <tr>
-                                        <td colSpan={6} className="text-center py-10">
+                                        <td colSpan={7} className="text-center py-10">
                                             <span className="spinner-border text-primary me-2" role="status" />
                                             กำลังโหลดข้อมูล...
                                         </td>
                                     </tr>
                                 ) : repairs.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="text-center py-15">
+                                        <td colSpan={7} className="text-center py-15">
                                             <div className="d-flex flex-column align-items-center">
                                                 <i className="bi bi-inbox fs-3x text-muted mb-3"></i>
                                                 <span className="text-muted fs-6">ยังไม่มีรายการซ่อม</span>
@@ -417,7 +463,7 @@ const PmRepairList: React.FC = () => {
                                     </tr>
                                 ) : (
                                     repairs.map((item, index) => (
-                                        <tr key={item.repair_id}>
+                                        <tr key={item.maintenance_id}>
                                             <td className="ps-4 text-muted">
                                                 {(currentPage - 1) * pageConfig + index + 1}
                                             </td>
@@ -429,23 +475,26 @@ const PmRepairList: React.FC = () => {
                                                         </span>
                                                     </div>
                                                     <span className="text-gray-900 fw-bold">
-                                                        {item.machine_name}
+                                                        {item.machine?.machine_name || '-'}
                                                     </span>
                                                 </div>
                                             </td>
                                             <td>
                                                 <span className="badge badge-light-info">
                                                     <i className="bi bi-calendar3 me-1"></i>
-                                                    {formatDate(item.repair_date)}
+                                                    {formatDate(item.maintenance_date)}
                                                 </span>
                                             </td>
-                                            <td className="text-end">
-                                                <span className="fw-bold text-gray-900">
-                                                    ฿{formatCost(item.repair_cost)}
+                                            <td>
+                                                <span className={`badge badge-light-${item.maintenance_type === 'Preventive' ? 'primary' : 'warning'}`}>
+                                                    {item.maintenance_type}
                                                 </span>
+                                            </td>
+                                            <td className="fw-bold text-success">
+                                                {item.fix_cost != null ? item.fix_cost.toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '-'}
                                             </td>
                                             <td className="text-muted">
-                                                {item.note || '-'}
+                                                {item.description || '-'}
                                             </td>
                                             <td className="text-muted fs-7">
                                                 {item.created_date ? formatDate(item.created_date) : '-'}
