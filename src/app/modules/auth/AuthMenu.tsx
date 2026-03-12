@@ -63,7 +63,15 @@ export const mainRoutesConfig: MainRouteType[] = [
         icon: "bi bi-search",
         subMenu: [],
         permission: []
-    },
+    },{
+        module_code: "CAL_COST",
+        path: "/cost_calculation",
+        title: "",
+        fontIcon: "bi-layers",
+        icon: "bi bi-calculator",
+        subMenu: [],
+        permission: []
+    }
 ]
 
 export const subRoutesConfig: SubRouteType[] = [
@@ -137,6 +145,12 @@ export const subRoutesConfig: SubRouteType[] = [
         path:"/quality_control/qc_test_cert_list",
         title: "",
         permission:[]
+    },
+    {
+        module_code: "CAL_COST_MONTHLY",
+        main_module_code: "CAL_COST",
+        path: "/cost_calculation/monthly_operation",
+        title: "",
+        permission: []
     }
- 
 ]
