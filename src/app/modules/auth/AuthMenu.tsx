@@ -212,6 +212,13 @@ export const subRoutesConfig: SubRouteType[] = [
         permission: []
     },
     {
+        module_code: "PM_DASHBOARD",
+        main_module_code: "PM_MACHINE",
+        path: "/pm_machine/dashboard",
+        title: "",
+        permission: []
+    },
+    {
         module_code: "MACHINE_LIST",
         main_module_code: "MACHINE",
         path: "/machine/machine_list",
