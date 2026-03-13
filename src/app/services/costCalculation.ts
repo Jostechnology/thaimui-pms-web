@@ -58,6 +58,23 @@ export const getOperationCostMonthly = async (
     }
 };
 
+export const getOperationCostMonthlyById = async (
+    operationCostMonthlyId: number
+): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "GET",
+            `/get_operation_cost_monthly/${operationCostMonthlyId}`,
+            {},
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("getOperationCostMonthlyById Error:", error);
+        return { success: false, message: "ไม่สามารถดึงข้อมูลได้" };
+    }
+};
+
 export const createOperationCostMonthly = async (payload: {
     operation_cost_date: string;
     depreciation_building_cost?: number;

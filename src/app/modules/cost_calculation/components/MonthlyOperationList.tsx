@@ -7,22 +7,10 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import { useTableParams } from '../../../hooks/useTableParams';
-import { getOperationCostMonthly } from '../../../services/costCalculation';
+import { deleteOperationCostMonthly, getOperationCostMonthly } from '../../../services/costCalculation';
 import TablePaginator from '../../../custom_components/TablePaginator';
+import Swal from 'sweetalert2';
 
-interface OperationCostData {
-    id?: number;
-    operation_cost_date: string;
-    depreciation_building_cost: number;
-    depreciation_building_period: number;
-    depreciation_util_cost: number;
-    depreciation_util_period: number;
-    office_rent_cost: number;
-    office_supplies_cost: number;
-    water_cost: number;
-    electricity_cost: number;
-    utility_cost: number;
-}
 
 const MonthlyOperationList: React.FC = () => {
     const navigate = useNavigate();
@@ -136,6 +124,35 @@ const MonthlyOperationList: React.FC = () => {
         (sum, item) => sum + calculateTotalCost(item),
         0
     );
+    const handleDelete = async (id: number) => {
+        const result = await Swal.fire({
+            title: "ยืนยันการลบ?",
+            text: "คุณต้องการลบการคำนวณต้นทุนนี้หรือไม่?",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#d33",
+            cancelButtonColor: "#3085d6",
+            confirmButtonText: "ลบ",
+            cancelButtonText: "ยกเลิก",
+        });
+
+        if (result.isConfirmed) {
+            setLoading();
+            try {
+                const res = await deleteOperationCostMonthly(id);
+                if (res.success) {
+                    Swal.fire("สำเร็จ!", "ลบการคำนวณต้นทุนเรียบร้อยแล้ว", "success");
+                    fetchOperationCosts();
+                } else {
+                    Swal.fire("ผิดพลาด!", res.message || "ไม่สามารถลบข้อมูลได้", "error");
+                }
+            } catch (error) {
+                Swal.fire("ผิดพลาด!", "เกิดข้อผิดพลาดในการลบข้อมูล", "error");
+            } finally {
+                setUnLoading();
+            }
+        }
+    };
 
     return (
         <Content>
@@ -256,7 +273,7 @@ const MonthlyOperationList: React.FC = () => {
                                     <th className='min-w-100px text-center'>ค่าวัสดุสำนักงาน</th>
                                     <th className='min-w-100px text-center'>ค่าน้ำ</th>
                                     <th className='min-w-100px text-center'>ค่าไฟฟ้า</th>
-                                    <th className='min-w-100px text-center'>ค่าสาธารณูปโภค</th>
+                                    <th className='min-w-100px text-center'>ค่าใช้จ่ายอื่นๆ</th>
                                     <th className='min-w-125px text-center'>รวมทั้งสิ้น</th>
                                     <th className='text-end min-w-50px'>จัดการ</th>
                                 </tr>
@@ -323,8 +340,15 @@ const MonthlyOperationList: React.FC = () => {
                                             </td>
                                             <td className='text-end'>
                                                 <button
+                                                    className='btn btn-sm btn-light-info fw-bold me-2'
+                                                    onClick={() => navigate(`/cost_calculation/view/${item.operation_cost_monthly_id}`)}
+                                                    title="ดูรายละเอียด"
+                                                >
+                                                    <i className='bi bi-eye fs-5'></i>
+                                                </button>
+                                                <button
                                                     className='btn btn-sm btn-light-primary fw-bold me-2'
-                                                    onClick={() => navigate(`/cost_calculation/edit/${item.id}`)}
+                                                    onClick={() => navigate(`/cost_calculation/edit/${item.operation_cost_monthly_id}`)}
                                                     title="แก้ไข"
                                                 >
                                                     <i className='bi bi-pencil-square fs-5'></i>
@@ -332,9 +356,7 @@ const MonthlyOperationList: React.FC = () => {
                                                 <button
                                                     className='btn btn-sm btn-light-danger fw-bold'
                                                     onClick={() => {
-                                                        if (confirm('คุณแน่ใจหรือว่าต้องการลบข้อมูลนี้?')) {
-                                                            // Add delete function here
-                                                        }
+                                                        handleDelete(item.operation_cost_monthly_id!);
                                                     }}
                                                     title="ลบ"
                                                 >
