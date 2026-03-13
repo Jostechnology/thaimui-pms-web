@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Content } from '../../../../_metronic/layout/components/content';
 
@@ -38,6 +38,8 @@ const MonthlyOperationList: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState<string>(searchParams.get("search") || "");
     const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get("page") || "1"));
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
+    const prevKeywordRef = useRef(keyword);
+    const prevPageConfigRef = useRef(pageConfig);
 
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
@@ -66,11 +68,20 @@ const MonthlyOperationList: React.FC = () => {
         </div>
     ));
 
+    // Build month string from selectedDate (e.g. "2026-03")
+    const getMonthParam = (): string => {
+        if (!selectedDate) return "";
+        const year = selectedDate.getFullYear();
+        const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+        return `${year}-${month}`;
+    };
+
     const fetchOperationCosts = async () => {
         setDataLoading(true);
         setLoading();
         try {
-            const result = await getOperationCostMonthly(currentPage, pageConfig, keyword);
+            const monthParam = getMonthParam();
+            const result = await getOperationCostMonthly(currentPage, pageConfig, keyword, monthParam);
             if (result && result.success) {
                 const items = result.data.items || [];
                 setOperationCosts(items);
@@ -78,7 +89,7 @@ const MonthlyOperationList: React.FC = () => {
             } else {
                 setOperationCosts([]);
                 setTotalPages(0);
-                alertMessage(result?.message || "ไม่able ได้ข้อมูล");
+                alertMessage(result?.message || "ไม่สามารถดึงข้อมูลได้");
             }
         } catch (error) {
             console.error(error);
@@ -90,8 +101,16 @@ const MonthlyOperationList: React.FC = () => {
     };
 
     useEffect(() => {
+        if (prevKeywordRef.current !== keyword || prevPageConfigRef.current !== pageConfig) {
+            prevKeywordRef.current = keyword;
+            prevPageConfigRef.current = pageConfig;
+            if (currentPage !== 1) {
+                setCurrentPage(1);
+                return;
+            }
+        }
         fetchOperationCosts();
-    }, [currentPage, keyword, pageConfig]);
+    }, [currentPage, keyword, pageConfig, selectedDate]);
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('th-TH', {
@@ -113,7 +132,10 @@ const MonthlyOperationList: React.FC = () => {
         );
     };
 
-    const totalAllCosts = operationCosts.reduce((sum, item) => sum + calculateTotalCost(item), 0);
+    const totalAllCosts = operationCosts.reduce(
+        (sum, item) => sum + calculateTotalCost(item),
+        0
+    );
 
     return (
         <Content>
@@ -227,7 +249,7 @@ const MonthlyOperationList: React.FC = () => {
                         <table className='table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer'>
                             <thead>
                                 <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
-                                    <th className='min-w-125px'>วันที่</th>
+                                    <th className='min-w-125px text-center'>วันที่</th>
                                     <th className='min-w-100px text-center'>ค่าเสื่อมอาคาร</th>
                                     <th className='min-w-100px text-center'>ค่าเสื่อมอุปกรณ์</th>
                                     <th className='min-w-100px text-center'>ค่าเช่าสำนักงาน</th>

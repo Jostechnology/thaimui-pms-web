@@ -33,7 +33,8 @@ const handleResponse = async (response: Response | false | undefined): Promise<A
 export const getOperationCostMonthly = async (
     page: number,
     per_page: number = 10,
-    search: string = ""
+    search: string = "",
+    month: string = ""
 ): Promise<APIResponse> => {
     try {
         const params = new URLSearchParams({
@@ -42,6 +43,7 @@ export const getOperationCostMonthly = async (
         });
 
         if (search) params.append("search", search);
+        if (month) params.append("month", month);
 
         const response = await front_api(
             "GET",
