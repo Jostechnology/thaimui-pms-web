@@ -15,24 +15,31 @@ import SalesItemTrackingModal from './SalesItemTrackingModal';
 
 interface SalesItem {
     sales_item_id: number;
-    produced_qty: number;
-    queued_for_test_qty: number;
-    tested_qty: number;
     item_name: string;
     item_code: string;
-    doc_num: number;
+    item_description: string;
     item_num: number;
+    doc_num: number;
+    doc_entry: number;
+    produced_qty: number;
+    producing_qty: number;
+    available_for_test_qty: number;
+    unavailable_for_test_qty: number;
+    passed_qty: number;
+    failed_qty: number;
 }
 
 interface QCWorkOrderData {
     qc_work_order_id: number;
-    work_order_id: number;
+    sales_item_id: number;
     qc_status: string;
     qc_date: string | null;
     qc_by: string | null;
     remark: string | null;
     created_date: string;
     updated_date: string | null;
+    created_by: string | null;
+    updated_by: string | null;
     quantity: number;
     sales_item: SalesItem | null;
 }
@@ -298,7 +305,7 @@ const QCWorkOrdersList: React.FC = () => {
                                     <th className='min-w-125px text-center'>หมายเลขใบสั่งเทส</th>
                                     <th className='min-w-200px'>สินค้า</th>
                                     <th className='min-w-125px text-center'>จำนวนที่ขอทดสอบ</th>
-                                    <th className='min-w-150px text-center'>ความพร้อม</th>
+                                    <th className='min-w-150px text-center'>สถานะการทดสอบ</th>
                                     <th className='min-w-125px text-center'>วันที่สร้าง</th>
                                     <th className='text-end min-w-100px'>ACTIONS</th>
                                 </tr>
@@ -336,36 +343,44 @@ const QCWorkOrdersList: React.FC = () => {
 
                                             <td className='text-center'>
                                                 {(() => {
-                                                    const produced = item.sales_item?.produced_qty ?? 0;
-                                                    const queued = item.sales_item?.queued_for_test_qty ?? 0;
-                                                    const tested = item.sales_item?.tested_qty ?? 0;
-                                                    const allocated = queued + tested;
-                                                    const available = produced - allocated;
+                                                    const si = item.sales_item;
                                                     const needed = item.quantity ?? 0;
-                                                    const ready = needed <= available;
-                                                    return ready ? (
-                                                        <span className='badge badge-light-success fw-bold px-4 py-3'>
-                                                            <i className='bi bi-check-circle me-1'></i> พร้อม
-                                                        </span>
-                                                    ) : (
+                                                    const passed = si?.passed_qty ?? 0;
+                                                    const failed = si?.failed_qty ?? 0;
+                                                    const unavailable = si?.unavailable_for_test_qty ?? 0;
+                                                    const testing = Math.max(0, unavailable - passed - failed);
+
+                                                    if (passed >= needed) {
+                                                        return (
+                                                            <span className='badge badge-light-success fw-bold px-4 py-2'>
+                                                                <i className='bi bi-patch-check me-1'></i> PASSED
+                                                            </span>
+                                                        );
+                                                    }
+
+                                                    return (
                                                         <div className='d-flex flex-column align-items-center gap-1'>
-                                                            <span
-                                                                className='badge badge-light-danger fw-bold px-3 py-2'
-                                                                style={{ cursor: item.sales_item ? 'pointer' : 'default', transition: 'opacity 0.15s' }}
-                                                                onMouseEnter={e => { if (item.sales_item) (e.currentTarget as HTMLElement).style.opacity = '0.75'; }}
-                                                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
-                                                                onClick={() => {
-                                                                    if (item.sales_item) {
-                                                                        setSelectedSalesItemId(item.sales_item.sales_item_id);
-                                                                        setShowTrackingModal(true);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <i className='bi bi-exclamation-circle me-1'></i> ยังไม่พร้อม
-                                                            </span>
-                                                            <span className='text-muted fs-8'>
-                                                                ผลิตแล้ว {produced} · จัดสรรแล้ว {allocated} · ต้องการ {needed}
-                                                            </span>
+                                                            <div className='d-flex gap-2 flex-wrap justify-content-center'>
+                                                                {passed > 0 && (
+                                                                    <span className='badge badge-light-success fw-semibold'>
+                                                                        <i className='bi bi-check me-1'></i>ผ่าน {passed}
+                                                                    </span>
+                                                                )}
+                                                                {failed > 0 && (
+                                                                    <span className='badge badge-light-danger fw-semibold'>
+                                                                        <i className='bi bi-x me-1'></i>ไม่ผ่าน {failed}
+                                                                    </span>
+                                                                )}
+                                                                {testing > 0 && (
+                                                                    <span className='badge badge-light-warning fw-semibold'>
+                                                                        <i className='bi bi-hourglass-split me-1'></i>กำลังทดสอบ {testing}
+                                                                    </span>
+                                                                )}
+                                                                {passed === 0 && failed === 0 && testing === 0 && (
+                                                                    <span className='badge badge-light-secondary fw-semibold'>ยังไม่เริ่ม</span>
+                                                                )}
+                                                            </div>
+                                                            <span className='text-muted fs-8'>เป้าหมาย {needed} ชิ้น</span>
                                                         </div>
                                                     );
                                                 })()}

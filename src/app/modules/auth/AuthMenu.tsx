@@ -39,8 +39,8 @@ export const mainRoutesConfig: MainRouteType[] = [
         module_code: "WORKORDERS",
         path: "/workorder",
         title: "",
-        fontIcon: "bi-speedometer2",
-        icon: "bi bi-speedometer2",
+        fontIcon: "bi-wrench-adjustable-circle",
+        icon: "bi bi-wrench-adjustable-circle",
         subMenu: [],
         permission: []
     },

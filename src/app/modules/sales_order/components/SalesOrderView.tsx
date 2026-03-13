@@ -22,8 +22,10 @@ interface SalesItem {
     cost_price: number;
     producing_qty: number;
     produced_qty: number;
-    queued_for_test_qty: number;
-    tested_qty: number;
+    available_for_test_qty: number;
+    unavailable_for_test_qty: number;
+    passed_qty: number;
+    failed_qty: number;
 }
 
 interface Material {
@@ -277,30 +279,31 @@ const SalesOrderView: React.FC = () => {
                                             <td className="text-end">
                                                 <span className="text-gray-800 fw-bolder d-block fs-6">฿{(item.unit_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                             </td>
-                                            <td className="text-center pe-4">
-                                                <div className="d-flex flex-wrap justify-content-center gap-1">
-                                                    <span className="badge badge-light-warning fw-bold fs-8" title="กำลังผลิต">
-                                                        <i className="bi bi-gear-fill me-1"></i>{item.producing_qty ?? 0}
-                                                    </span>
-                                                    <span className="badge badge-light-primary fw-bold fs-8" title="ผลิตแล้ว">
-                                                        <i className="bi bi-check2 me-1"></i>{item.produced_qty ?? 0}
-                                                    </span>
-                                                    <span className="badge badge-light-info fw-bold fs-8" title="รอทดสอบ">
-                                                        <i className="bi bi-hourglass-split me-1"></i>{item.queued_for_test_qty ?? 0}
-                                                    </span>
-                                                    <span className="badge badge-light-success fw-bold fs-8" title="ทดสอบแล้ว">
-                                                        <i className="bi bi-patch-check-fill me-1"></i>{item.tested_qty ?? 0}
-                                                    </span>
-                                                </div>
-                                                <div className="d-flex justify-content-center gap-2 mt-1">
-                                                    <span className="text-muted fs-9">ผลิต</span>
-                                                    <span className="text-muted fs-9">·</span>
-                                                    <span className="text-muted fs-9">เสร็จ</span>
-                                                    <span className="text-muted fs-9">·</span>
-                                                    <span className="text-muted fs-9">รอเทส</span>
-                                                    <span className="text-muted fs-9">·</span>
-                                                    <span className="text-muted fs-9">เทสแล้ว</span>
-                                                </div>
+                                            <td className="pe-4">
+                                                {(() => {
+                                                    const passed = item.passed_qty ?? 0;
+                                                    const failed = item.failed_qty ?? 0;
+                                                    const unavailable = item.unavailable_for_test_qty ?? 0;
+                                                    const testing = Math.max(0, unavailable - passed - failed);
+                                                    const stats = [
+                                                        { label: 'กำลังผลิต', value: item.producing_qty ?? 0, icon: 'bi-gear-fill', color: 'text-warning' },
+                                                        { label: 'ผลิตแล้ว', value: item.produced_qty ?? 0, icon: 'bi-check2-circle', color: 'text-primary' },
+                                                        { label: 'กำลังเทส', value: testing, icon: 'bi-hourglass-split', color: 'text-info' },
+                                                        { label: 'ผ่าน', value: passed, icon: 'bi-patch-check-fill', color: 'text-success' },
+                                                        { label: 'ไม่ผ่าน', value: failed, icon: 'bi-x-circle-fill', color: 'text-danger' },
+                                                    ];
+                                                    return (
+                                                        <div className="d-flex flex-wrap gap-3">
+                                                            {stats.map(({ label, value, icon, color }) => (
+                                                                <div key={label} className="d-flex align-items-center gap-1">
+                                                                    <i className={`bi ${icon} ${color} fs-7`}></i>
+                                                                    <span className="fw-bold text-gray-800 fs-7">{value}</span>
+                                                                    <span className="text-muted fs-8">{label}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
                                         </tr>
                                     ))

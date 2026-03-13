@@ -82,6 +82,21 @@ export const getTestResultById = async (testResultId: number): Promise<APIRespon
     }
 };
 
+export const finalizeTestResult = async (testResultId: number, data: any): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "PUT",
+            `/test_result/${testResultId}/finalize`,
+            data,
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("finalizeTestResult Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการยืนยันผลการทดสอบ" };
+    }
+};
+
 export const updateTestResult = async (testResultId: number, data: any): Promise<APIResponse> => {
     try {
         const response = await front_api(

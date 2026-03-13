@@ -172,18 +172,18 @@ const SalesOrderList: React.FC = () => {
                                                         <div>
                                                             <div className="d-flex justify-content-between align-items-center mb-1">
                                                                 <span className="text-muted fs-8 fw-semibold">
-                                                                    <i className="bi bi-gear me-1"></i>ใบสั่งผลิต
+                                                                    <i className="bi bi-gear me-1"></i>ผลิต
                                                                 </span>
                                                                 <span className="text-gray-700 fw-bold fs-8">
-                                                                    {so.wo_completed}/{so.wo_count}
+                                                                    {so.produced_qty}/{so.quantity_to_produce}
                                                                 </span>
                                                             </div>
                                                             <div className="h-6px rounded bg-light">
                                                                 <div
                                                                     className="h-6px rounded"
                                                                     style={{
-                                                                        width: so.wo_count > 0 ? `${Math.round((so.wo_completed / so.wo_count) * 100)}%` : '0%',
-                                                                        backgroundColor: so.wo_count > 0 && so.wo_completed === so.wo_count ? '#50cd89' : '#009ef7',
+                                                                        width: Number(so.quantity_to_produce) > 0 ? `${Math.round((Number(so.produced_qty) / Number(so.quantity_to_produce)) * 100)}%` : '0%',
+                                                                        backgroundColor: Number(so.quantity_to_produce) > 0 && Number(so.produced_qty) >= Number(so.quantity_to_produce) ? '#50cd89' : '#009ef7',
                                                                         transition: 'width 0.3s',
                                                                     }}
                                                                 />

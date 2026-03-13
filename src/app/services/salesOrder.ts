@@ -13,8 +13,8 @@ export interface SalesOrderSummary {
     group_name: string;
     created_date: string;
     items_total: number;
-    wo_count: number;
-    wo_completed: number;
+    quantity_to_produce: number;
+    produced_qty: number;
     qc_count: number;
     qc_passed: number;
     qc_failed: number;
