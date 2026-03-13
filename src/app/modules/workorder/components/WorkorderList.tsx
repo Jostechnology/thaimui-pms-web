@@ -11,28 +11,24 @@ import TablePaginator from '../../../custom_components/TablePaginator'; // ส�
 import { WorkOrderStatusEnum } from '../../../type_interface/WorkOrderType';
 import DatePicker from "react-datepicker";
 // 1. ปรับ Interface ให้ตรงกับข้อมูลจริงใน ER Diagram
+interface WorkRunSummary {
+    work_run_id: number;
+    status: string;
+    quantity: number;
+    current_phase_id: number | null;
+}
+
 interface WorkorderData {
     work_order_id: number;
     doc_num: string;
+    quantity: number;
     sales_item: {
         item_name: string;
         item_description: string;
-        producing_qty: number;
-        produced_qty: number;
-        queued_for_test_qty: number;
-        tested_qty: number;
-    };
+    } | null;
     status: string;
     created_date: string;
-    current_phase: {
-        work_phase_id: number;
-        phase_name: string;
-        phase_status: string;
-        start_date: string;
-        end_date: string | null;
-        employee_list: any[];
-        sales_item_list: any[];
-    } | null;
+    work_runs: WorkRunSummary[];
 }
 
 const WorkorderList: React.FC = () => {
@@ -120,12 +116,7 @@ const WorkorderList: React.FC = () => {
                 let items = result.data.items || [];
                 const filterParam = normalizeStatusKey(statusFilter) || '';
                 if (filterParam) {
-                    const filtered = items.filter((it: any) => {
-                        const s1 = normalizeStatusKey(it.status);
-                        const s2 = normalizeStatusKey(it.current_phase?.phase_status);
-                        return s1 === filterParam || s2 === filterParam;
-                    });
-                    items = filtered;
+                    items = items.filter((it: any) => normalizeStatusKey(it.status) === filterParam);
                 }
                 setWorkorders(items);
                 setTotalPages(result.pagination?.pages ?? 0);
@@ -308,7 +299,7 @@ const WorkorderList: React.FC = () => {
                                     <th className='min-w-100px'>รหัสใบสั่งผลิต</th>
                                     <th className='min-w-125px'>สินค้า</th>
                                     <th className='min-w-100px'>รายละเอียด</th>
-                                    <th className='min-w-150px text-center'>ช่วงการดำเนินงานล่าสุด</th>
+                                    <th className='min-w-150px text-center'>Work Runs</th>
                                     <th className='min-w-125px text-center'>วันที่สร้าง</th>
                                     <th className='min-w-125px text-center'>สถานะ</th>
                                     <th className='text-end min-w-50px'>จัดการใบสั่งผลิต</th>
@@ -346,9 +337,17 @@ const WorkorderList: React.FC = () => {
                                             </td>
 
                                             <td className='text-center'>
-                                                <div className="badge badge-light-dark fw-bold px-4 py-2">
-                                                    {item.current_phase?.phase_name || 'No Active Phase'}
-                                                </div>
+                                                {item.work_runs && item.work_runs.length > 0 ? (
+                                                    <div className='d-flex flex-wrap gap-1 justify-content-center'>
+                                                        {item.work_runs.map(run => (
+                                                            <span key={run.work_run_id} className={`badge fw-bold ${run.status === 'COMPLETED' ? 'badge-light-success' : run.status === 'INPROGRESS' ? 'badge-light-warning' : 'badge-light-secondary'}`}>
+                                                                #{run.work_run_id}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className='text-muted fs-8'>ยังไม่มี Work Run</span>
+                                                )}
                                             </td>
 
                                             <td className='text-center'>
@@ -380,7 +379,7 @@ const WorkorderList: React.FC = () => {
                                                     title="Manage Order"
                                                     onClick={() => navigate(`/workorder/workorders_detail/${item.work_order_id}`)}
                                                 >
-                                                    <i className='bi bi-pencil-square fs-3'></i>
+                                                    <i className='bi bi-gear fs-3'></i>
                                                 </button>
                                             </td>
                                             

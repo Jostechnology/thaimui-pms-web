@@ -3,29 +3,34 @@ import { Modal } from 'react-bootstrap';
 import { getSalesItemTracking } from '../../../services/salesOrderService';
 import { formatThaiDate } from '../../../helpers/dataHelpers';
 
-interface WorkPhase {
-    phase_name: string;
-    phase_status: string;
-}
-
-interface CurrentPhase {
-    phase_name: string;
-    phase_status: string;
+interface WorkRun {
+    work_run_id: number;
+    work_order_id: number;
+    quantity: number;
+    status: string;
+    usable_qty: number | null;
+    defect_qty: number | null;
+    completion_remark: string | null;
+    created_date: string | null;
+    wms_pick_reference: string | null;
+    current_phase_id: number | null;
 }
 
 interface WorkOrder {
     work_order_id: number;
     status: string;
     quantity: number;
-    current_phase: CurrentPhase | null;
-    work_phases: WorkPhase[];
+    work_runs: WorkRun[];
 }
 
 interface TestResult {
-    overall_status: string;
+    test_result_id: number;
+    session_status: string;
+    claimed_qty: number | null;
+    overall_status: string | null;
     test_date: string | null;
     tested_by: string | null;
-    test_result_items: unknown[];
+    created_date: string | null;
 }
 
 interface QCWorkOrder {
@@ -187,28 +192,34 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
                                             <StatusBadge status={data.work_order.status} map={WORK_ORDER_STATUS} />
                                         </div>
 
-                                        {data.work_order.current_phase && (
-                                            <div className="d-flex align-items-center gap-2 mb-4 ps-2 border-start border-3 border-primary">
-                                                <div>
-                                                    <div className="text-muted fs-7 mb-1">ขั้นตอนปัจจุบัน</div>
-                                                    <div className="fw-bold text-gray-800">
-                                                        {data.work_order.current_phase.phase_name}
-                                                    </div>
-                                                </div>
-                                                <div className="ms-4">
-                                                    <StatusBadge status={data.work_order.current_phase.phase_status} map={WORK_ORDER_STATUS} />
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {data.work_order.work_phases.length > 0 && (
+                                        {data.work_order.work_runs.length === 0 ? (
+                                            <div className="text-muted fs-7 ps-2">ยังไม่มี Work Run</div>
+                                        ) : (
                                             <>
-                                                <div className="text-muted fw-semibold fs-7 mb-3">ขั้นตอนทั้งหมด</div>
-                                                <div className="d-flex flex-wrap gap-3">
-                                                    {data.work_order.work_phases.map((phase, idx) => (
-                                                        <div key={idx} className="d-flex align-items-center gap-2 border rounded px-3 py-2">
-                                                            <span className="text-gray-700 fw-semibold fs-7">{phase.phase_name}</span>
-                                                            <StatusBadge status={phase.phase_status} map={WORK_ORDER_STATUS} />
+                                                <div className="text-muted fw-semibold fs-7 mb-3">Work Runs ({data.work_order.work_runs.length})</div>
+                                                <div className="d-flex flex-column gap-2">
+                                                    {data.work_order.work_runs.map((run) => (
+                                                        <div key={run.work_run_id} className="d-flex align-items-center flex-wrap gap-3 border rounded px-4 py-3">
+                                                            <span className="fw-bold text-gray-800 fs-7">Run #{run.work_run_id}</span>
+                                                            <StatusBadge status={run.status} map={WORK_ORDER_STATUS} />
+                                                            <span className="text-muted fs-8">
+                                                                <i className="bi bi-box-seam me-1"></i>qty: {run.quantity}
+                                                            </span>
+                                                            {run.usable_qty !== null && (
+                                                                <span className="text-success fs-8 fw-semibold">
+                                                                    <i className="bi bi-check-circle me-1"></i>ใช้ได้ {run.usable_qty}
+                                                                </span>
+                                                            )}
+                                                            {!!run.defect_qty && (
+                                                                <span className="text-danger fs-8 fw-semibold">
+                                                                    <i className="bi bi-exclamation-circle me-1"></i>เสีย {run.defect_qty}
+                                                                </span>
+                                                            )}
+                                                            {run.completion_remark && (
+                                                                <span className="text-muted fs-8">
+                                                                    <i className="bi bi-chat-left-text me-1"></i>{run.completion_remark}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     ))}
                                                 </div>
@@ -266,12 +277,14 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
 
                                                 {qc.test_results.length > 0 && (
                                                     <>
-                                                        <div className="text-muted fw-semibold fs-7 mb-2">ผลการทดสอบ</div>
+                                                        <div className="text-muted fw-semibold fs-7 mb-2">ผลการทดสอบ ({qc.test_results.length} session)</div>
                                                         <div className="table-responsive">
                                                             <table className="table table-row-dashed table-row-gray-200 align-middle gs-0 gy-2 fs-7 mb-0">
                                                                 <thead>
                                                                     <tr className="fw-bold text-muted text-uppercase">
                                                                         <th>#</th>
+                                                                        <th>สถานะ Session</th>
+                                                                        <th>จำนวน</th>
                                                                         <th>ผลรวม</th>
                                                                         <th>ผู้ทดสอบ</th>
                                                                         <th>วันที่ทดสอบ</th>
@@ -279,12 +292,23 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
                                                                 </thead>
                                                                 <tbody>
                                                                     {qc.test_results.map((tr, idx) => (
-                                                                        <tr key={idx}>
+                                                                        <tr key={tr.test_result_id}>
                                                                             <td className="text-muted">{idx + 1}</td>
                                                                             <td>
-                                                                                <span className={`badge fw-bold ${tr.overall_status === 'PASSED' ? 'badge-light-success' : 'badge-light-danger'}`}>
-                                                                                    {tr.overall_status === 'PASSED' ? 'ผ่าน' : 'ไม่ผ่าน'}
-                                                                                </span>
+                                                                                {tr.session_status === 'COMPLETED'
+                                                                                    ? <span className="badge badge-light-success fw-bold">เสร็จสิ้น</span>
+                                                                                    : <span className="badge badge-light-warning fw-bold"><i className="bi bi-hourglass-split me-1"></i>กำลังทดสอบ</span>
+                                                                                }
+                                                                            </td>
+                                                                            <td className="text-gray-700">{tr.claimed_qty ?? '-'} ชิ้น</td>
+                                                                            <td>
+                                                                                {tr.session_status === 'COMPLETED' && tr.overall_status ? (
+                                                                                    <span className={`badge fw-bold ${tr.overall_status === 'PASSED' ? 'badge-light-success' : 'badge-light-danger'}`}>
+                                                                                        {tr.overall_status === 'PASSED' ? 'ผ่าน' : 'ไม่ผ่าน'}
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span className="text-muted">-</span>
+                                                                                )}
                                                                             </td>
                                                                             <td className="text-gray-700">{tr.tested_by || '-'}</td>
                                                                             <td className="text-muted">{tr.test_date ? formatThaiDate(tr.test_date) : '-'}</td>

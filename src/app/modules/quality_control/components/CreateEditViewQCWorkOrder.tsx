@@ -14,6 +14,7 @@ import {
 } from "../../../services/salesOrderService";
 import { Material } from "../../../type_interface/MaterialType";
 import { createQCWorkOrder, updateQCWorkOrder, getQCWorkOrderById } from "../../../services/qcWorkOrderService";
+import { getWorkRunsByWorkOrder } from "../../../services/workRunService";
 import Swal from "sweetalert2";
 import { generateQCWorkOrderPDF } from "../../../utils/generateQCWorkOrderPDF";
 
@@ -38,6 +39,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 	const printRef = useRef<HTMLDivElement>(null);
 	const [isFirstLoad, setIsFirstLoad] = useState<boolean>(false)
 	const [testResults, setTestResults] = useState<any[]>([])
+	const [workRuns, setWorkRuns] = useState<any[]>([])
 
 	// Determine mode based on URL
 	useEffect(() => {
@@ -108,9 +110,20 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				};
 
 				setFormData(formDataToSet);
-				setTestResults(raw.test_results)
+				setTestResults(raw.test_results ?? []);
 
-				if (formDataToSet.docEntry) {
+				if (raw.work_order_id) {
+					try {
+						const runsRes = await getWorkRunsByWorkOrder(Number(raw.work_order_id));
+						if (runsRes.success && runsRes.data) {
+							setWorkRuns(runsRes.data);
+						}
+					} catch (e) {
+						console.error("Failed to fetch work runs", e);
+					}
+				}
+
+				if (mode !== "view" && formDataToSet.docEntry) {
 					try {
 						const salesRes = await getSalesOrderService(Number(formDataToSet.docEntry));
 						if (salesRes && salesRes.data) {
@@ -952,6 +965,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				quantity={formData.quantity ?? 1}
 				salesItemDescription={formData.salesItemCode}
 				testResultsPre={testResults}
+				availableWorkRuns={workRuns}
 			/>
 		)}
 
