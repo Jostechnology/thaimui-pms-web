@@ -4,13 +4,15 @@ import { MasterLayout } from "../../_metronic/layout/MasterLayout";
 import TopBarProgress from "react-topbar-progress-indicator";
 import { getCSSVariableValue } from "../../_metronic/assets/ts/_utils";
 import { WithChildren } from "../../_metronic/helpers";
+const MachinePage = lazy(() => import("../modules/machine/machinePage"));
 const WorkorderPage = lazy(() => import("../modules/workorder/WorkorderPage"));
 const SettingPage = lazy(() => import("../modules/menu_setting/SettingPage"));
 const EmployeePage = lazy(() => import("../modules/Employee/employeePage"));
+const PmMachinePage = lazy(() => import("../modules/pm_machine/pm_machinePage"));
 const WorkorderDashboard = lazy(() => import("../modules/workorder/components/WorkorderDashboard"));
 const QualityControlPage = lazy(() => import("../modules/quality_control/QualityControlPage"));
 const SalesOrderPage = lazy(() => import("../modules/sales_order/SalesOrderPage"));
-const TrackingPage = lazy(() => import("../modules/Tracking/trackingPage"));
+const TrackingPage = lazy(() => import("../modules/tracking/trackingPage"));
 const PrivateRoutes = () => {
   return (
     <Routes>
@@ -85,6 +87,22 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <TrackingPage />
+            </SuspensedView>
+          }
+        />
+        <Route
+          path="pm_machine/*"
+          element={
+            <SuspensedView>
+              <PmMachinePage />
+            </SuspensedView>
+          }
+        />
+        <Route
+          path="machine/*"
+          element={
+            <SuspensedView>
+              <MachinePage />
             </SuspensedView>
           }
         />

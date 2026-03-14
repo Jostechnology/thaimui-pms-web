@@ -1,4 +1,5 @@
 import type { Employee } from './EmployeeType';
+import { SalesItem } from './SalesItemType';
 
 
 export interface WorkPhaseBreak {
@@ -40,17 +41,6 @@ export interface WorkRunDetail extends WorkRun {
     current_phase: WorkPhase | null;
     work_phases: WorkPhase[];
     test_results: any[];
-}
-
-export interface SalesItem {
-    sales_item_id: number;
-    item_code: string;
-    item_num: number;
-    item_name: string;
-    item_description: string;
-    cost_price: number;
-    unit_price: number;
-    doc_num: string;
 }
 
 export interface ComponentMaterialUsage {

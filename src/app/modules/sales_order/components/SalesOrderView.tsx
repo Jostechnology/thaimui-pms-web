@@ -392,8 +392,8 @@ const SalesOrderView: React.FC = () => {
                                             : 0;
                                         const progressColor = !stock ? 'bg-secondary'
                                             : stock.remaining_quantity <= 0 ? 'bg-danger'
-                                            : usedPct >= 80 ? 'bg-warning'
-                                            : 'bg-success';
+                                                : usedPct >= 80 ? 'bg-warning'
+                                                    : 'bg-success';
 
                                         return (
                                             <tr

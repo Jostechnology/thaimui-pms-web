@@ -149,7 +149,8 @@ const SidebarMenuMain = () => {
                       to={menu.path}
                       title={menu.title}
                       fontIcon={menu.fontIcon}
-                      icon={menu.icon}>
+                      icon={menu.icon}
+                      customIcon={menu.customIcon}>
                       {
                         menu.subMenu.map((sub_menu, s_index) => {
                           return (
