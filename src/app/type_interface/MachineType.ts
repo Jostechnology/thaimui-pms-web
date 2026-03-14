@@ -24,7 +24,7 @@ export type MachineListResponse = {
     };
     items: Machine[];
     page: number;
-    limit: number;
+    per_page: number;
     total: number;
     total_pages: number;
     prev_page: number | null;

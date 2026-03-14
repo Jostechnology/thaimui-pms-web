@@ -34,14 +34,14 @@ const handleResponse = async <T = any>(response: Response | false | undefined): 
 // เส้น List บังคับเลยว่า data ที่ได้ต้องเป็นโครงสร้างของ MachineListResponse
 export const getMachineList = async (
     page: number = 1,
-    limit: number = 10,
+    per_page: number = 10,
     search: string = "",
     status: string = ""
 ): Promise<APIResponse<MachineListResponse>> => {
     try {
         const params = new URLSearchParams();
         params.append("page", page.toString());
-        params.append("limit", limit.toString());
+        params.append("per_page", per_page.toString());
         if (search) params.append("search", search);
         if (status) params.append("status", status);
 
