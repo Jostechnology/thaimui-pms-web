@@ -364,6 +364,7 @@ const WorkorderDetail: React.FC = () => {
                     itemComponentId={editComponentId}
                     workOrder={workOrder as any}
                     onSaved={() => fetchWorkOrder()}
+                    mode='edit'
                 />
             )}
         </Content>
