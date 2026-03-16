@@ -35,15 +35,15 @@ const AddEditViewMonthlyOperation: React.FC = () => {
 
     const [formData, setFormData] = useState({
         operation_cost_date: new Date(),
-        depreciation_building_cost: 0,
-        depreciation_building_period: 1,
-        depreciation_util_cost: 0,
-        depreciation_util_period: 1,
-        office_rent_cost: 0,
-        office_supplies_cost: 0,
-        water_cost: 0,
-        electricity_cost: 0,
-        utility_cost: 0,
+        depreciation_building_cost: '',
+        depreciation_building_period: '1',
+        depreciation_util_cost: '',
+        depreciation_util_period: '1',
+        office_rent_cost: '',
+        office_supplies_cost: '',
+        water_cost: '',
+        electricity_cost: '',
+        utility_cost: '',
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,15 +64,15 @@ const AddEditViewMonthlyOperation: React.FC = () => {
                 const data = result.data;
                 setFormData({
                     operation_cost_date: new Date(data.operation_cost_date),
-                    depreciation_building_cost: data.depreciation_building_cost || 0,
-                    depreciation_building_period: data.depreciation_building_period || 1,
-                    depreciation_util_cost: data.depreciation_util_cost || 0,
-                    depreciation_util_period: data.depreciation_util_period || 1,
-                    office_rent_cost: data.office_rent_cost || 0,
-                    office_supplies_cost: data.office_supplies_cost || 0,
-                    water_cost: data.water_cost || 0,
-                    electricity_cost: data.electricity_cost || 0,
-                    utility_cost: data.utility_cost || 0,
+                    depreciation_building_cost: data.depreciation_building_cost != null ? String(data.depreciation_building_cost) : '',
+                    depreciation_building_period: data.depreciation_building_period != null ? String(data.depreciation_building_period) : '1',
+                    depreciation_util_cost: data.depreciation_util_cost != null ? String(data.depreciation_util_cost) : '',
+                    depreciation_util_period: data.depreciation_util_period != null ? String(data.depreciation_util_period) : '1',
+                    office_rent_cost: data.office_rent_cost != null ? String(data.office_rent_cost) : '',
+                    office_supplies_cost: data.office_supplies_cost != null ? String(data.office_supplies_cost) : '',
+                    water_cost: data.water_cost != null ? String(data.water_cost) : '',
+                    electricity_cost: data.electricity_cost != null ? String(data.electricity_cost) : '',
+                    utility_cost: data.utility_cost != null ? String(data.utility_cost) : '',
                 });
                 setDataLoaded(true);
             } else {
@@ -88,11 +88,24 @@ const AddEditViewMonthlyOperation: React.FC = () => {
         }
     };
 
-    const handleInputChange = (field: string, value: any) => {
-        setFormData(prev => ({
-            ...prev,
-            [field]: value
-        }));
+    const handleCostChange = (field: string, value: string) => {
+        // อนุญาตให้ใส่ได้เฉพาะตัวเลขและทศนิยม
+        if (value === '' || /^\d*\.?\d*$/.test(value)) {
+            setFormData(prev => ({
+                ...prev,
+                [field]: value
+            }));
+        }
+    };
+
+    const handlePeriodChange = (field: string, value: string) => {
+        // อนุญาตให้ใส่ได้เฉพาะตัวเลขจำนวนเต็ม
+        if (value === '' || /^\d+$/.test(value)) {
+            setFormData(prev => ({
+                ...prev,
+                [field]: value
+            }));
+        }
     };
 
     const handleDateChange = (date: Date | null) => {
@@ -121,15 +134,15 @@ const AddEditViewMonthlyOperation: React.FC = () => {
 
             const payload = {
                 operation_cost_date: dateString,
-                depreciation_building_cost: formData.depreciation_building_cost || 0,
-                depreciation_building_period: formData.depreciation_building_period || 1,
-                depreciation_util_cost: formData.depreciation_util_cost || 0,
-                depreciation_util_period: formData.depreciation_util_period || 1,
-                office_rent_cost: formData.office_rent_cost || 0,
-                office_supplies_cost: formData.office_supplies_cost || 0,
-                water_cost: formData.water_cost || 0,
-                electricity_cost: formData.electricity_cost || 0,
-                utility_cost: formData.utility_cost || 0,
+                depreciation_building_cost: parseFloat(formData.depreciation_building_cost) || 0,
+                depreciation_building_period: parseInt(formData.depreciation_building_period) || 1,
+                depreciation_util_cost: parseFloat(formData.depreciation_util_cost) || 0,
+                depreciation_util_period: parseInt(formData.depreciation_util_period) || 1,
+                office_rent_cost: parseFloat(formData.office_rent_cost) || 0,
+                office_supplies_cost: parseFloat(formData.office_supplies_cost) || 0,
+                water_cost: parseFloat(formData.water_cost) || 0,
+                electricity_cost: parseFloat(formData.electricity_cost) || 0,
+                utility_cost: parseFloat(formData.utility_cost) || 0,
             };
 
             let response;
@@ -269,24 +282,21 @@ const AddEditViewMonthlyOperation: React.FC = () => {
                                         </td>
                                         <td className='text-center'>
                                             <input
-                                                type='number'
+                                                type='text'
                                                 className='form-control form-control-sm form-control-solid'
                                                 value={formData.depreciation_building_cost}
-                                                onChange={(e) => handleInputChange('depreciation_building_cost', parseFloat(e.target.value) || 0)}
+                                                onChange={(e) => handleCostChange('depreciation_building_cost', e.target.value)}
                                                 placeholder='0'
-                                                step='0.01'
-                                                min='0'
                                                 disabled={isViewMode}
                                             />
                                         </td>
                                         <td className='text-center'>
                                             <input
-                                                type='number'
+                                                type='text'
                                                 className='form-control form-control-sm form-control-solid'
                                                 value={formData.depreciation_building_period}
-                                                onChange={(e) => handleInputChange('depreciation_building_period', parseInt(e.target.value) || 1)}
+                                                onChange={(e) => handlePeriodChange('depreciation_building_period', e.target.value)}
                                                 placeholder='1'
-                                                min='1'
                                                 disabled={isViewMode}
                                             />
                                         </td>
@@ -299,24 +309,21 @@ const AddEditViewMonthlyOperation: React.FC = () => {
                                         </td>
                                         <td className='text-center'>
                                             <input
-                                                type='number'
+                                                type='text'
                                                 className='form-control form-control-sm form-control-solid'
                                                 value={formData.depreciation_util_cost}
-                                                onChange={(e) => handleInputChange('depreciation_util_cost', parseFloat(e.target.value) || 0)}
+                                                onChange={(e) => handleCostChange('depreciation_util_cost', e.target.value)}
                                                 placeholder='0'
-                                                step='0.01'
-                                                min='0'
                                                 disabled={isViewMode}
                                             />
                                         </td>
                                         <td className='text-center'>
                                             <input
-                                                type='number'
+                                                type='text'
                                                 className='form-control form-control-sm form-control-solid'
                                                 value={formData.depreciation_util_period}
-                                                onChange={(e) => handleInputChange('depreciation_util_period', parseInt(e.target.value) || 1)}
+                                                onChange={(e) => handlePeriodChange('depreciation_util_period', e.target.value)}
                                                 placeholder='1'
-                                                min='1'
                                                 disabled={isViewMode}
                                             />
                                         </td>
@@ -329,13 +336,11 @@ const AddEditViewMonthlyOperation: React.FC = () => {
                                         </td>
                                         <td className='text-center'>
                                             <input
-                                                type='number'
+                                                type='text'
                                                 className='form-control form-control-sm form-control-solid'
                                                 value={formData.office_rent_cost}
-                                                onChange={(e) => handleInputChange('office_rent_cost', parseFloat(e.target.value) || 0)}
+                                                onChange={(e) => handleCostChange('office_rent_cost', e.target.value)}
                                                 placeholder='0'
-                                                step='0.01'
-                                                min='0'
                                                 disabled={isViewMode}
                                             />
                                         </td>
@@ -351,13 +356,11 @@ const AddEditViewMonthlyOperation: React.FC = () => {
                                         </td>
                                         <td className='text-center'>
                                             <input
-                                                type='number'
+                                                type='text'
                                                 className='form-control form-control-sm form-control-solid'
                                                 value={formData.office_supplies_cost}
-                                                onChange={(e) => handleInputChange('office_supplies_cost', parseFloat(e.target.value) || 0)}
+                                                onChange={(e) => handleCostChange('office_supplies_cost', e.target.value)}
                                                 placeholder='0'
-                                                step='0.01'
-                                                min='0'
                                                 disabled={isViewMode}
                                             />
                                         </td>
@@ -373,13 +376,11 @@ const AddEditViewMonthlyOperation: React.FC = () => {
                                         </td>
                                         <td className='text-center'>
                                             <input
-                                                type='number'
+                                                type='text'
                                                 className='form-control form-control-sm form-control-solid'
                                                 value={formData.water_cost}
-                                                onChange={(e) => handleInputChange('water_cost', parseFloat(e.target.value) || 0)}
+                                                onChange={(e) => handleCostChange('water_cost', e.target.value)}
                                                 placeholder='0'
-                                                step='0.01'
-                                                min='0'
                                                 disabled={isViewMode}
                                             />
                                         </td>
@@ -395,13 +396,11 @@ const AddEditViewMonthlyOperation: React.FC = () => {
                                         </td>
                                         <td className='text-center'>
                                             <input
-                                                type='number'
+                                                type='text'
                                                 className='form-control form-control-sm form-control-solid'
                                                 value={formData.electricity_cost}
-                                                onChange={(e) => handleInputChange('electricity_cost', parseFloat(e.target.value) || 0)}
+                                                onChange={(e) => handleCostChange('electricity_cost', e.target.value)}
                                                 placeholder='0'
-                                                step='0.01'
-                                                min='0'
                                                 disabled={isViewMode}
                                             />
                                         </td>
@@ -417,13 +416,11 @@ const AddEditViewMonthlyOperation: React.FC = () => {
                                         </td>
                                         <td className='text-center'>
                                             <input
-                                                type='number'
+                                                type='text'
                                                 className='form-control form-control-sm form-control-solid'
                                                 value={formData.utility_cost}
-                                                onChange={(e) => handleInputChange('utility_cost', parseFloat(e.target.value) || 0)}
+                                                onChange={(e) => handleCostChange('utility_cost', e.target.value)}
                                                 placeholder='0'
-                                                step='0.01'
-                                                min='0'
                                                 disabled={isViewMode}
                                             />
                                         </td>
