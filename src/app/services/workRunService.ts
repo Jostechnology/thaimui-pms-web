@@ -70,6 +70,20 @@ export const createWorkRun = async (workOrderId: number, payload: { quantity: nu
     }
 };
 
+export const getWorkRunsBySalesItem = async (salesItemId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "GET",
+            `/sales_item/${salesItemId}/work_runs`,
+            {},
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
 export const completeWorkRun = async (
     workRunId: number,
     payload: { completion_remark?: string; defect_qty?: number; usable_qty?: number }

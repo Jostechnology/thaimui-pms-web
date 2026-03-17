@@ -6,24 +6,34 @@ import {
     finalizeTestResult,
     deleteTestResult,
 } from "../../../services/testResultService";
+import { getWorkRunsBySalesItem } from "../../../services/workRunService";
 
-interface AvailableWorkRun {
+interface WorkRunOption {
     work_run_id: number;
     status: string;
     quantity: number;
+    tested_qty: number;
+    untested_qty: number;
+    usable_qty: number;
+    work_order_id?: number;
+}
+
+interface WorkRunAllocation {
+    work_run_id: number;
+    qty_from_run: number;
 }
 
 interface Props {
     qcWorkOrderId: number;
     quantity: number;
     salesItemDescription?: string;
+    salesItemId?: number;
     testResultsPre: any[];
-    availableWorkRuns?: AvailableWorkRun[];
 }
 
 interface ClaimForm {
     claimed_qty: number;
-    work_run_id: number | null;
+    work_runs: WorkRunAllocation[];
     remark: string;
 }
 
@@ -92,8 +102,8 @@ const TestResultSection: React.FC<Props> = ({
     qcWorkOrderId,
     quantity,
     salesItemDescription = "",
+    salesItemId,
     testResultsPre,
-    availableWorkRuns = [],
 }) => {
     const [testResults, setTestResults] = useState<any[]>(testResultsPre);
     const [loading, setLoading] = useState(false);
@@ -101,9 +111,12 @@ const TestResultSection: React.FC<Props> = ({
     const [claimSaving, setClaimSaving] = useState(false);
     const [claimForm, setClaimForm] = useState<ClaimForm>({
         claimed_qty: quantity,
-        work_run_id: null,
+        work_runs: [],
         remark: "",
     });
+
+    const [availableWorkRuns, setAvailableWorkRuns] = useState<WorkRunOption[]>([]);
+    const [loadingWorkRuns, setLoadingWorkRuns] = useState(false);
 
     // Finalize state — keyed by test_result_id
     const [finalizingId, setFinalizingId] = useState<number | null>(null);
@@ -127,9 +140,42 @@ const TestResultSection: React.FC<Props> = ({
     };
 
     // ─── Phase 1: Claim ───────────────────────────────────────────
-    const handleOpenClaimForm = () => {
-        setClaimForm({ claimed_qty: quantity, work_run_id: null, remark: "" });
+    const handleOpenClaimForm = async () => {
+        setClaimForm({ claimed_qty: quantity, work_runs: [], remark: "" });
         setShowClaimForm(true);
+
+        if (salesItemId) {
+            setLoadingWorkRuns(true);
+            try {
+                const res = await getWorkRunsBySalesItem(salesItemId);
+                if (res.success && Array.isArray(res.data)) {
+                    setAvailableWorkRuns(res.data);
+                } else {
+                    setAvailableWorkRuns([]);
+                }
+            } finally {
+                setLoadingWorkRuns(false);
+            }
+        }
+    };
+
+    const toggleWorkRunAllocation = (workRunId: number) => {
+        setClaimForm((prev) => {
+            const exists = prev.work_runs.find((a) => a.work_run_id === workRunId);
+            if (exists) {
+                return { ...prev, work_runs: prev.work_runs.filter((a) => a.work_run_id !== workRunId) };
+            }
+            return { ...prev, work_runs: [...prev.work_runs, { work_run_id: workRunId, qty_from_run: 1 }] };
+        });
+    };
+
+    const setAllocationQty = (workRunId: number, qty: number) => {
+        setClaimForm((prev) => ({
+            ...prev,
+            work_runs: prev.work_runs.map((a) =>
+                a.work_run_id === workRunId ? { ...a, qty_from_run: qty } : a
+            ),
+        }));
     };
 
     const handleClaim = async () => {
@@ -143,7 +189,9 @@ const TestResultSection: React.FC<Props> = ({
                 claimed_qty: claimForm.claimed_qty,
                 remark: claimForm.remark || undefined,
             };
-            if (claimForm.work_run_id) payload.work_run_id = claimForm.work_run_id;
+            if (claimForm.work_runs.length > 0) {
+                payload.work_run_sources = claimForm.work_runs;
+            }
 
             const res = await createTestResult(qcWorkOrderId, payload);
             if (res.success) {
@@ -264,27 +312,7 @@ const TestResultSection: React.FC<Props> = ({
                                     />
                                     <div className="form-text text-muted">จำนวนที่จะ "จองไว้" สำหรับทดสอบ</div>
                                 </div>
-                                {availableWorkRuns.length > 0 && (
-                                    <div className="col-md-4">
-                                        <label className="form-label fw-bold">Work Run ที่เกี่ยวข้อง (ไม่บังคับ)</label>
-                                        <select
-                                            className="form-select"
-                                            value={claimForm.work_run_id ?? ""}
-                                            onChange={(e) => setClaimForm((p) => ({
-                                                ...p,
-                                                work_run_id: e.target.value ? Number(e.target.value) : null
-                                            }))}
-                                        >
-                                            <option value="">— ไม่ระบุ —</option>
-                                            {availableWorkRuns.map((wr) => (
-                                                <option key={wr.work_run_id} value={wr.work_run_id}>
-                                                    Work Run #{wr.work_run_id} ({wr.status}) — qty: {wr.quantity}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
-                                <div className="col-md-5">
+                                <div className="col-md-9">
                                     <label className="form-label fw-bold">หมายเหตุเบื้องต้น</label>
                                     <input
                                         type="text"
@@ -295,6 +323,85 @@ const TestResultSection: React.FC<Props> = ({
                                     />
                                 </div>
                             </div>
+
+                            {/* Work Run Allocations */}
+                            {salesItemId && (
+                                <div className="mb-5">
+                                    <label className="form-label fw-bold">Work Runs ที่เกี่ยวข้อง (ไม่บังคับ)</label>
+                                    {loadingWorkRuns ? (
+                                        <div className="text-muted fs-7 py-2">
+                                            <span className="spinner-border spinner-border-sm me-2" />กำลังโหลด Work Runs...
+                                        </div>
+                                    ) : availableWorkRuns.length === 0 ? (
+                                        <div className="text-muted fs-7 py-2">ไม่มี Work Run สำหรับรายการนี้</div>
+                                    ) : (
+                                        <div className="table-responsive">
+                                            <table className="table table-bordered align-middle fs-7 mb-0">
+                                                <thead className="table-light">
+                                                    <tr className="fw-bold text-gray-700 text-center">
+                                                        <th className="w-50px">เลือก</th>
+                                                        <th className="text-start">Work Run</th>
+                                                        <th className="w-110px">สถานะ</th>
+                                                        <th className="w-80px">ทั้งหมด</th>
+                                                        <th className="w-80px">นำมาทดสอบแล้ว</th>
+                                                        <th className="w-80px">ใช้งานได้</th>
+                                                        <th className="w-130px">นำมาทดสอบ</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {availableWorkRuns.map((wr) => {
+                                                        const allocation = claimForm.work_runs.find((a) => a.work_run_id === wr.work_run_id);
+                                                        const isChecked = !!allocation;
+                                                        const hasEnough = wr.untested_qty > 0;
+                                                        return (
+                                                            <tr key={wr.work_run_id} className={isChecked ? "table-active" : ""}>
+                                                                <td className="text-center">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        className="form-check-input"
+                                                                        checked={isChecked}
+                                                                        onChange={() => toggleWorkRunAllocation(wr.work_run_id)}
+                                                                    />
+                                                                </td>
+                                                                <td className="fw-bold">Work Run #{wr.work_run_id}</td>
+                                                                <td className="text-center">
+                                                                    <span className={`badge fw-bold ${wr.status === "COMPLETED" ? "badge-light-success" : "badge-light-warning"}`}>
+                                                                        {wr.status}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="text-center">{wr.quantity}</td>
+                                                                <td className="text-center">
+                                                                    <span className={``}>
+                                                                        {wr.tested_qty}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="text-center fw-bold text-primary">{wr.untested_qty}
+                                                                    {!hasEnough && <i className="bi bi-exclamation-triangle ms-1 text-warning"></i>}
+                                                                </td>
+                                                                <td className="text-center">
+                                                                    {isChecked ? (
+                                                                        <input
+                                                                            type="number"
+                                                                            className="form-control form-control-sm text-center"
+                                                                            min={1}
+                                                                            max={wr.untested_qty || wr.quantity}
+                                                                            value={allocation!.qty_from_run}
+                                                                            onChange={(e) => setAllocationQty(wr.work_run_id, Number(e.target.value))}
+                                                                        />
+                                                                    ) : (
+                                                                        <span className="text-muted">—</span>
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             <div className="d-flex justify-content-end gap-3">
                                 <button className="btn btn-light fw-bold" onClick={() => setShowClaimForm(false)} disabled={claimSaving}>
                                     ยกเลิก
@@ -328,6 +435,7 @@ const TestResultSection: React.FC<Props> = ({
                                 const isCompleted = tr.session_status === "COMPLETED";
                                 const isFinalizing = finalizingId === tr.test_result_id;
                                 const isExpanded = expandedId === tr.test_result_id;
+                                const workRunLinks: any[] = tr.work_runs ?? [];
 
                                 return (
                                     <div key={tr.test_result_id} className={`border rounded overflow-hidden ${isInProgress ? 'border-warning' : ''}`}>
@@ -344,9 +452,13 @@ const TestResultSection: React.FC<Props> = ({
                                                 <span className="text-muted fs-7">
                                                     <i className="bi bi-box-seam me-1"></i>{tr.claimed_qty ?? quantity} ชิ้น
                                                 </span>
-                                                {tr.work_run_id && (
-                                                    <span className="badge badge-light-info fs-8">
-                                                        Work Run #{tr.work_run_id}
+                                                {workRunLinks.length > 0 && (
+                                                    <span className="d-flex gap-1 flex-wrap">
+                                                        {workRunLinks.map((wr: any) => (
+                                                            <span key={wr.work_run_id} className="badge badge-light-info fs-8">
+                                                                WR#{wr.work_run_id} ({wr.qty_from_run})
+                                                            </span>
+                                                        ))}
                                                     </span>
                                                 )}
                                                 {isCompleted && tr.test_date && (
