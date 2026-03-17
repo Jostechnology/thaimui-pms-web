@@ -135,6 +135,20 @@ export const subRoutesConfig: SubRouteType[] = [
         permission: []
     },
     {
+        module_code: "BRANCH_MANAGEMENT",
+        main_module_code: "SETTING",
+        path: "/setting/branch_management",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "BRANCH_LIST",
+        main_module_code: "SETTING",
+        path: "/setting/branch_list",
+        title: "",
+        permission: []
+    },
+    {
         module_code: "EMPLOYEE_LIST",
         main_module_code: "EMPLOYEE",
         path: "/employee/employee_list",
