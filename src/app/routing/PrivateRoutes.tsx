@@ -5,6 +5,7 @@ import TopBarProgress from "react-topbar-progress-indicator";
 import { getCSSVariableValue } from "../../_metronic/assets/ts/_utils";
 import { WithChildren } from "../../_metronic/helpers";
 import CostCalculationPage from "../modules/cost_calculation/CostCalculationPage";
+const MachinePage = lazy(() => import("../modules/machine/machinePage"));
 const WorkorderPage = lazy(() => import("../modules/workorder/WorkorderPage"));
 const SettingPage = lazy(() => import("../modules/menu_setting/SettingPage"));
 const EmployeePage = lazy(() => import("../modules/Employee/employeePage"));
