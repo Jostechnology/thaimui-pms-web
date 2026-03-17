@@ -21,11 +21,11 @@ export interface MainRouteType extends RouteType {
 
 export const mainRoutesConfig: MainRouteType[] = [
     {
-        module_code: "test",
-        path: "/main",
+        module_code: "WORKORDERS",
+        path: "/workorder",
         title: "",
-        fontIcon: "bi-currency-exchange",
-        icon: "bi bi-currency-exchange",
+        fontIcon: "bi-wrench-adjustable-circle",
+        icon: "bi bi-wrench-adjustable-circle",
         subMenu: [],
         permission: []
     },
@@ -35,15 +35,6 @@ export const mainRoutesConfig: MainRouteType[] = [
         title: "",
         fontIcon: "bi-gear",
         icon: "bi bi-gear",
-        subMenu: [],
-        permission: []
-    },
-    {
-        module_code: "WORKORDERS",
-        path: "/workorder",
-        title: "",
-        fontIcon: "bi-wrench-adjustable-circle",
-        icon: "bi bi-wrench-adjustable-circle",
         subMenu: [],
         permission: []
     },
@@ -105,11 +96,10 @@ export const mainRoutesConfig: MainRouteType[] = [
 ]
 
 export const subRoutesConfig: SubRouteType[] = [
-
     {
-        module_code: "TARN",
-        main_module_code: "test",
-        path: "/settings",
+        module_code: "EMPLOYEE_LIST",
+        main_module_code: "EMPLOYEE",
+        path: "/employee/employee_list",
         title: "",
         permission: []
     },
@@ -131,13 +121,6 @@ export const subRoutesConfig: SubRouteType[] = [
         module_code: "USER_MANAGEMENT",
         main_module_code: "SETTING",
         path: "/setting/user_management",
-        title: "",
-        permission: []
-    },
-    {
-        module_code: "EMPLOYEE_LIST",
-        main_module_code: "EMPLOYEE",
-        path: "/employee/employee_list",
         title: "",
         permission: []
     },
