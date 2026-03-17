@@ -349,6 +349,7 @@ const QCWorkOrdersList: React.FC = () => {
                                                     const failed = si?.failed_qty ?? 0;
                                                     const unavailable = si?.unavailable_for_test_qty ?? 0;
                                                     const testing = Math.max(0, unavailable - passed - failed);
+                                                    const produced = si?.produced_qty ?? 0
 
                                                     if (passed >= needed) {
                                                         return (
@@ -357,6 +358,8 @@ const QCWorkOrdersList: React.FC = () => {
                                                             </span>
                                                         );
                                                     }
+
+                                                    const ready_test = produced >= needed
 
                                                     return (
                                                         <div className='d-flex flex-column align-items-center gap-1'>
@@ -377,7 +380,10 @@ const QCWorkOrdersList: React.FC = () => {
                                                                     </span>
                                                                 )}
                                                                 {passed === 0 && failed === 0 && testing === 0 && (
-                                                                    <span className='badge badge-light-secondary fw-semibold'>ยังไม่เริ่ม</span>
+                                                                    <>
+                                                                       <span className='badge badge-light-secondary fw-semibold'>ยังไม่เริ่ม</span>
+                                                                        <span className={`badge badge-light-${ready_test ? "success" : "danger"} fw-semibold`}>{ready_test ? "พร้อมเทส" : "ยังไม่สามารถเทสได้"}</span>
+                                                                    </>
                                                                 )}
                                                             </div>
                                                             <span className='text-muted fs-8'>เป้าหมาย {needed} ชิ้น</span>
