@@ -75,7 +75,7 @@ const UserManagement: React.FC = () => {
             const result = await getUserList(currentPage, pageConfig, keyword, roleFilter);
             if (result && result.success) {
                 setUsers(result.data.items);
-                setTotalPages(result.data.total_pages);
+                setTotalPages(result.pagination?.pages ?? 0);
             } else {
                 setUsers([]);
             }

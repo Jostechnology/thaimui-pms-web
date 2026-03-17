@@ -1,197 +1,27 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate } from "react-router-dom";
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
     PieChart, Pie, Legend
 } from 'recharts';
-import type { WorkOrderSummary, WorkOrderStatus, StatusCount, EmployeeWorkload, DashboardKPI } from '../../../type_interface/WorkOrderType';
+import type { WorkOrder, StatusCount, EmployeeWorkload, DashboardKPI } from '../../../type_interface/WorkOrderType';
+import { WorkOrderStatusEnum } from '../../../type_interface/WorkOrderType';
+import { getWorkOrderList } from '../../../services/workorder';
 
 // ==========================================
-// STATUS CONFIG — Color + Label mapping
+// STATUS CONFIG — Color + Label mapping (matches backend enum)
 // ==========================================
-const STATUS_CONFIG: Record<WorkOrderStatus, { color: string; badgeClass: string; label: string }> = {
-    'รอกำหนดข้อมูล': { color: '#A1A5B7', badgeClass: 'badge-light-secondary', label: 'รอกำหนดข้อมูล' },
-    'ดีไซน์': { color: '#7239EA', badgeClass: 'badge-light-info', label: 'ดีไซน์' },
-    'รอเบิกของ': { color: '#FFC700', badgeClass: 'badge-light-warning', label: 'รอเบิกของ' },
-    'รอเริ่มงาน': { color: '#009EF7', badgeClass: 'badge-light-primary', label: 'รอเริ่มงาน' },
-    'กำลังทำงาน': { color: '#FFA800', badgeClass: 'badge-light-warning', label: 'กำลังทำงาน' },
-    'เสร็จ': { color: '#1BC5BD', badgeClass: 'badge-light-success', label: 'เสร็จ' },
-    'รอเทส': { color: '#8950FC', badgeClass: 'badge-light-info', label: 'รอเทส' },
-    'กำลังเทส': { color: '#7239EA', badgeClass: 'badge-light-info', label: 'กำลังเทส' },
-    'สำเร็จ': { color: '#50CD89', badgeClass: 'badge-light-success', label: 'สำเร็จ' },
+const STATUS_CONFIG: Record<WorkOrderStatusEnum, { color: string; badgeClass: string; label: string }> = {
+    [WorkOrderStatusEnum.READY]: { color: '#009EF7', badgeClass: 'badge-light-primary', label: 'พร้อมดำเนินการ' },
+    [WorkOrderStatusEnum.INPROGRESS]: { color: '#FFA800', badgeClass: 'badge-light-warning', label: 'กำลังดำเนินการ' },
+    [WorkOrderStatusEnum.WAIT_TEST]: { color: '#8950FC', badgeClass: 'badge-light-info', label: 'รอทดสอบ' },
+    [WorkOrderStatusEnum.TESTING]: { color: '#7239EA', badgeClass: 'badge-light-info', label: 'กำลังทดสอบ' },
+    [WorkOrderStatusEnum.COMPLETED]: { color: '#50CD89', badgeClass: 'badge-light-success', label: 'เสร็จสิ้น' },
 };
 
 // ==========================================
-// MOCK DATA
-// ==========================================
-const MOCK_WORK_ORDERS: WorkOrderSummary[] = [
-    {
-        work_order_id: 1, doc_num: 'WO-2026-0001', doc_entry: 'ORDR-5501',
-        status: 'กำลังทำงาน', created_date: '2026-02-01T08:30:00',
-        sales_item_id: 101,
-        current_phase: {
-            work_phase_id: 1, phase_name: 'ตัดวัสดุ', phase_status: 'Active',
-            start_time: '2026-02-05T09:00:00', end_time: null,
-            employee_list: [
-                { employee_id: 1, employee_first_name: 'สมชาย', employee_last_name: 'ใจดี', status: 'Active' },
-                { employee_id: 2, employee_first_name: 'สมหญิง', employee_last_name: 'รักดี', status: 'Active' },
-            ]
-        }
-    },
-    {
-        work_order_id: 2, doc_num: 'WO-2026-0002', doc_entry: 'ORDR-5502',
-        status: 'ดีไซน์', created_date: '2026-02-03T10:15:00',
-        sales_item_id: 102,
-        current_phase: {
-            work_phase_id: 2, phase_name: 'ออกแบบชิ้นงาน', phase_status: 'Active',
-            start_time: '2026-02-03T10:30:00', end_time: null,
-            employee_list: [
-                { employee_id: 3, employee_first_name: 'วิชัย', employee_last_name: 'สร้างสรรค์', status: 'Active' },
-            ]
-        }
-    },
-    {
-        work_order_id: 3, doc_num: 'WO-2026-0003', doc_entry: 'ORDR-5503',
-        status: 'สำเร็จ', created_date: '2026-01-20T14:00:00',
-        sales_item_id: 103,
-        current_phase: {
-            work_phase_id: 3, phase_name: 'ส่งมอบ', phase_status: 'COMPLETED',
-            start_time: '2026-02-01T08:00:00', end_time: '2026-02-10T16:00:00',
-            employee_list: [
-                { employee_id: 4, employee_first_name: 'สมศักดิ์', employee_last_name: 'มั่นคง', status: 'Done' },
-            ]
-        }
-    },
-    {
-        work_order_id: 4, doc_num: 'WO-2026-0004', doc_entry: 'ORDR-5504',
-        status: 'กำลังเทส', created_date: '2026-02-05T09:00:00',
-        sales_item_id: 104,
-        current_phase: {
-            work_phase_id: 4, phase_name: 'ทดสอบคุณภาพ', phase_status: 'Active',
-            start_time: '2026-02-10T08:00:00', end_time: null,
-            employee_list: [
-                { employee_id: 5, employee_first_name: 'อนุชา', employee_last_name: 'ตรวจสอบ', status: 'Active' },
-            ]
-        }
-    },
-    {
-        work_order_id: 5, doc_num: 'WO-2026-0005', doc_entry: 'ORDR-5505',
-        status: 'รอเบิกของ', created_date: '2026-02-07T13:30:00',
-        sales_item_id: 105,
-        current_phase: {
-            work_phase_id: 5, phase_name: 'เบิกวัสดุ', phase_status: 'Active',
-            start_time: '2026-02-08T09:00:00', end_time: null,
-            employee_list: [
-                { employee_id: 1, employee_first_name: 'สมชาย', employee_last_name: 'ใจดี', status: 'Active' },
-            ]
-        }
-    },
-    {
-        work_order_id: 6, doc_num: 'WO-2026-0006', doc_entry: 'ORDR-5506',
-        status: 'รอกำหนดข้อมูล', created_date: '2026-02-08T11:00:00',
-        sales_item_id: 106,
-        current_phase: null
-    },
-    {
-        work_order_id: 7, doc_num: 'WO-2026-0007', doc_entry: 'ORDR-5507',
-        status: 'สำเร็จ', created_date: '2026-01-15T09:15:00',
-        sales_item_id: 107,
-        current_phase: {
-            work_phase_id: 7, phase_name: 'ส่งมอบ', phase_status: 'COMPLETED',
-            start_time: '2026-01-20T08:00:00', end_time: '2026-01-28T17:00:00',
-            employee_list: [
-                { employee_id: 2, employee_first_name: 'สมหญิง', employee_last_name: 'รักดี', status: 'Done' },
-            ]
-        }
-    },
-    {
-        work_order_id: 8, doc_num: 'WO-2026-0008', doc_entry: 'ORDR-5508',
-        status: 'เสร็จ', created_date: '2026-02-02T08:45:00',
-        sales_item_id: 108,
-        current_phase: {
-            work_phase_id: 8, phase_name: 'ประกอบชิ้นส่วน', phase_status: 'Active',
-            start_time: '2026-02-09T08:00:00', end_time: null,
-            employee_list: [
-                { employee_id: 6, employee_first_name: 'ประเสริฐ', employee_last_name: 'ช่างประกอบ', status: 'Active' },
-                { employee_id: 7, employee_first_name: 'ธนากร', employee_last_name: 'ช่างฝีมือ', status: 'Active' },
-            ]
-        }
-    },
-    {
-        work_order_id: 9, doc_num: 'WO-2026-0009', doc_entry: 'ORDR-5509',
-        status: 'รอเริ่มงาน', created_date: '2026-02-09T07:30:00',
-        sales_item_id: 109,
-        current_phase: null
-    },
-    {
-        work_order_id: 10, doc_num: 'WO-2026-0010', doc_entry: 'ORDR-5510',
-        status: 'กำลังทำงาน', created_date: '2026-02-04T10:00:00',
-        sales_item_id: 110,
-        current_phase: {
-            work_phase_id: 10, phase_name: 'เชื่อมโลหะ', phase_status: 'Active',
-            start_time: '2026-02-06T08:00:00', end_time: null,
-            employee_list: [
-                { employee_id: 8, employee_first_name: 'กิตติ', employee_last_name: 'ช่างเชื่อม', status: 'Active' },
-            ]
-        }
-    },
-    {
-        work_order_id: 11, doc_num: 'WO-2026-0011', doc_entry: 'ORDR-5511',
-        status: 'กำลังทำงาน', created_date: '2026-02-06T14:20:00',
-        sales_item_id: 111,
-        current_phase: {
-            work_phase_id: 11, phase_name: 'กลึงชิ้นงาน', phase_status: 'Active',
-            start_time: '2026-02-07T08:00:00', end_time: null,
-            employee_list: [
-                { employee_id: 3, employee_first_name: 'วิชัย', employee_last_name: 'สร้างสรรค์', status: 'Active' },
-            ]
-        }
-    },
-    {
-        work_order_id: 12, doc_num: 'WO-2026-0012', doc_entry: 'ORDR-5512',
-        status: 'สำเร็จ', created_date: '2026-01-10T08:00:00',
-        sales_item_id: 112,
-        current_phase: {
-            work_phase_id: 12, phase_name: 'ส่งมอบ', phase_status: 'COMPLETED',
-            start_time: '2026-01-12T08:00:00', end_time: '2026-01-18T16:00:00',
-            employee_list: [
-                { employee_id: 4, employee_first_name: 'สมศักดิ์', employee_last_name: 'มั่นคง', status: 'Done' },
-            ]
-        }
-    },
-    {
-        work_order_id: 13, doc_num: 'WO-2026-0013', doc_entry: 'ORDR-5513',
-        status: 'รอเทส', created_date: '2026-02-10T11:30:00',
-        sales_item_id: 113,
-        current_phase: {
-            work_phase_id: 13, phase_name: 'รอทดสอบ QC', phase_status: 'PENDING',
-            start_time: '2026-02-11T08:00:00', end_time: null,
-            employee_list: []
-        }
-    },
-    {
-        work_order_id: 14, doc_num: 'WO-2026-0014', doc_entry: 'ORDR-5514',
-        status: 'รอกำหนดข้อมูล', created_date: '2026-02-11T09:00:00',
-        sales_item_id: 114,
-        current_phase: null
-    },
-    {
-        work_order_id: 15, doc_num: 'WO-2026-0015', doc_entry: 'ORDR-5515',
-        status: 'กำลังทำงาน', created_date: '2026-01-25T08:00:00',
-        sales_item_id: 115,
-        current_phase: {
-            work_phase_id: 15, phase_name: 'พ่นสี', phase_status: 'Active',
-            start_time: '2026-01-28T08:00:00', end_time: null,
-            employee_list: [
-                { employee_id: 9, employee_first_name: 'ณัฐพล', employee_last_name: 'ช่างพ่นสี', status: 'Active' },
-            ]
-        }
-    },
-];
-
-// ==========================================
-// CUSTOM TOOLTIP COMPONENT
+// CUSTOM TOOLTIP COMPONENTS
 // ==========================================
 const CustomBarTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -242,18 +72,34 @@ const CustomPieTooltip = ({ active, payload }: any) => {
 // ==========================================
 const WorkorderDashboard: React.FC = () => {
     const navigate = useNavigate();
-    const [workOrders, setWorkOrders] = useState<WorkOrderSummary[]>([]);
+    const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    // Load mock data with simulated delay
-    useEffect(() => {
+    const fetchDashboardData = useCallback(async () => {
         setIsLoading(true);
-        const timer = setTimeout(() => {
-            setWorkOrders(MOCK_WORK_ORDERS);
+        setError(null);
+        try {
+            // ดึงข้อมูลทั้งหมดด้วย limit สูง (ไม่มี pagination สำหรับ dashboard)
+            const result = await getWorkOrderList(1, 999, '', '', '');
+            if (result && result.success) {
+                setWorkOrders(result.data?.items || []);
+            } else {
+                setError('ไม่สามารถดึงข้อมูลได้');
+                setWorkOrders([]);
+            }
+        } catch (err) {
+            console.error('Dashboard fetch error:', err);
+            setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+            setWorkOrders([]);
+        } finally {
             setIsLoading(false);
-        }, 800);
-        return () => clearTimeout(timer);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, [fetchDashboardData]);
 
     // ==========================================
     // COMPUTED DATA
@@ -262,29 +108,41 @@ const WorkorderDashboard: React.FC = () => {
         const now = new Date();
         const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-        const activeStatuses: WorkOrderStatus[] = ['รอกำหนดข้อมูล', 'ดีไซน์', 'รอเบิกของ', 'รอเริ่มงาน', 'กำลังทำงาน', 'เสร็จ', 'รอเทส', 'กำลังเทส'];
-        const waitingStatuses: WorkOrderStatus[] = ['รอกำหนดข้อมูล', 'รอเบิกของ', 'รอเริ่มงาน', 'รอเทส'];
+        const activeStatuses: WorkOrderStatusEnum[] = [
+            WorkOrderStatusEnum.READY,
+            WorkOrderStatusEnum.INPROGRESS,
+            WorkOrderStatusEnum.WAIT_TEST,
+            WorkOrderStatusEnum.TESTING,
+        ];
+        const waitingStatuses: WorkOrderStatusEnum[] = [
+            WorkOrderStatusEnum.READY,
+            WorkOrderStatusEnum.WAIT_TEST,
+        ];
 
-        const active = workOrders.filter(wo => activeStatuses.includes(wo.status)).length;
-        const COMPLETED = workOrders.filter(wo => wo.status === 'สำเร็จ').length;
-        const waiting = workOrders.filter(wo => waitingStatuses.includes(wo.status)).length;
+        const normalizeStatus = (s: string): WorkOrderStatusEnum =>
+            s as WorkOrderStatusEnum;
+
+        const active = workOrders.filter(wo => activeStatuses.includes(normalizeStatus(wo.status))).length;
+        const completed = workOrders.filter(wo => normalizeStatus(wo.status) === WorkOrderStatusEnum.COMPLETED).length;
+        const waiting = workOrders.filter(wo => waitingStatuses.includes(normalizeStatus(wo.status))).length;
         const overdue = workOrders.filter(wo => {
-            if (wo.status === 'สำเร็จ') return false;
+            if (normalizeStatus(wo.status) === WorkOrderStatusEnum.COMPLETED) return false;
             return new Date(wo.created_date) < sevenDaysAgo;
         }).length;
 
-        return { total: workOrders.length, active, COMPLETED, waiting, overdue };
+        return { total: workOrders.length, active, COMPLETED: completed, waiting, overdue };
     }, [workOrders]);
 
     const statusDistribution: StatusCount[] = useMemo(() => {
-        const counts: Partial<Record<WorkOrderStatus, number>> = {};
+        const counts: Partial<Record<WorkOrderStatusEnum, number>> = {};
         workOrders.forEach(wo => {
-            counts[wo.status] = (counts[wo.status] || 0) + 1;
+            const key = wo.status as WorkOrderStatusEnum;
+            counts[key] = (counts[key] || 0) + 1;
         });
-        return (Object.keys(STATUS_CONFIG) as WorkOrderStatus[])
+        return (Object.keys(STATUS_CONFIG) as WorkOrderStatusEnum[])
             .filter(status => (counts[status] || 0) > 0)
             .map(status => ({
-                status,
+                status: STATUS_CONFIG[status].label,  // แสดงเป็นภาษาไทย
                 count: counts[status] || 0,
                 color: STATUS_CONFIG[status].color,
             }));
@@ -293,17 +151,18 @@ const WorkorderDashboard: React.FC = () => {
     const employeeWorkload: EmployeeWorkload[] = useMemo(() => {
         const map = new Map<number, EmployeeWorkload>();
         workOrders.forEach(wo => {
+            const isCompleted = (wo.status as WorkOrderStatusEnum) === WorkOrderStatusEnum.COMPLETED;
             wo.current_phase?.employee_list?.forEach(emp => {
                 const existing = map.get(emp.employee_id);
                 if (existing) {
-                    if (wo.status === 'สำเร็จ') existing.COMPLETED_tasks++;
+                    if (isCompleted) existing.COMPLETED_tasks++;
                     else existing.active_tasks++;
                 } else {
                     map.set(emp.employee_id, {
                         employee_id: emp.employee_id,
                         employee_name: `${emp.employee_first_name} ${emp.employee_last_name}`,
-                        active_tasks: wo.status === 'สำเร็จ' ? 0 : 1,
-                        COMPLETED_tasks: wo.status === 'สำเร็จ' ? 1 : 0,
+                        active_tasks: isCompleted ? 0 : 1,
+                        COMPLETED_tasks: isCompleted ? 1 : 0,
                     });
                 }
             });
@@ -327,11 +186,7 @@ const WorkorderDashboard: React.FC = () => {
     }, [workOrders]);
 
     const handleRefresh = () => {
-        setIsLoading(true);
-        setTimeout(() => {
-            setWorkOrders([...MOCK_WORK_ORDERS]);
-            setIsLoading(false);
-        }, 600);
+        fetchDashboardData();
     };
 
     // ==========================================
@@ -382,11 +237,28 @@ const WorkorderDashboard: React.FC = () => {
     }
 
     // ==========================================
+    // ERROR STATE
+    // ==========================================
+    if (error) {
+        return (
+            <Content>
+                <div className='d-flex flex-center flex-column py-20'>
+                    <i className='bi bi-exclamation-triangle-fill text-danger fs-3x mb-4'></i>
+                    <span className='text-danger fw-bold fs-5 mb-2'>{error}</span>
+                    <button className='btn btn-sm btn-primary mt-4' onClick={handleRefresh}>
+                        <i className='bi bi-arrow-clockwise me-2'></i>ลองใหม่
+                    </button>
+                </div>
+            </Content>
+        );
+    }
+
+    // ==========================================
     // KPI CARDS CONFIG
     // ==========================================
     const kpiCards = [
         {
-            title: 'ใบสั่งงานทั้งหมด',
+            title: 'ใบสั่งผลิตทั้งหมด',
             value: kpi.total,
             icon: 'bi-clipboard2-data',
             bgClass: 'bg-light-primary',
@@ -399,7 +271,7 @@ const WorkorderDashboard: React.FC = () => {
             icon: 'bi-gear-wide-connected',
             bgClass: 'bg-light-warning',
             iconColor: 'text-warning',
-            subtitle: 'INPROGRESS',
+            subtitle: 'In Progress',
         },
         {
             title: 'เสร็จสมบูรณ์',
@@ -407,7 +279,7 @@ const WorkorderDashboard: React.FC = () => {
             icon: 'bi-check-circle',
             bgClass: 'bg-light-success',
             iconColor: 'text-success',
-            subtitle: 'COMPLETED',
+            subtitle: 'Completed',
         },
         {
             title: 'รอดำเนินการ',
@@ -437,13 +309,17 @@ const WorkorderDashboard: React.FC = () => {
                         Work Order Dashboard
                     </h1>
                     <span className='text-muted fw-semibold fs-6'>
-                        ภาพรวมและติดตามสถานะใบสั่งงานทั้งหมดในระบบ
+                        ภาพรวมและติดตามสถานะใบสั่งผลิตทั้งหมดในระบบ
+                        {workOrders.length > 0 && (
+                            <span className='ms-2 text-primary fw-bold'>({workOrders.length} รายการ)</span>
+                        )}
                     </span>
                 </div>
                 <div className='d-flex align-items-center gap-3'>
                     <button
                         className='btn btn-sm btn-light-primary fw-bold px-4'
                         onClick={handleRefresh}
+                        disabled={isLoading}
                     >
                         <i className='bi bi-arrow-clockwise me-2'></i>Refresh
                     </button>
@@ -486,36 +362,43 @@ const WorkorderDashboard: React.FC = () => {
                     <div className='card card-flush shadow-sm border-0 h-100'>
                         <div className='card-header border-0 pt-6'>
                             <h3 className='card-title align-items-start flex-column'>
-                                <span className='card-label fw-bold text-gray-900'>สถานะใบสั่งงาน</span>
-                                <span className='text-muted mt-1 fw-semibold fs-7'>จำนวนใบสั่งงานแยกตามสถานะ</span>
+                                <span className='card-label fw-bold text-gray-900'>สถานะใบสั่งผลิต</span>
+                                <span className='text-muted mt-1 fw-semibold fs-7'>จำนวนใบสั่งผลิตแยกตามสถานะ</span>
                             </h3>
                         </div>
                         <div className='card-body pt-2 pb-4'>
-                            <ResponsiveContainer width='100%' height={320}>
-                                <BarChart
-                                    data={statusDistribution}
-                                    layout='vertical'
-                                    margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
-                                    barCategoryGap="25%"
-                                >
-                                    <CartesianGrid strokeDasharray='3 3' stroke='#f1f1f4' horizontal={false} />
-                                    <XAxis type='number' allowDecimals={false} tick={{ fill: '#a1a5b7', fontSize: 12 }} axisLine={false} tickLine={false} />
-                                    <YAxis
-                                        dataKey='status'
-                                        type='category'
-                                        width={100}
-                                        tick={{ fill: '#5e6278', fontSize: 13, fontWeight: 600 }}
-                                        axisLine={false}
-                                        tickLine={false}
-                                    />
-                                    <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
-                                    <Bar dataKey='count' radius={[0, 6, 6, 0]} maxBarSize={28}>
-                                        {statusDistribution.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                            {statusDistribution.length > 0 ? (
+                                <ResponsiveContainer width='100%' height={320}>
+                                    <BarChart
+                                        data={statusDistribution}
+                                        layout='vertical'
+                                        margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                                        barCategoryGap="25%"
+                                    >
+                                        <CartesianGrid strokeDasharray='3 3' stroke='#f1f1f4' horizontal={false} />
+                                        <XAxis type='number' allowDecimals={false} tick={{ fill: '#a1a5b7', fontSize: 12 }} axisLine={false} tickLine={false} />
+                                        <YAxis
+                                            dataKey='status'
+                                            type='category'
+                                            width={120}
+                                            tick={{ fill: '#5e6278', fontSize: 13, fontWeight: 600 }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
+                                        <Bar dataKey='count' radius={[0, 6, 6, 0]} maxBarSize={28}>
+                                            {statusDistribution.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className='text-center text-muted py-20'>
+                                    <i className='bi bi-bar-chart fs-3x text-gray-300 mb-4 d-block'></i>
+                                    ไม่พบข้อมูลสถานะ
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -575,7 +458,7 @@ const WorkorderDashboard: React.FC = () => {
             <div className='card card-flush shadow-sm border-0 mb-8'>
                 <div className='card-header border-0 pt-6'>
                     <h3 className='card-title align-items-start flex-column'>
-                        <span className='card-label fw-bold text-gray-900'>ใบสั่งงานล่าสุด</span>
+                        <span className='card-label fw-bold text-gray-900'>ใบสั่งผลิตล่าสุด</span>
                         <span className='text-muted mt-1 fw-semibold fs-7'>แสดง {recentOrders.length} รายการล่าสุด</span>
                     </h3>
                     <div className='card-toolbar'>
@@ -592,8 +475,8 @@ const WorkorderDashboard: React.FC = () => {
                         <table className='table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer'>
                             <thead>
                                 <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
-                                    <th className='min-w-120px'>DOCNUM</th>
-                                    <th className='min-w-100px'>DOC ENTRY</th>
+                                    <th className='min-w-120px'>รหัสใบสั่งผลิต</th>
+                                    <th className='min-w-150px'>สินค้า</th>
                                     <th className='min-w-130px text-center'>สถานะ</th>
                                     <th className='min-w-150px'>ขั้นตอนปัจจุบัน</th>
                                     <th className='min-w-150px'>ผู้รับผิดชอบ</th>
@@ -602,8 +485,9 @@ const WorkorderDashboard: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className='text-gray-600 fw-semibold'>
-                                {recentOrders.map((wo) => {
-                                    const config = STATUS_CONFIG[wo.status];
+                                {recentOrders.length > 0 ? recentOrders.map((wo) => {
+                                    const statusKey = wo.status as WorkOrderStatusEnum;
+                                    const config = STATUS_CONFIG[statusKey] || { color: '#A1A5B7', badgeClass: 'badge-light-secondary', label: wo.status };
                                     const employees = wo.current_phase?.employee_list || [];
 
                                     return (
@@ -612,11 +496,18 @@ const WorkorderDashboard: React.FC = () => {
                                                 <span className='text-gray-800 fw-bold fs-6'>{wo.doc_num}</span>
                                             </td>
                                             <td>
-                                                <span className='text-gray-600 fw-semibold fs-7'>{wo.doc_entry}</span>
+                                                <div className='d-flex flex-column'>
+                                                    <span className='text-gray-800 fw-bold fs-7'>
+                                                        {wo.sales_item?.item_name || '-'}
+                                                    </span>
+                                                    {wo.sales_item?.item_code && (
+                                                        <span className='text-muted fs-8'>{wo.sales_item.item_code}</span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className='text-center'>
                                                 <span className={`badge ${config.badgeClass} fw-bold px-4 py-2`}>
-                                                    {wo.status}
+                                                    {config.label}
                                                 </span>
                                             </td>
                                             <td>
@@ -638,7 +529,7 @@ const WorkorderDashboard: React.FC = () => {
                                                             {employees.slice(0, 3).map((emp) => (
                                                                 <div key={emp.employee_id} className='symbol symbol-30px' title={`${emp.employee_first_name} ${emp.employee_last_name}`}>
                                                                     <span className='symbol-label bg-light-primary text-primary fw-bold fs-8'>
-                                                                        {emp.employee_first_name.charAt(0)}
+                                                                        {emp.employee_first_name?.charAt(0) || '?'}
                                                                     </span>
                                                                 </div>
                                                             ))}
@@ -675,7 +566,14 @@ const WorkorderDashboard: React.FC = () => {
                                             </td>
                                         </tr>
                                     );
-                                })}
+                                }) : (
+                                    <tr>
+                                        <td colSpan={7} className='text-center py-15'>
+                                            <i className='bi bi-inbox fs-3x text-gray-300 mb-4 d-block'></i>
+                                            <span className='text-muted'>ไม่พบข้อมูลใบสั่งผลิต</span>
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -700,9 +598,9 @@ const WorkorderDashboard: React.FC = () => {
                                 </span>
                             </div>
                             <div className='d-flex flex-column'>
-                                <span className='text-white fw-bold fs-3'>สร้างใบสั่งงานใหม่</span>
+                                <span className='text-white fw-bold fs-3'>สร้างใบสั่งผลิตใหม่</span>
                                 <span className='text-white text-opacity-75 fw-semibold fs-7'>
-                                    เปิดใบสั่งงานและกำหนดขั้นตอนการผลิต
+                                    เปิดใบสั่งผลิตและกำหนดขั้นตอนการผลิต
                                 </span>
                             </div>
                             <i className='bi bi-chevron-right text-white fs-2x ms-auto'></i>
@@ -725,9 +623,9 @@ const WorkorderDashboard: React.FC = () => {
                                 </span>
                             </div>
                             <div className='d-flex flex-column'>
-                                <span className='text-white fw-bold fs-3'>ดูใบสั่งงานทั้งหมด</span>
+                                <span className='text-white fw-bold fs-3'>ดูใบสั่งผลิตทั้งหมด</span>
                                 <span className='text-white text-opacity-75 fw-semibold fs-7'>
-                                    จัดการ ค้นหา และติดตามใบสั่งงานทุกรายการ
+                                    จัดการ ค้นหา และติดตามใบสั่งผลิตทุกรายการ
                                 </span>
                             </div>
                             <i className='bi bi-chevron-right text-white fs-2x ms-auto'></i>

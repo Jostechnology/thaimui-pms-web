@@ -41,11 +41,21 @@ export const createCertificate = async (data: any): Promise<APIResponse> => {
     }
 };
 
-export const getCertificateList = async (): Promise<APIResponse> => {
+export const getCertificateList = async (
+    page: number = 1,
+    per_page: number = 10,
+    search: string = ""
+): Promise<APIResponse> => {
     try {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            per_page: per_page.toString(),
+        });
+        if (search) params.append("search", search);
+
         const response = await front_api(
             "GET",
-            "/test_certificate/get_list",
+            `/test_certificate/get_list?${params.toString()}`,
             undefined,
             { wrapData: false, headers: getHeaders() }
         );

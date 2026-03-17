@@ -165,7 +165,7 @@ const WorkPhaseDetail: React.FC = () => {
                         </li>
                         <li className="breadcrumb-item">
                             <a href="#" className="text-muted text-hover-primary" onClick={(e) => { e.preventDefault(); navigate(`/workorder/workorders_view/${data.work_order_id}`); }}>
-                                ORDR-{data.doc_num}
+                                {data.doc_num}
                             </a>
                         </li>
                         <li className="breadcrumb-item active fw-bold text-dark" aria-current="page">Phase Detail</li>

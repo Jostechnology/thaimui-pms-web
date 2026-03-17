@@ -265,7 +265,7 @@ const ItemComponentDetailModal: React.FC<Props> = ({
                             <div className="card-body p-4">
                                 <div className="row g-3">
                                     <div className="col-md-3">
-                                        <div className="fs-8 text-muted fw-semibold mb-1">เลขที่ใบสั่งงาน</div>
+                                        <div className="fs-8 text-muted fw-semibold mb-1">เลขที่ใบสั่งผลิต</div>
                                         <div className="fw-bold text-dark">ORDR-{workOrder?.doc_num || '-'}</div>
                                     </div>
                                     <div className="col-md-3">

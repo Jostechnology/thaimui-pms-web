@@ -1,4 +1,5 @@
 import type { Employee } from './EmployeeType';
+import { SalesItem } from './SalesItemType';
 
 
 export interface WorkPhaseBreak {
@@ -11,7 +12,7 @@ export interface WorkPhaseBreak {
 
 export interface WorkPhase {
     work_phase_id: number;
-    work_order_id: number;
+    work_run_id: number;
     phase_name: string;
     phase_status: WorkPhaseStatusEnum;
     start_date: string | null;
@@ -21,16 +22,25 @@ export interface WorkPhase {
     breaks: WorkPhaseBreak[];
 }
 
+// Lightweight WorkRun — returned inside get_work_order_by_id
+export interface WorkRun {
+    work_run_id: number;
+    work_order_id: number;
+    quantity: number;
+    status: string;
+    current_phase_id: number | null;
+    completion_remark: string | null;
+    created_date: string | null;
+    defect_qty: number | null;
+    usable_qty: number | null;
+    wms_pick_reference: string | null;
+}
 
-export interface SalesItem {
-    sales_item_id: number;
-    item_code: string;
-    item_num: number;
-    item_name: string;
-    item_description: string;
-    cost_price: number;
-    unit_price: number;
-    doc_num: string;
+// Full WorkRun detail — returned from GET /api/work_run/:id
+export interface WorkRunDetail extends WorkRun {
+    current_phase: WorkPhase | null;
+    work_phases: WorkPhase[];
+    test_results: any[];
 }
 
 export interface ComponentMaterialUsage {
@@ -44,7 +54,8 @@ export interface ComponentMaterialUsage {
         item_code: string;
         item_name: string;
         item_description: string;
-        item_num: number;
+        original_num: number;
+        remaining_num: number;
         cost_price: number;
         unit_price: number;
     };
@@ -95,11 +106,11 @@ export interface WorkOrder {
     work_order_id: number;
     doc_num: string;
     created_date: string;
+    quantity: number;
     status: WorkOrderStatusEnum;
-    current_phase: WorkPhase | null;
-    work_phases: WorkPhase[];
     sales_item: SalesItem | null;
     item_components: ItemComponent[];
+    work_runs: WorkRun[];
 }
 
 

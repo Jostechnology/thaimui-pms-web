@@ -6,8 +6,9 @@ import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import Swal from 'sweetalert2';
 import './WorkorderView.css';
-import { WorkPhaseStatusEnum, type WorkOrder, type WorkPhase, type WorkPhaseBreak, type ItemComponent } from '../../../type_interface/WorkOrderType';
+import { WorkPhaseStatusEnum, type WorkOrder, type WorkPhase, type WorkPhaseBreak, type ItemComponent, type WorkRunDetail as WorkRunDetailType } from '../../../type_interface/WorkOrderType';
 import type { Employee } from '../../../type_interface/EmployeeType';
+import { getWorkRunById } from '../../../services/workRunService';
 import ItemComponentDetailModal from './ItemComponentDetailModal';
 
 // --- Helper functions ---
@@ -216,10 +217,28 @@ const WorkorderView: React.FC = () => {
     const { alertMessage } = useAlertModal();
 
     const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
+    const [selectedWorkRun, setSelectedWorkRun] = useState<WorkRunDetailType | null>(null);
+    const [selectedWorkRunId, setSelectedWorkRunId] = useState<number | null>(null);
+    const [workRunLoading, setWorkRunLoading] = useState(false);
     const [dataLoading, setDataLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
     const [clickedBarPixel, setClickedBarPixel] = useState<{ barCenterPx: number; trackWidthPx: number } | null>(null);
+
+    const fetchWorkRunDetail = async (workRunId: number) => {
+        setWorkRunLoading(true);
+        try {
+            const result = await getWorkRunById(workRunId);
+            if (result && result.success && result.data) {
+                setSelectedWorkRun(result.data);
+            }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setWorkRunLoading(false);
+        }
+    };
+
     const [viewComponentId, setViewComponentId] = useState<number | null>(null);
     const fetchData = async () => {
         setLoading();
@@ -228,8 +247,14 @@ const WorkorderView: React.FC = () => {
             const result = await getWorkOrderById(Number(id));
             if (result && result.success && result.data) {
                 setWorkOrder(result.data);
+                // Auto-select the first work run
+                const firstRun = result.data.work_runs?.[0];
+                if (firstRun) {
+                    setSelectedWorkRunId(firstRun.work_run_id);
+                    await fetchWorkRunDetail(firstRun.work_run_id);
+                }
             } else {
-                alertMessage("ไม่สามารถดึงข้อมูลใบสั่งงานได้");
+                alertMessage("ไม่สามารถดึงข้อมูลใบสั่งผลิตได้");
             }
         } catch (error) {
             console.error(error);
@@ -244,6 +269,12 @@ const WorkorderView: React.FC = () => {
         fetchData();
     }, [id]);
 
+    useEffect(() => {
+        if (selectedWorkRunId && !dataLoading) {
+            fetchWorkRunDetail(selectedWorkRunId);
+        }
+    }, [selectedWorkRunId]);
+
     // Close popover when clicking outside
     useEffect(() => {
         const handleClickOutside = () => setSelectedPhaseId(null);
@@ -253,11 +284,13 @@ const WorkorderView: React.FC = () => {
         }
     }, [selectedPhaseId]);
 
-    // --- Computed values ---
+    // --- Computed values (scoped to selected work run) ---
+    const activeWorkPhases = useMemo(() => selectedWorkRun?.work_phases || [], [selectedWorkRun]);
+    const activeCurrentPhase = useMemo(() => selectedWorkRun?.current_phase || null, [selectedWorkRun]);
+
     const allEmployees = useMemo(() => {
-        if (!workOrder) return [];
         const empMap = new Map<number, Employee & { phaseName: string; startTime: string | null }>();
-        workOrder.work_phases.forEach(phase => {
+        activeWorkPhases.forEach(phase => {
             phase.employee_list.forEach(emp => {
                 if (!empMap.has(emp.employee_id)) {
                     empMap.set(emp.employee_id, {
@@ -269,21 +302,20 @@ const WorkorderView: React.FC = () => {
             });
         });
         return Array.from(empMap.values());
-    }, [workOrder]);
+    }, [activeWorkPhases]);
 
     const activeEmployeeCount = useMemo(() => {
-        if (!workOrder?.current_phase) return 0;
-        return workOrder.current_phase.employee_list.length;
-    }, [workOrder]);
+        if (!activeCurrentPhase) return 0;
+        return activeCurrentPhase.employee_list.length;
+    }, [activeCurrentPhase]);
 
     const totalEmployeeCount = useMemo(() => allEmployees.length, [allEmployees]);
 
     const COMPLETEDPhases = useMemo(() => {
-        if (!workOrder) return 0;
-        return workOrder.work_phases.filter(p => p.phase_status === WorkPhaseStatusEnum.COMPLETED).length;
-    }, [workOrder]);
+        return activeWorkPhases.filter(p => p.phase_status === WorkPhaseStatusEnum.COMPLETED).length;
+    }, [activeWorkPhases]);
 
-    const totalPhases = useMemo(() => workOrder?.work_phases.length || 0, [workOrder]);
+    const totalPhases = useMemo(() => activeWorkPhases.length, [activeWorkPhases]);
     const progressPercent = useMemo(() => totalPhases > 0 ? Math.round((COMPLETEDPhases / totalPhases) * 100) : 0, [COMPLETEDPhases, totalPhases]);
 
     // Navigate date
@@ -293,12 +325,11 @@ const WorkorderView: React.FC = () => {
 
     // Phases that have activity on the selected date
     const phasesOnDate = useMemo(() => {
-        if (!workOrder) return [];
-        return workOrder.work_phases.map(phase => ({
+        return activeWorkPhases.map(phase => ({
             phase,
             barInfo: getPhaseBarInfo(phase, selectedDate),
         }));
-    }, [workOrder, selectedDate]);
+    }, [activeWorkPhases, selectedDate]);
 
     const hasActivityOnDate = useMemo(() => phasesOnDate.some(p => p.barInfo !== null), [phasesOnDate]);
 
@@ -320,7 +351,7 @@ const WorkorderView: React.FC = () => {
             <Content>
                 <div className="d-flex flex-column flex-center py-20">
                     <i className="bi bi-exclamation-triangle fs-3x text-warning mb-4" />
-                    <span className="text-gray-600 fs-5">ไม่พบข้อมูลใบสั่งงาน</span>
+                    <span className="text-gray-600 fs-5">ไม่พบข้อมูลใบสั่งผลิต</span>
                     <button className="btn btn-primary mt-5" onClick={() => navigate('/workorder/workorders_list')}>
                         กลับหน้ารายการ
                     </button>
@@ -359,6 +390,26 @@ const WorkorderView: React.FC = () => {
                 </div>
             </div>
 
+            {/* ===== Work Run Selector ===== */}
+            {workOrder.work_runs && workOrder.work_runs.length > 0 && (
+                <div className="d-flex align-items-center gap-3 mb-8 flex-wrap">
+                    <span className="text-muted fw-semibold fs-7">Work Run:</span>
+                    {workOrder.work_runs.map(run => (
+                        <button
+                            key={run.work_run_id}
+                            className={`btn btn-sm fw-bold ${selectedWorkRunId === run.work_run_id ? 'btn-primary' : 'btn-light'}`}
+                            onClick={() => setSelectedWorkRunId(run.work_run_id)}
+                        >
+                            #{run.work_run_id}
+                            <span className={`ms-2 badge badge-sm ${run.status === 'COMPLETED' ? 'badge-light-success' : run.status === 'INPROGRESS' ? 'badge-light-warning' : 'badge-light-secondary'}`}>
+                                {run.status}
+                            </span>
+                        </button>
+                    ))}
+                    {workRunLoading && <span className="spinner-border spinner-border-sm text-primary ms-2" />}
+                </div>
+            )}
+
             {/* ===== KPI Cards ===== */}
             <div className="row g-5 mb-8">
                 {/* Live Timer */}
@@ -366,17 +417,17 @@ const WorkorderView: React.FC = () => {
                     <div className="wo-kpi-card">
                         <div className="wo-kpi-header">
                             <span className="wo-kpi-label">ระยะเวลาดำเนินการทั้งหมด (LIVE)</span>
-                            {workOrder.work_phases.some(p => p.phase_status === WorkPhaseStatusEnum.INPROGRESS) && (
+                            {activeWorkPhases.some(p => p.phase_status === WorkPhaseStatusEnum.INPROGRESS) && (
                                 <span className="wo-live-dot" />
                             )}
-                            {workOrder.current_phase?.phase_status === WorkPhaseStatusEnum.PAUSED && (
+                            {activeCurrentPhase?.phase_status === WorkPhaseStatusEnum.PAUSED && (
                                 <span className="wo-live-dot" style={{ background: '#fd7e14' }} />
                             )}
                         </div>
-                        <WorkOrderLiveTimer phases={workOrder.work_phases} />
+                        <WorkOrderLiveTimer phases={activeWorkPhases} />
                         <div className="wo-kpi-sub mt-2">
                             <small className="text-muted">เริ่ม: {formatDateTime(workOrder.created_date)}</small>
-                            {workOrder.current_phase?.phase_status === WorkPhaseStatusEnum.PAUSED && (
+                            {activeCurrentPhase?.phase_status === WorkPhaseStatusEnum.PAUSED && (
                                 <small className="text-warning ms-2">⏸ พักชั่วคราว</small>
                             )}
                         </div>
@@ -487,7 +538,7 @@ const WorkorderView: React.FC = () => {
                             </div>
                         </div>
                         <div className="wo-card-body">
-                            {workOrder.work_phases.length > 0 ? (
+                            {activeWorkPhases.length > 0 ? (
                                 <div className="wo-timeline-container">
                                     {/* Timeline header */}
                                     <div className="wo-timeline-header">
@@ -622,11 +673,11 @@ const WorkorderView: React.FC = () => {
                             <span className="text-muted fs-7">{totalPhases} ขั้นตอน</span>
                         </div>
                         <div className="wo-card-body">
-                            {workOrder.work_phases.length > 0 ? (
+                            {activeWorkPhases.length > 0 ? (
                                 <div className="wo-phase-list">
-                                    {workOrder.work_phases.map((phase, idx) => (
+                                    {activeWorkPhases.map((phase, idx) => (
                                         <div key={phase.work_phase_id}
-                                            className={`wo-phase-card ${workOrder.current_phase?.work_phase_id === phase.work_phase_id ? 'wo-phase-active' : ''}`}
+                                            className={`wo-phase-card ${activeCurrentPhase?.work_phase_id === phase.work_phase_id ? 'wo-phase-active' : ''}`}
                                         >
                                             <div className="wo-phase-card-header">
                                                 <div className="d-flex align-items-center gap-3">
@@ -738,6 +789,30 @@ const WorkorderView: React.FC = () => {
                                         <span className="wo-item-label">เลขที่เอกสาร</span>
                                         <span className="wo-item-value">{workOrder.sales_item.doc_num}</span>
                                     </div>
+                                    <div className="wo-item-row">
+                                        <span className="wo-item-label">จำนวนทั้งหมด</span>
+                                        <span className="wo-item-value fw-bold">{workOrder.sales_item.item_num}</span>
+                                    </div>
+                                    <div className="separator separator-dashed my-4"></div>
+                                    <div className="d-flex flex-column gap-2">
+                                        <span className="text-muted fw-bold fs-8 text-uppercase">ความคืบหน้าการผลิต</span>
+                                        <div className="d-flex align-items-center justify-content-between">
+                                            <span className="text-gray-600 fs-7">กำลังผลิต</span>
+                                            <span className="badge badge-light-warning fw-bold">{workOrder.sales_item.producing_qty ?? 0}</span>
+                                        </div>
+                                        <div className="d-flex align-items-center justify-content-between">
+                                            <span className="text-gray-600 fs-7">ผลิตแล้ว</span>
+                                            <span className="badge badge-light-primary fw-bold">{workOrder.sales_item.produced_qty ?? 0}</span>
+                                        </div>
+                                        <div className="d-flex align-items-center justify-content-between">
+                                            <span className="text-gray-600 fs-7">รอทดสอบ</span>
+                                            <span className="badge badge-light-info fw-bold">{workOrder.sales_item.queued_for_test_qty ?? 0}</span>
+                                        </div>
+                                        <div className="d-flex align-items-center justify-content-between">
+                                            <span className="text-gray-600 fs-7">ทดสอบแล้ว</span>
+                                            <span className="badge badge-light-success fw-bold">{workOrder.sales_item.tested_qty ?? 0}</span>
+                                        </div>
+                                    </div>
                                     <div className="wo-cost-summary mt-5">
                                         <div className="wo-cost-row">
                                             <span>ราคาต้นทุน</span>
@@ -821,34 +896,34 @@ const WorkorderView: React.FC = () => {
                     )}
 
                     {/* Current Phase Info */}
-                    {workOrder.current_phase && (
+                    {activeCurrentPhase && (
                         <div className="wo-card">
                             <div className="wo-card-header">
                                 <h3 className="wo-card-title">ขั้นตอนปัจจุบัน</h3>
                                 <span className="wo-phase-status-badge" style={{
-                                    backgroundColor: getPhaseStatusBg(workOrder.current_phase.phase_status),
-                                    color: getPhaseStatusColor(workOrder.current_phase.phase_status)
+                                    backgroundColor: getPhaseStatusBg(activeCurrentPhase.phase_status),
+                                    color: getPhaseStatusColor(activeCurrentPhase.phase_status)
                                 }}>
-                                    {workOrder.current_phase.phase_status}
+                                    {activeCurrentPhase.phase_status}
                                 </span>
                             </div>
                             <div className="wo-card-body">
                                 <div className="wo-current-phase-name">
-                                    {workOrder.current_phase.phase_name}
+                                    {activeCurrentPhase.phase_name}
                                 </div>
                                 <div className="d-flex flex-wrap gap-3 mt-3">
                                     <div className="wo-mini-stat">
                                         <i className="bi bi-calendar3 text-primary me-2" />
-                                        เริ่ม: {formatDateTime(workOrder.current_phase.start_date)}
+                                        เริ่ม: {formatDateTime(activeCurrentPhase.start_date)}
                                     </div>
                                     <div className="wo-mini-stat">
                                         <i className="bi bi-people text-primary me-2" />
-                                        พนักงาน: {workOrder.current_phase.employee_list.length} คน
+                                        พนักงาน: {activeCurrentPhase.employee_list.length} คน
                                     </div>
                                 </div>
-                                {workOrder.current_phase.employee_list.length > 0 && (
+                                {activeCurrentPhase.employee_list.length > 0 && (
                                     <div className="mt-4">
-                                        {workOrder.current_phase.employee_list.map(emp => (
+                                        {activeCurrentPhase.employee_list.map(emp => (
                                             <div key={emp.employee_id} className="wo-employee-item wo-employee-compact">
                                                 <div className="wo-employee-avatar wo-avatar-sm">
                                                     {emp.employee_first_name.charAt(0)}

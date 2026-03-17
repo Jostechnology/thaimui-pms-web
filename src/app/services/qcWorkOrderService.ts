@@ -28,14 +28,14 @@ const handleResponse = async (response: Response | false | undefined): Promise<A
 // List QC Work Orders (paginated + search)
 export const getQCWorkOrderList = async (
     page: number,
-    limit: number,
+    per_page: number,
     search: string = "",
     filter: string = ""
 ): Promise<APIResponse> => {
     try {
         const params = new URLSearchParams({
             page: page.toString(),
-            pageConfig: limit.toString(),
+            per_page: per_page.toString(),
         });
         if (search) params.append("search", search);
         if (filter) params.append("filter", filter);

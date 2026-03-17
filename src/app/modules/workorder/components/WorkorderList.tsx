@@ -11,24 +11,24 @@ import TablePaginator from '../../../custom_components/TablePaginator'; // ส�
 import { WorkOrderStatusEnum } from '../../../type_interface/WorkOrderType';
 import DatePicker from "react-datepicker";
 // 1. ปรับ Interface ให้ตรงกับข้อมูลจริงใน ER Diagram
+interface WorkRunSummary {
+    work_run_id: number;
+    status: string;
+    quantity: number;
+    current_phase_id: number | null;
+}
+
 interface WorkorderData {
     work_order_id: number;
     doc_num: string;
+    quantity: number;
     sales_item: {
         item_name: string;
         item_description: string;
-    };
+    } | null;
     status: string;
     created_date: string;
-    current_phase: {
-        work_phase_id: number;
-        phase_name: string;
-        phase_status: string;
-        start_date: string;
-        end_date: string | null;
-        employee_list: any[];
-        sales_item_list: any[];
-    } | null;
+    work_runs: WorkRunSummary[];
 }
 
 const WorkorderList: React.FC = () => {
@@ -116,15 +116,10 @@ const WorkorderList: React.FC = () => {
                 let items = result.data.items || [];
                 const filterParam = normalizeStatusKey(statusFilter) || '';
                 if (filterParam) {
-                    const filtered = items.filter((it: any) => {
-                        const s1 = normalizeStatusKey(it.status);
-                        const s2 = normalizeStatusKey(it.current_phase?.phase_status);
-                        return s1 === filterParam || s2 === filterParam;
-                    });
-                    items = filtered;
+                    items = items.filter((it: any) => normalizeStatusKey(it.status) === filterParam);
                 }
                 setWorkorders(items);
-                setTotalPages(result.data.total_pages);
+                setTotalPages(result.pagination?.pages ?? 0);
             } else {
                 setWorkorders([]);
                 setTotalPages(0);
@@ -254,7 +249,7 @@ const WorkorderList: React.FC = () => {
                             <input
                                 type='text'
                                 className='form-control form-control-solid w-250px ps-12'
-                                placeholder='ค้นหาจากรหัสใบสั่งงาน'
+                                placeholder='ค้นหาจากรหัสใบสั่งผลิต'
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && setKeyword(searchTerm)}
@@ -301,13 +296,13 @@ const WorkorderList: React.FC = () => {
                         <table className='table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer'>
                             <thead>
                                 <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
-                                    <th className='min-w-100px'>รหัสใบสั่งงาน</th>
+                                    <th className='min-w-100px'>รหัสใบสั่งผลิต</th>
                                     <th className='min-w-125px'>สินค้า</th>
                                     <th className='min-w-100px'>รายละเอียด</th>
-                                    <th className='min-w-150px text-center'>ช่วงการดำเนินงานล่าสุด</th>
+                                    <th className='min-w-150px text-center'>Work Runs</th>
                                     <th className='min-w-125px text-center'>วันที่สร้าง</th>
                                     <th className='min-w-125px text-center'>สถานะ</th>
-                                    <th className='text-end min-w-50px'>จัดการใบสั่งงาน</th>
+                                    <th className='text-end min-w-50px'>จัดการใบสั่งผลิต</th>
                                 </tr>
                             </thead>
                             <tbody className='text-gray-600 fw-semibold'>
@@ -327,12 +322,10 @@ const WorkorderList: React.FC = () => {
                                                 </div>
                                             </td>
 
-                                            <td className='text-center'>
-                                                <div className="d-flex align-items-center">
-                                                    <span className='text-gray-800 fw-bold text-hover-primary mb-1 fs-6'>
+                                            <td className='text-start'>
+                                                    <span className='text-gray-800 fw-bold text-hover-primary fs-6'>
                                                         {item.sales_item?.item_name || 'N/A'}
                                                     </span>
-                                                </div>
                                             </td>
 
                                             <td className='text-center'>
@@ -344,9 +337,17 @@ const WorkorderList: React.FC = () => {
                                             </td>
 
                                             <td className='text-center'>
-                                                <div className="badge badge-light-dark fw-bold px-4 py-2">
-                                                    {item.current_phase?.phase_name || 'No Active Phase'}
-                                                </div>
+                                                {item.work_runs && item.work_runs.length > 0 ? (
+                                                    <div className='d-flex flex-wrap gap-1 justify-content-center'>
+                                                        {item.work_runs.map(run => (
+                                                            <span key={run.work_run_id} className={`badge fw-bold ${run.status === 'COMPLETED' ? 'badge-light-success' : run.status === 'INPROGRESS' ? 'badge-light-warning' : 'badge-light-secondary'}`}>
+                                                                #{run.work_run_id}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className='text-muted fs-8'>ยังไม่มี Work Run</span>
+                                                )}
                                             </td>
 
                                             <td className='text-center'>
@@ -378,9 +379,10 @@ const WorkorderList: React.FC = () => {
                                                     title="Manage Order"
                                                     onClick={() => navigate(`/workorder/workorders_detail/${item.work_order_id}`)}
                                                 >
-                                                    <i className='bi bi-pencil-square fs-3'></i>
+                                                    <i className='bi bi-gear fs-3'></i>
                                                 </button>
                                             </td>
+                                            
                                         </tr>
                                     ))
                                 ) : (
@@ -388,7 +390,7 @@ const WorkorderList: React.FC = () => {
                                         <td colSpan={6} className='text-center p-20'>
                                             <div className='d-flex flex-column flex-center'>
                                                 <i className='bi bi-search fs-3x text-gray-300 mb-4'></i>
-                                                <span className='text-gray-500'>ไม่พบข้อมูลใบสั่งงานในระบบ</span>
+                                                <span className='text-gray-500'>ไม่พบข้อมูลใบสั่งผลิตในระบบ</span>
                                             </div>
                                         </td>
                                     </tr>

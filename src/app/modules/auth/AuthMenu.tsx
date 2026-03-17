@@ -1,11 +1,11 @@
-import path from "path";
+import { MdFactory } from "react-icons/md";
 
 export interface RouteType {
     module_code: string;
     path: string;
     title: string;
     permission: string[];
-    main_module_code? : string;
+    main_module_code?: string;
 }
 
 export interface SubRouteType extends RouteType {
@@ -16,15 +16,16 @@ export interface MainRouteType extends RouteType {
     fontIcon: string;
     icon: string;
     subMenu: SubRouteType[];
+    customIcon?: string;
 }
 
 export const mainRoutesConfig: MainRouteType[] = [
     {
-        module_code: "test",
-        path: "/main",
+        module_code: "WORKORDERS",
+        path: "/workorder",
         title: "",
-        fontIcon: "bi-currency-exchange",
-        icon: "bi bi-currency-exchange",
+        fontIcon: "bi-wrench-adjustable-circle",
+        icon: "bi bi-wrench-adjustable-circle",
         subMenu: [],
         permission: []
     },
@@ -38,17 +39,8 @@ export const mainRoutesConfig: MainRouteType[] = [
         permission: []
     },
     {
-        module_code: "WORKORDERS",
-        path: "/workorder",
-        title: "",
-        fontIcon: "bi-speedometer2",
-        icon: "bi bi-speedometer2",
-        subMenu: [],
-        permission: []
-    },
-    {
-        module_code:"EMPLOYEE",
-        path:"/employee",
+        module_code: "EMPLOYEE",
+        path: "/employee",
         title: "",
         fontIcon: "bi-people",
         icon: "bi bi-people",
@@ -71,15 +63,51 @@ export const mainRoutesConfig: MainRouteType[] = [
         icon: "bi bi-calculator",
         subMenu: [],
         permission: []
+    },
+    {
+        module_code: "SALE_ORDER",
+        path: "/sales_order",
+        title: "",
+        fontIcon: "bi-cart",
+        icon: "bi bi-cart",
+        subMenu: [],
+        permission: []
+    },
+    {
+        module_code: "TRACKING",
+        path: "/tracking",
+        title: "",
+        fontIcon: "bi-graph-up",
+        icon: "bi bi-graph-up",
+        subMenu: [],
+        permission: []
+    },
+    {
+        module_code: "PM_MACHINE",
+        path: "/pm_machine",
+        title: "",
+        fontIcon: "bi-hammer",
+        icon: "bi bi-hammer",
+        subMenu: [],
+        permission: []
+    },
+    {
+        module_code: "MACHINE",
+        path: "/machine",
+        title: "",
+        fontIcon: "bi-gear-wide-connected",
+        icon: "wrench",
+        customIcon: "/media/icons/machine.svg",
+        subMenu: [],
+        permission: []
     }
 ]
 
 export const subRoutesConfig: SubRouteType[] = [
-
     {
-        module_code: "TARN",
-        main_module_code: "test",
-        path: "/settings",
+        module_code: "EMPLOYEE_LIST",
+        main_module_code: "EMPLOYEE",
+        path: "/employee/employee_list",
         title: "",
         permission: []
     },
@@ -91,58 +119,51 @@ export const subRoutesConfig: SubRouteType[] = [
         permission: []
     },
     {
-        module_code:"MODULE_MANAGEMENT",
+        module_code: "MODULE_MANAGEMENT",
         main_module_code: "SETTING",
-        path:"/setting/module_management",
+        path: "/setting/module_management",
         title: "",
-        permission:[]
+        permission: []
     },
     {
-        module_code:"USER_MANAGEMENT",
+        module_code: "USER_MANAGEMENT",
         main_module_code: "SETTING",
-        path:"/setting/user_management",
+        path: "/setting/user_management",
         title: "",
-        permission:[]
+        permission: []
     },
     {
-        module_code:"EMPLOYEE_LIST",
-        main_module_code: "EMPLOYEE",
-        path:"/employee/employee_list",
-        title: "",
-        permission:[]
-    },
-    {
-        module_code:"DASHBOARD",
+        module_code: "DASHBOARD",
         main_module_code: "WORKORDERS",
-        path:"/workorder/workorders_dashboard",
+        path: "/workorder/workorders_dashboard",
         title: "",
-        permission:[]
+        permission: []
     },
     {
-        module_code:"WORKORDERS_LIST",
+        module_code: "WORKORDERS_LIST",
         main_module_code: "WORKORDERS",
-        path:"/workorder/workorders_list",
+        path: "/workorder/workorders_list",
         title: "",
-        permission:[]
+        permission: []
     },
     {
-        module_code:"EMPLOYEE_SAL",
+        module_code: "EMPLOYEE_SAL",
         main_module_code: "EMPLOYEE",
-        path:"/employee/employee_salary_history",
+        path: "/employee/employee_salary_history",
         title: "",
-        permission:[]
+        permission: []
     },
     {
-        module_code:"QC_WORKORDERS",
+        module_code: "QC_WORKORDERS",
         main_module_code: "QC",
-        path:"/quality_control/qc_workorders_list",
+        path: "/quality_control/qc_workorders_list",
         title: "",
-        permission:[]
+        permission: []
     },
     {
-        module_code:"QC_TEST_CERT",
+        module_code: "QC_TEST_CERT",
         main_module_code: "QC",
-        path:"/quality_control/qc_test_cert_list",
+        path: "/quality_control/qc_test_cert_list",
         title: "",
         permission:[]
     },
@@ -150,6 +171,69 @@ export const subRoutesConfig: SubRouteType[] = [
         module_code: "CAL_COST_MONTHLY",
         main_module_code: "CAL_COST",
         path: "/cost_calculation/monthly_operation",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "SALE_ORD_LIST",
+        main_module_code: "SALE_ORDER",
+        path: "/sales_order/list",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "SALE_ORD_DASHBOARD",
+        main_module_code: "SALE_ORDER",
+        path: "/sales_order/dashboard",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "TEST_TRACKING",
+        main_module_code: "TRACKING",
+        path: "/tracking/test_tracking",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "PRODUCTION_TRACKING",
+        main_module_code: "TRACKING",
+        path: "/tracking/production_tracking",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "PM_ITEM",
+        main_module_code: "PM_MACHINE",
+        path: "/pm_machine/item",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "PM_DASHBOARD",
+        main_module_code: "PM_MACHINE",
+        path: "/pm_machine/dashboard",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "MACHINE_LIST",
+        main_module_code: "MACHINE",
+        path: "/machine/machine_list",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "MACHINE_CREATE",
+        main_module_code: "MACHINE",
+        path: "/machine/machine_create",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "MACHINE_DASHBOARD",
+        main_module_code: "MACHINE",
+        path: "/machine/machine_dashboard",
         title: "",
         permission: []
     }

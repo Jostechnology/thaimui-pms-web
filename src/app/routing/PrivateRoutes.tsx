@@ -8,8 +8,11 @@ import CostCalculationPage from "../modules/cost_calculation/CostCalculationPage
 const WorkorderPage = lazy(() => import("../modules/workorder/WorkorderPage"));
 const SettingPage = lazy(() => import("../modules/menu_setting/SettingPage"));
 const EmployeePage = lazy(() => import("../modules/Employee/employeePage"));
+const PmMachinePage = lazy(() => import("../modules/pm_machine/pm_machinePage"));
 const WorkorderDashboard = lazy(() => import("../modules/workorder/components/WorkorderDashboard"));
 const QualityControlPage = lazy(() => import("../modules/quality_control/QualityControlPage"));
+const SalesOrderPage = lazy(() => import("../modules/sales_order/SalesOrderPage"));
+const TrackingPage = lazy(() => import("../modules/Tracking/trackingPage"));
 const PrivateRoutes = () => {
   return (
     <Routes>
@@ -18,7 +21,7 @@ const PrivateRoutes = () => {
           path="main"
           element={
             <SuspensedView>
-              <WorkorderDashboard />
+              <div></div>
             </SuspensedView>
           }
         />
@@ -65,11 +68,43 @@ const PrivateRoutes = () => {
 
         <Route
           path="quality_control/*"
-            element={
-              <SuspensedView>
-                <QualityControlPage />
-              </SuspensedView>
-            }
+          element={
+            <SuspensedView>
+              <QualityControlPage />
+            </SuspensedView>
+          }
+        />
+        <Route
+          path="sales_order/*"
+          element={
+            <SuspensedView>
+              <SalesOrderPage />
+            </SuspensedView>
+          }
+        />
+        <Route
+          path="tracking/*"
+          element={
+            <SuspensedView>
+              <TrackingPage />
+            </SuspensedView>
+          }
+        />
+        <Route
+          path="pm_machine/*"
+          element={
+            <SuspensedView>
+              <PmMachinePage />
+            </SuspensedView>
+          }
+        />
+        <Route
+          path="machine/*"
+          element={
+            <SuspensedView>
+              <MachinePage />
+            </SuspensedView>
+          }
         />
         <Route
           path="cost_calculation/*"

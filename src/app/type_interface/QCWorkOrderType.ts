@@ -6,6 +6,7 @@ export interface QCWorkOrderItem {
   quantity: string;
   serialNo: string;
   remark: string;
+  material_list_id?: number;
 }
 
 export interface QCWorkOrderData {
@@ -17,7 +18,7 @@ export interface QCWorkOrderData {
   customerName: string;
   docNum: string;
   customerReceiptNumber: string;
-  donEntry: string
+  docEntry: string
   salesName: string
   salesCode: string
   teamCode: string
@@ -25,6 +26,7 @@ export interface QCWorkOrderData {
   inspectionDate: string
   salesItemId?: number
   salesItemCode?: string
+  quantity: number
 
   // Testing standards
   ptt: boolean;

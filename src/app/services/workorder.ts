@@ -11,7 +11,7 @@ interface APIResponse {
 }
 export const getWorkOrderList = async (
     page: number,
-    limit: number,
+    per_page: number,
     search: string = "",
     statusFilter: string = "",
     month: string = ""
@@ -21,7 +21,7 @@ export const getWorkOrderList = async (
 
         const params = new URLSearchParams({
             page: page.toString(),
-            pageConfig: limit.toString(),
+            per_page: per_page.toString(),
         });
 
         if (search) params.append("search", search);

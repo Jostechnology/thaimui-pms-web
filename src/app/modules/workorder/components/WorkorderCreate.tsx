@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import Select from 'react-select';
 import { Content } from '../../../../_metronic/layout/components/content';
 import { useNavigate } from 'react-router-dom';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import { searchSalesOrderService, getSalesOrderService } from '../../../services/salesOrderService';
 import { createWorkOrder } from '../../../services/workorder';
+import { getMaterialStockSummary, validateMaterialStock } from '../../../services/materialStockService';
 import type { SalesOrderSearch, SalesOrderDetail } from '../../../type_interface/SalesOrderType';
 import type { SalesItem } from '../../../type_interface/SalesItemType';
 import type { Material } from '../../../type_interface/MaterialType';
+import type { MaterialStockSummary as MaterialStockSummaryData } from '../../../type_interface/MaterialStockType';
+import { aggregateMaterialUsageFromComponents, validateMaterialQuantities, buildValidationSummaryMessage } from '../../../utils/materialValidation';
+import MaterialStockSummary from '../../../custom_components/MaterialStockSummary';
 import Swal from 'sweetalert2';
 
 interface MaterialRow {
@@ -30,6 +35,8 @@ const WorkorderCreate: React.FC = () => {
 
     // Sales Order search & selection
     const [salesOrderOptions, setSalesOrderOptions] = useState<SalesOrderSearch[]>([]);
+    const [soSearchKeyword, setSoSearchKeyword] = useState<string>('');
+    const [selectedSalesOrder, setSelectedSalesOrder] = useState<SalesOrderSearch | null>(null);
     const [selectedDocEntry, setSelectedDocEntry] = useState<number | ''>('');
     const [salesOrderDetail, setSalesOrderDetail] = useState<SalesOrderDetail | null>(null);
 
@@ -40,6 +47,9 @@ const WorkorderCreate: React.FC = () => {
     // Materials for chosen sales item
     const [materials, setMaterials] = useState<Material[]>([]);
 
+    // Stock summary - ยอดคงเหลือจริงจาก backend (รวมที่ใช้ไปใน WO/QC อื่นแล้ว)
+    const [stockSummaries, setStockSummaries] = useState<MaterialStockSummaryData[]>([]);
+
     // Components - each component has multiple materials
     const [components, setComponents] = useState<ComponentItem[]>([
         { id: 1, component_name: '', materials: [{ id: 1, material_list_id: '', quantity_used: '' }], nextMaterialId: 2 },
@@ -48,17 +58,23 @@ const WorkorderCreate: React.FC = () => {
 
     const [submitting, setSubmitting] = useState(false);
 
-    // Load initial sales order list on mount
+    const handleSearchSalesOrder = async (keyword: string) => {
+        try {
+            const res: any = await searchSalesOrderService(keyword);
+            const list = res?.data
+                ? (Array.isArray(res.data) ? res.data : (res.data.items || res.data.data || []))
+                : [];
+            setSalesOrderOptions(list);
+        } catch {
+            setSalesOrderOptions([]);
+        }
+    };
+
     useEffect(() => {
-        (async () => {
-            try {
-                const res = await searchSalesOrderService('');
-                if (res && res.success) {
-                    setSalesOrderOptions(res.data?.items || res.data || []);
-                }
-            } catch { /* ignore */ }
-        })();
-    }, []);
+        if (!soSearchKeyword) return;
+        const timeout = setTimeout(() => { handleSearchSalesOrder(soSearchKeyword); }, 750);
+        return () => clearTimeout(timeout);
+    }, [soSearchKeyword]);
 
     // ─── Fetch Sales Order Detail when selected ────────────────
     useEffect(() => {
@@ -68,6 +84,7 @@ const WorkorderCreate: React.FC = () => {
             setMaterials([]);
             setSelectedSalesItemId('');
             resetComponents();
+            setSalesOrderOptions([]);
             return;
         }
         (async () => {
@@ -89,10 +106,11 @@ const WorkorderCreate: React.FC = () => {
         })();
     }, [selectedDocEntry]);
 
-    // ─── When Sales Item changes, update material list ─────────
+    // ─── When Sales Item changes, update material list & fetch stock ─
     useEffect(() => {
         if (selectedSalesItemId === '') {
             setMaterials([]);
+            setStockSummaries([]);
             resetComponents();
             return;
         }
@@ -101,6 +119,16 @@ const WorkorderCreate: React.FC = () => {
             setMaterials(item.material_list || []);
         }
         resetComponents();
+
+        // ดึงยอดคงเหลือจริงจาก backend
+        (async () => {
+            try {
+                const res = await getMaterialStockSummary(selectedSalesItemId as number);
+                if (res && res.success && res.data) {
+                    setStockSummaries(res.data);
+                }
+            } catch { /* fallback ใช้ item_num */ }
+        })();
     }, [selectedSalesItemId]);
 
     const resetComponents = () => {
@@ -199,6 +227,14 @@ const WorkorderCreate: React.FC = () => {
             .filter((id): id is number => id !== '');
     };
 
+    // ดึงจำนวนคงเหลือจริงของวัตถุดิบ (จาก stock summary หรือ fallback เป็น item_num)
+    const getAvailableQuantity = (materialListId: number): number => {
+        const stock = stockSummaries.find(s => s.material_list_id === materialListId);
+        if (stock) return stock.remaining_quantity;
+        const mat = materials.find(m => m.material_list_id === materialListId);
+        return mat ? mat.remaining_num : 0;
+    };
+
     // Calculate total quantity used for a material across ALL components, excluding a specific row
     const getTotalUsedForMaterial = (materialListId: number, excludeComponentId?: number, excludeMaterialRowId?: number): number => {
         let total = 0;
@@ -253,12 +289,44 @@ const WorkorderCreate: React.FC = () => {
             }
         }
 
+        // ── Client-side stock validation ──
+        const usageMap = aggregateMaterialUsageFromComponents(components);
+        const requests = Array.from(usageMap.entries()).map(([id, qty]) => ({
+            material_list_id: id,
+            quantity_needed: qty,
+        }));
+        const clientValidation = validateMaterialQuantities(requests, materials, stockSummaries);
+        const invalidItems = clientValidation.filter(r => !r.is_valid);
+
+        if (invalidItems.length > 0) {
+            const msg = buildValidationSummaryMessage(clientValidation);
+            Swal.fire('วัตถุดิบไม่เพียงพอ', msg, 'error');
+            return;
+        }
+
+        // ── Server-side stock validation (double-check) ──
+        try {
+            // const serverCheck = await validateMaterialStock({
+            //     sales_item_id: selectedSalesItemId as number,
+            //     materials: requests,
+            // });
+            // if (serverCheck.success && serverCheck.data && !serverCheck.data.is_valid) {
+            //     const serverIssues = (serverCheck.data.results || []).filter((r: { is_valid: boolean }) => !r.is_valid);
+            //     const lines = serverIssues.map(
+            //         (i: { item_name: string; requested_quantity: number; available_quantity: number }) => `• ${i.item_name}: ขอใช้ ${i.requested_quantity} คงเหลือ ${i.available_quantity}`
+            //     );
+            //     Swal.fire('วัตถุดิบไม่เพียงพอ (ตรวจสอบจากระบบ)', lines.join('\n'), 'error');
+            //     return;
+            // }
+            throw new Error("")
+        } catch { /* หาก server validate ไม่ได้ ให้ใช้ client validation ที่ผ่านแล้ว */ }
+
         const confirm = await Swal.fire({
             title: 'ยืนยันการสร้างใบสั่งผลิต?',
             text: 'ระบบจะสร้างใบสั่งผลิตตามข้อมูลที่กรอก',
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'สร้างใบสั่งงาน',
+            confirmButtonText: 'สร้างใบสั่งผลิต',
             cancelButtonText: 'ยกเลิก',
         });
 
@@ -335,22 +403,26 @@ const WorkorderCreate: React.FC = () => {
                             <label className="form-label fw-bold fs-6 text-gray-800 required">
                                 เลือกใบสั่งขาย (Sales Order)
                             </label>
-                            <select
-                                className="form-select form-select-solid"
-                                value={selectedDocEntry}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setSelectedDocEntry(val === '' ? '' : Number(val));
+                            <Select
+                                options={salesOrderOptions}
+                                getOptionLabel={(option: any) => `${option.doc_num}`}
+                                getOptionValue={(option: any) => String(option.doc_entry)}
+                                formatOptionLabel={(option: any) => (
+                                    <span className="fw-bold">{option.doc_num}</span>
+                                )}
+                                value={selectedSalesOrder}
+                                onInputChange={(inputValue, actionMeta) => {
+                                    if (actionMeta.action === 'input-change') setSoSearchKeyword(inputValue);
+                                }}
+                                onChange={(option) => {
+                                    setSelectedSalesOrder(option);
+                                    setSelectedDocEntry(option ? Number(option.doc_entry) : '');
                                     setSelectedSalesItemId('');
                                 }}
-                            >
-                                <option value="">-- เลือกใบสั่งขาย --</option>
-                                {salesOrderOptions.map((so) => (
-                                    <option key={so.doc_entry} value={so.doc_entry}>
-                                        {so.doc_num}
-                                    </option>
-                                ))}
-                            </select>
+                                placeholder="ค้นหาใบสั่งขาย..."
+                                isClearable
+                                filterOption={null}
+                            />
                         </div>
 
                         {/* Sales Item */}
@@ -383,6 +455,14 @@ const WorkorderCreate: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* ── Section: Stock Summary ── */}
+            {selectedSalesItemId !== '' && stockSummaries.length > 0 && (
+                <MaterialStockSummary
+                    salesItemId={selectedSalesItemId as number}
+                    externalData={stockSummaries}
+                />
+            )}
 
             {/* ── Section: Components & Materials ── */}
             {selectedSalesItemId !== '' && <><div className="d-flex justify-content-between align-items-center mb-5">
@@ -462,7 +542,8 @@ const WorkorderCreate: React.FC = () => {
                                 {comp.materials.map((mat, matIdx) => {
                                     const selectedMaterial = materials.find(m => m.material_list_id === mat.material_list_id);
                                     const usedByOthers = selectedMaterial ? getTotalUsedForMaterial(selectedMaterial.material_list_id, comp.id, mat.id) : 0;
-                                    const maxQty = selectedMaterial ? selectedMaterial.item_num - usedByOthers : 1;
+                                    const availableFromStock = selectedMaterial ? getAvailableQuantity(selectedMaterial.material_list_id) : 0;
+                                    const maxQty = selectedMaterial ? availableFromStock - usedByOthers : 1;
                                     const remaining = selectedMaterial ? maxQty - (Number(mat.quantity_used) || 0) : 0;
 
                                     // Filter available materials for this dropdown
@@ -553,7 +634,7 @@ const WorkorderCreate: React.FC = () => {
                     ) : (
                         <>
                             <i className="bi bi-check-circle me-2"></i>
-                            สร้างใบสั่งงาน (Create)
+                            สร้างใบสั่งผลิต (Create)
                         </>
                     )}
                 </button>
