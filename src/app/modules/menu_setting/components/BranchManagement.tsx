@@ -7,7 +7,7 @@ import TableListConfig from '../../../custom_components/TableListConfig';
 import TablePaginator from '../../../custom_components/TablePaginator';
 import SearchComponent from '../../../custom_components/SearchComponent';
 import { useTableParams } from '../../../hooks/useTableParams';
-import { getBranchList } from '../../../services/branchService';
+import { assignBranchToUser, getBranchList } from '../../../services/branchService';
 import { getUserList } from '../../../services/dedicated_auth';
 
 interface UserData {
@@ -271,9 +271,7 @@ const BranchManagement: React.FC = () => {
             const selectedBranches = branches.filter(b => selectedBranchIds.includes(b.branch_id));
             const selectedNames = selectedBranches.map(b => b.branch_name);
 
-            // TODO: เรียก API จริง เช่น updateUserBranches(username, selectedBranchIds)
-            console.log(`[Mock] จะส่ง branch_ids: [${selectedBranchIds}] ไป update user: ${username}`);
-
+            assignBranchToUser(username, selectedBranchIds);
             setUsers((prev) =>
                 prev.map((u) =>
                     u.username === username
@@ -382,13 +380,23 @@ const BranchManagement: React.FC = () => {
                                         </td>
                                         <td className='text-start'>
                                             {hasBranches(user) ? (
-                                                <div className="d-flex flex-wrap gap-1">
-                                                    {user.branch_names!.map((name, i) => (
+                                                <div className="d-flex flex-wrap gap-1 align-items-center">
+                                                    {user.branch_names!.slice(0, 2).map((name, i) => (
                                                         <span key={i} className="badge badge-light-success fw-bold px-3 py-2 fs-8">
                                                             <i className="bi bi-geo-alt-fill text-success me-1 fs-9"></i>
                                                             {name}
                                                         </span>
                                                     ))}
+
+                                                    {user.branch_names!.length > 2 && (
+                                                        <span 
+                                                            className="badge badge-light-secondary border border-secondary border-dashed fw-bolder px-3 py-2 fs-8 cursor-pointer"
+                                                            // ใช้ title เพื่อให้เวลาเอาเมาส์ชี้จะขึ้น Tooltip รายชื่อที่เหลือ
+                                                            title={`สาขาอื่นๆ ที่รับผิดชอบ:\n${user.branch_names!.slice(2).join('\n')}`}
+                                                        >
+                                                            + อีก {user.branch_names!.length - 2} สาขา
+                                                        </span>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <span className='badge badge-light-danger fw-bold px-3 py-2'>

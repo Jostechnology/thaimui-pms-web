@@ -73,3 +73,18 @@ export const deleteBranch = async (branchId: number) => {
         return { success: false, message: "เกิดข้อผิดพลาดในการเชื่อมต่อ" };
     }
 };
+
+export const assignBranchToUser = async (username: string, branchIds: number[]) => {
+    try {
+        const response = await front_api(
+            "POST",
+            "/assign_branch_to_user",
+            { username, branch_ids: branchIds },
+            { wrapData: false, headers: getHeaders() }
+        );
+        if (!response) return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
+        return await response.json();
+    } catch (error) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการเชื่อมต่อ" };
+    }
+};
