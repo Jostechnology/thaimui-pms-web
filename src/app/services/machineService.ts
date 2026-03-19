@@ -12,9 +12,11 @@ export interface APIResponse<T = any> {
 
 const getHeaders = () => {
     const token = localStorage.getItem('tk-jos');
+    const activeBranchId = localStorage.getItem('activeBranchId'); //------------------branch id
     return {
         "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "X-Branch-ID": activeBranchId || ''  //------------------branch id
     };
 };
 

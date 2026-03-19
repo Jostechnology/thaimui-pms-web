@@ -2,7 +2,7 @@ import EnvConfig from "../environments/envConfig";
 import { getGroupId, getTokenFromLocal } from "../helpers/appHelpers";
 import { authTokenDedicated } from "../helpers/authenticationHelpers";
 import { front_api } from "./apiConfig";
-
+import Swal from 'sweetalert2';
 
 export const login = async (username: string, password: string) => {
     try {
@@ -11,12 +11,46 @@ export const login = async (username: string, password: string) => {
             return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
         }
         const data = await response.json();
+        
+        console.log("Login Response:", data);
 
         if (data.success) {
-            //authTokenDedicated(data.access_token, data.refresh_token)
-            const authResult = authTokenDedicated(data.access_token, data.refresh_token);
-            return {  authResult,
-                success: true };
+            const { access_token, refresh_token, user_branches } = data;
+
+            if (!user_branches || user_branches.length === 0) {
+                return { success: false, message: "คุณยังไม่ได้รับสิทธิ์เข้าถึงสาขาใดเลย กรุณาติดต่อ Admin" };
+            }
+
+            if (user_branches.length === 1) {
+                const authResult = authTokenDedicated(access_token, refresh_token, user_branches[0].branch_id);
+                return { authResult, success: true };
+            }
+
+            const branchOptions: Record<string, string> = {};
+            user_branches.forEach((b: any) => {
+                branchOptions[b.branch_id] = b.branch_name; 
+            });
+
+            const { value: selectedBranchId } = await Swal.fire({
+                title: 'เลือกสาขาที่ต้องการเข้าทำงาน',
+                input: 'select',
+                inputOptions: branchOptions,
+                inputPlaceholder: '-- กรุณาเลือกสาขา --',
+                showCancelButton: true,
+                confirmButtonText: 'เข้าสู่ระบบ',
+                cancelButtonText: 'ยกเลิก',
+                inputValidator: (value) => {
+                    if (!value) return 'กรุณาเลือกสาขาก่อนเข้าสู่ระบบ!';
+                }
+            });
+
+            if (selectedBranchId) {
+                const authResult = authTokenDedicated(access_token, refresh_token, selectedBranchId);
+                return { authResult, success: true };
+            } else {
+                return { success: false, message: "ยกเลิกการเข้าสู่ระบบ" };
+            }
+
         } else {
             return { 
                 success: false, 

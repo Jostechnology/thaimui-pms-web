@@ -98,7 +98,7 @@ export function decodeJWTUnsafe(token: string): any {
     return decoded;
 }
 
-export const authTokenDedicated = (token: any, refresh_token: any) => {
+export const authTokenDedicated = (token: any, refresh_token: any, branch_id: any) => {
     try {
         const data = decodeJWTUnsafe(token)
         const auth = data.payload
@@ -116,10 +116,12 @@ export const authTokenDedicated = (token: any, refresh_token: any) => {
         saveRoleNameToLocal(auth["role_name"] || "")
         saveEmpIdToLocal(!auth["employee_id"] ? "" : auth["employee_id"]);
         saveTokenExpiredDateToLocal(formatted);
+        
+        localStorage.setItem('activeBranchId', branch_id.toString());
+
         return true
     } catch (error) {
         console.error("Authentication failed:", error);
-        // giveAccessDenied();
         return false
     }
 }
