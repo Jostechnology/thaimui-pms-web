@@ -310,22 +310,43 @@ const BranchManagement: React.FC = () => {
         });
 
         if (result.isConfirmed) {
-            // TODO: เรียก API จริง เช่น clearUserBranches(username)
-            console.log(`[Mock] จะส่ง branch_ids: [] ไป update user: ${username}`);
-
-            setUsers((prev) =>
-                prev.map((u) =>
-                    u.username === username ? { ...u, branch_ids: [], branch_names: [] } : u
-                )
-            );
-
-            Swal.fire({
-                icon: 'success',
-                title: 'ลบสำเร็จ',
-                text: `ยกเลิกการผูกสาขาของ ${username} เรียบร้อย`,
-                timer: 2000,
-                showConfirmButton: false,
+            Swal.fire({ 
+                title: 'กำลังลบข้อมูล...', 
+                allowOutsideClick: false, 
+                didOpen: () => Swal.showLoading() 
             });
+
+            try {
+                const res = await assignBranchToUser(username, []);
+
+                if (res && res.success) {
+                    setUsers((prev) =>
+                        prev.map((u) =>
+                            u.username === username ? { ...u, branch_ids: [], branch_names: [] } : u
+                        )
+                    );
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'ลบสำเร็จ',
+                        text: `ยกเลิกการผูกสาขาของ ${username} เรียบร้อย`,
+                        timer: 2000,
+                        showConfirmButton: false,
+                    });
+                } else {
+                    Swal.fire({ 
+                        icon: 'error', 
+                        title: 'ลบล้มเหลว', 
+                        text: res?.message || 'เกิดข้อผิดพลาดในการลบข้อมูล' 
+                    });
+                }
+            } catch (error) {
+                Swal.fire({ 
+                    icon: 'error', 
+                    title: 'เชื่อมต่อล้มเหลว', 
+                    text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้' 
+                });
+            }
         }
     };
 
