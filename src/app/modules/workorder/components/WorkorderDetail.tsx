@@ -4,7 +4,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from 'react-bootstrap';
 import Swal from "sweetalert2";
 import { getWorkOrderById } from '../../../services/workorder';
-import { getWorkRunsByWorkOrder, createWorkRun } from '../../../services/workRunService';
+import { getWorkRunsByWorkOrder, createWorkRun, getSalesItemTestResults } from '../../../services/workRunService';
+import type { WorkRunSourceAllocation, TestResultSourceAllocation } from '../../../services/workRunService';
+import type { SalesItemTestResult } from '../../../type_interface/WorkOrderType';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import ItemComponentDetailModal from './ItemComponentDetailModal';
@@ -21,6 +23,11 @@ const WorkorderDetail: React.FC = () => {
     const [editComponentId, setEditComponentId] = useState<number | null>(null);
     const [showCreateRunModal, setShowCreateRunModal] = useState(false);
     const [createRunQty, setCreateRunQty] = useState<number>(1);
+    const [createRunMode, setCreateRunMode] = useState<'none' | 'from_runs' | 'from_test_results'>('none');
+    const [sourceAllocations, setSourceAllocations] = useState<Record<number, number>>({});
+    const [testResultAllocations, setTestResultAllocations] = useState<Record<number, number>>({});
+    const [salesItemTestResults, setSalesItemTestResults] = useState<SalesItemTestResult[]>([]);
+    const [loadingTestResults, setLoadingTestResults] = useState(false);
     const [creating, setCreating] = useState(false);
 
     const { setLoading, setUnLoading } = useAppLoading();
@@ -79,14 +86,64 @@ const WorkorderDetail: React.FC = () => {
         fetchWorkOrder();
     }, [id]);
 
+    const openCreateRunModal = () => {
+        setCreateRunQty(workOrder?.quantity || 1);
+        setCreateRunMode('none');
+        setSourceAllocations({});
+        setTestResultAllocations({});
+        setSalesItemTestResults([]);
+        setShowCreateRunModal(true);
+    };
+
+    const fetchSalesItemTestResults = async () => {
+        if (!workOrder?.sales_item?.sales_item_id) return;
+        setLoadingTestResults(true);
+        try {
+            const result = await getSalesItemTestResults(workOrder.sales_item.sales_item_id);
+            if (result && result.success && result.data) {
+                setSalesItemTestResults(result.data);
+            } else {
+                setSalesItemTestResults([]);
+            }
+        } catch {
+            setSalesItemTestResults([]);
+        } finally {
+            setLoadingTestResults(false);
+        }
+    };
+
+    const sourceTotal = Object.values(sourceAllocations).reduce((sum, v) => sum + (v || 0), 0);
+    const testResultTotal = Object.values(testResultAllocations).reduce((sum, v) => sum + (v || 0), 0);
+
+    const completedRunsWithDefects = workRuns.filter(r => r.status === 'COMPLETED' && (r.defect_qty ?? 0) > 0);
+
+    const handleAllocationChange = (workRunId: number, value: number, maxQty: number) => {
+        setSourceAllocations(prev => ({ ...prev, [workRunId]: Math.min(Math.max(0, value), maxQty) }));
+    };
+
     const handleCreateWorkRun = async () => {
         if (!workOrder) return;
         setCreating(true);
         try {
-            const result = await createWorkRun(workOrder.work_order_id, { quantity: createRunQty });
+            let payload: { quantity: number; rework_sources?: WorkRunSourceAllocation[]; test_result_sources?: TestResultSourceAllocation[] };
+            if (createRunMode === 'from_runs') {
+                const source_work_runs: WorkRunSourceAllocation[] = Object.entries(sourceAllocations)
+                    .filter(([, qty]) => qty > 0)
+                    .map(([id, qty]) => ({ source_work_run_id: Number(id), qty: qty }));
+                payload = { quantity: sourceTotal, rework_sources: source_work_runs };
+            } else if (createRunMode === 'from_test_results') {
+                const test_result_sources: TestResultSourceAllocation[] = Object.entries(testResultAllocations)
+                    .filter(([, qty]) => qty > 0)
+                    .map(([id, qty]) => ({ test_result_id: Number(id), qty: qty }));
+                payload = { quantity: testResultTotal, test_result_sources };
+            } else {
+                payload = { quantity: createRunQty };
+            }
+            const result = await createWorkRun(workOrder.work_order_id, payload);
             if (result && result.success) {
                 setShowCreateRunModal(false);
                 setCreateRunQty(1);
+                setSourceAllocations({});
                 Swal.fire({ title: 'สร้าง Work Run สำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false })
                     .then(() => fetchWorkOrder());
             } else {
@@ -123,7 +180,7 @@ const WorkorderDetail: React.FC = () => {
                 </div>
                 <button
                     className='btn btn-sm btn-primary fw-bold px-6'
-                    onClick={() => { setCreateRunQty(workOrder?.quantity || 1); setShowCreateRunModal(true); }}
+                    onClick={openCreateRunModal}
                 >
                     <i className='bi bi-plus-lg me-1'></i> สร้าง Work Run
                 </button>
@@ -190,7 +247,7 @@ const WorkorderDetail: React.FC = () => {
                             <span className='text-gray-500 fw-semibold'>ยังไม่มี Work Run</span>
                             <button
                                 className='btn btn-sm btn-primary mt-4 fw-bold'
-                                onClick={() => { setCreateRunQty(workOrder?.quantity || 1); setShowCreateRunModal(true); }}
+                                onClick={openCreateRunModal}
                             >
                                 <i className='bi bi-plus-lg me-1'></i> สร้าง Work Run แรก
                             </button>
@@ -333,23 +390,210 @@ const WorkorderDetail: React.FC = () => {
             )}
 
             {/* Create Work Run Modal */}
-            <Modal show={showCreateRunModal} onHide={() => setShowCreateRunModal(false)} centered>
+            <Modal show={showCreateRunModal} onHide={() => setShowCreateRunModal(false)} centered size='lg'>
                 <Modal.Header closeButton><Modal.Title className='fw-bold'>สร้าง Work Run</Modal.Title></Modal.Header>
                 <Modal.Body>
-                    <div className='mb-4'>
-                        <label className='form-label fw-bold required'>จำนวนที่ต้องการผลิต</label>
-                        <input
-                            type='number'
-                            className='form-control form-control-solid'
-                            value={createRunQty}
-                            onChange={(e) => setCreateRunQty(Number(e.target.value))}
-                            min={1}
-                        />
+                    {/* Mode selector */}
+                    <div className='mb-6'>
+                        <label className='form-label fw-bold mb-3'>แหล่งที่มาของ Work Run</label>
+                        <div className='d-flex gap-4'>
+                            <label className='d-flex align-items-center gap-2 cursor-pointer'>
+                                <input
+                                    type='radio'
+                                    className='form-check-input mt-0'
+                                    checked={createRunMode === 'none'}
+                                    onChange={() => { setCreateRunMode('none'); setSourceAllocations({}); }}
+                                />
+                                <span className='fw-semibold text-gray-800'>สร้างใหม่</span>
+                            </label>
+                            <label className='d-flex align-items-center gap-2 cursor-pointer'>
+                                <input
+                                    type='radio'
+                                    className='form-check-input mt-0'
+                                    checked={createRunMode === 'from_runs'}
+                                    onChange={() => setCreateRunMode('from_runs')}
+                                />
+                                <span className='fw-semibold text-gray-800'>จาก Work Runs ที่มีของเสีย</span>
+                            </label>
+                            <label className='d-flex align-items-center gap-2 cursor-pointer'>
+                                <input
+                                    type='radio'
+                                    className='form-check-input mt-0'
+                                    checked={createRunMode === 'from_test_results'}
+                                    onChange={() => {
+                                        setCreateRunMode('from_test_results');
+                                        fetchSalesItemTestResults();
+                                    }}
+                                />
+                                <span className='fw-semibold text-gray-800'>จากผลทดสอบของสินค้าชนิดเดียวกัน</span>
+                            </label>
+                        </div>
                     </div>
+
+                    {/* Normal mode */}
+                    {createRunMode === 'none' && (
+                        <div className='mb-4'>
+                            <label className='form-label fw-bold required'>จำนวนที่ต้องการผลิต</label>
+                            <input
+                                type='number'
+                                className='form-control form-control-solid'
+                                value={createRunQty}
+                                onChange={(e) => setCreateRunQty(Number(e.target.value))}
+                                min={1}
+                            />
+                        </div>
+                    )}
+
+                    {/* From runs mode */}
+                    {createRunMode === 'from_runs' && (
+                        <div>
+                            {completedRunsWithDefects.length === 0 ? (
+                                <div className='text-center text-muted py-8'>
+                                    <i className='bi bi-exclamation-circle fs-2x text-gray-300 d-block mb-3'></i>
+                                    ไม่มี Work Run ที่เสร็จสิ้นและมีของเสีย
+                                </div>
+                            ) : (
+                                <>
+                                    <div className='table-responsive mb-4'>
+                                        <table className='table align-middle table-row-bordered fs-7 gy-3'>
+                                            <thead>
+                                                <tr className='text-muted fw-bold fs-8 text-uppercase border-bottom border-gray-200'>
+                                                    <th>Work Run</th>
+                                                    <th className='text-center'>ของเสียทั้งหมด</th>
+                                                    <th className='text-center'>ผลการทดสอบ</th>
+                                                    <th className='text-center' style={{ width: 140 }}>จำนวนที่เลือก</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className='text-gray-700 fw-semibold'>
+                                                {completedRunsWithDefects.map(run => (
+                                                    <tr key={run.work_run_id}>
+                                                        <td>
+                                                            <span className='text-gray-800 fw-bold'>#{run.work_run_id}</span>
+                                                        </td>
+                                                        <td className='text-center'>
+                                                            <span className='text-danger fw-bold'>{run.defect_qty}</span>
+                                                        </td>
+                                                        <td className='text-center'>
+                                                            <span className='badge badge-light-success fw-bold fs-8'>
+                                                                {run.usable_qty != null ? `ผ่าน ${run.usable_qty}` : '-'}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <input
+                                                                type='number'
+                                                                className='form-control form-control-sm form-control-solid text-center'
+                                                                value={sourceAllocations[run.work_run_id] ?? 0}
+                                                                onChange={(e) => handleAllocationChange(run.work_run_id, Number(e.target.value), run.defect_qty!)}
+                                                                min={0}
+                                                                max={run.defect_qty!}
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div className='d-flex align-items-center justify-content-end gap-3 pt-2 border-top border-gray-200'>
+                                        <span className='text-muted fs-7 fw-semibold'>จำนวนรวมที่จะผลิต:</span>
+                                        <span className='badge badge-light-primary fw-bold fs-6 px-4 py-2'>{sourceTotal} ชิ้น</span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+                    {/* From test results mode */}
+                    {createRunMode === 'from_test_results' && (
+                        <div>
+                            {loadingTestResults ? (
+                                <div className='text-center py-8'>
+                                    <span className='spinner-border spinner-border-sm align-middle me-2'></span>
+                                    <span className='text-muted'>กำลังโหลดผลทดสอบ...</span>
+                                </div>
+                            ) : salesItemTestResults.filter(r => (r.failed_item_qty ?? 0) > 0).length === 0 ? (
+                                <div className='text-center text-muted py-8'>
+                                    <i className='bi bi-exclamation-circle fs-2x text-gray-300 d-block mb-3'></i>
+                                    ไม่มีผลทดสอบที่มีของเสีย
+                                </div>
+                            ) : (
+                                <>
+                                    <div className='table-responsive mb-4'>
+                                        <table className='table align-middle table-row-bordered fs-7 gy-3'>
+                                            <thead>
+                                                <tr className='text-muted fw-bold fs-8 text-uppercase border-bottom border-gray-200'>
+                                                    <th>ผลทดสอบ</th>
+                                                    <th className='text-center'>Work Run</th>
+                                                    <th className='text-center'>ของเสีย</th>
+                                                    <th className='text-center'>วันที่</th>
+                                                    <th className='text-center' style={{ width: 140 }}>จำนวนที่เลือก</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className='text-gray-700 fw-semibold'>
+                                                {salesItemTestResults
+                                                    .filter(r => (r.failed_item_qty ?? 0) > 0)
+                                                    .map(result => (
+                                                        <tr key={result.test_result_id}>
+                                                            <td>
+                                                                <span className='text-gray-800 fw-bold'>#{result.test_result_id}</span>
+                                                                {result.doc_num && (
+                                                                    <span className='text-muted fs-8 ms-2'>{result.doc_num}</span>
+                                                                )}
+                                                            </td>
+                                                            <td className='text-center'>
+                                                                {result.work_run_id != null
+                                                                    ? <span className='badge badge-light-secondary fw-bold'>#{result.work_run_id}</span>
+                                                                    : <span className='text-muted'>-</span>
+                                                                }
+                                                            </td>
+                                                            <td className='text-center'>
+                                                                <span className='text-danger fw-bold'>{result.failed_item_qty}</span>
+                                                            </td>
+                                                            <td className='text-center'>
+                                                                <span className='text-gray-600 fs-8'>
+                                                                    {result.created_date
+                                                                        ? new Date(result.created_date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })
+                                                                        : '-'
+                                                                    }
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                <input
+                                                                    type='number'
+                                                                    className='form-control form-control-sm form-control-solid text-center'
+                                                                    value={testResultAllocations[result.test_result_id] ?? 0}
+                                                                    onChange={(e) => {
+                                                                        const val = Math.min(Math.max(0, Number(e.target.value)), result.failed_item_qty);
+                                                                        setTestResultAllocations(prev => ({ ...prev, [result.test_result_id]: val }));
+                                                                    }}
+                                                                    min={0}
+                                                                    max={result.failed_item_qty}
+                                                                />
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div className='d-flex align-items-center justify-content-end gap-3 pt-2 border-top border-gray-200'>
+                                        <span className='text-muted fs-7 fw-semibold'>จำนวนรวมที่จะผลิต:</span>
+                                        <span className='badge badge-light-primary fw-bold fs-6 px-4 py-2'>{testResultTotal} ชิ้น</span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </Modal.Body>
                 <Modal.Footer>
                     <button className='btn btn-light' onClick={() => setShowCreateRunModal(false)}>ยกเลิก</button>
-                    <button className='btn btn-primary fw-bold' onClick={handleCreateWorkRun} disabled={creating || createRunQty < 1}>
+                    <button
+                        className='btn btn-primary fw-bold'
+                        onClick={handleCreateWorkRun}
+                        disabled={
+                            creating ||
+                            (createRunMode === 'none' && createRunQty < 1) ||
+                            (createRunMode === 'from_runs' && sourceTotal < 1) ||
+                            (createRunMode === 'from_test_results' && testResultTotal < 1)
+                        }
+                    >
                         {creating ? <span className='spinner-border spinner-border-sm me-2'></span> : <i className='bi bi-plus-lg me-1'></i>}
                         สร้าง Work Run
                     </button>

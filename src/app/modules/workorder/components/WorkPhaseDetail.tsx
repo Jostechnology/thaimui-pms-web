@@ -156,21 +156,6 @@ const WorkPhaseDetail: React.FC = () => {
         <Content>
             <div className="container-fluid" style={{ maxWidth: 1100 }}>
                 {/* Breadcrumb */}
-                <nav aria-label="breadcrumb" className="mb-4">
-                    <ol className="breadcrumb fs-7">
-                        <li className="breadcrumb-item">
-                            <a href="#" className="text-muted text-hover-primary" onClick={(e) => { e.preventDefault(); navigate('/workorder/workorders_list'); }}>
-                                <i className="bi bi-list me-1" />Work Orders
-                            </a>
-                        </li>
-                        <li className="breadcrumb-item">
-                            <a href="#" className="text-muted text-hover-primary" onClick={(e) => { e.preventDefault(); navigate(`/workorder/workorders_view/${data.work_order_id}`); }}>
-                                {data.doc_num}
-                            </a>
-                        </li>
-                        <li className="breadcrumb-item active fw-bold text-dark" aria-current="page">Phase Detail</li>
-                    </ol>
-                </nav>
 
                 {/* Header */}
                 <div className="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-5">
@@ -183,7 +168,7 @@ const WorkPhaseDetail: React.FC = () => {
                         </h1>
                         <div className="d-flex align-items-center gap-2 text-muted fs-7">
                             <i className="bi bi-calendar3" />
-                            Created Date: {formatDate(data.created_date)}
+                            วันที่สร้าง: {formatDate(data.created_date)}
                         </div>
                     </div>
                     <button className="btn btn-light-primary btn-sm d-flex align-items-center gap-1" onClick={() => navigate(`/workorder/workorders_view/${data.work_order_id}`)}>
@@ -197,11 +182,11 @@ const WorkPhaseDetail: React.FC = () => {
                         <div className="card border border-gray-200 shadow-sm h-100">
                             <div className="card-body d-flex justify-content-between align-items-center py-4 px-5">
                                 <div>
-                                    <div className="text-primary fw-bold fs-7 mb-2">Total Time Spent</div>
+                                    <div className="text-primary fw-bold fs-7 mb-2">เวลาที่ใช้</div>
                                     <div className="fw-bolder text-dark" style={{ fontSize: '2rem', lineHeight: 1 }}>
                                         {formatDuration(data.total_time_spent_seconds)}
                                     </div>
-                                    <div className="text-muted fs-8 mt-1">Logged duration across all assignees</div>
+                                    <div className="text-muted fs-8 mt-1">เวลาทั้งหมดที่ใช้ในการทำ Phase ouh</div>
                                 </div>
                                 <div className="d-flex align-items-center justify-content-center rounded-3 bg-light-primary" style={{ width: 48, height: 48 }}>
                                     <i className="bi bi-clock text-primary fs-3" />
@@ -214,15 +199,12 @@ const WorkPhaseDetail: React.FC = () => {
                         <div className="card border border-gray-200 shadow-sm h-100">
                             <div className="card-body d-flex justify-content-between align-items-center py-4 px-5">
                                 <div>
-                                    <div className="text-primary fw-bold fs-7 mb-2">Total Labor Cost</div>
+                                    <div className="text-primary fw-bold fs-7 mb-2">ค่าแรงงานทั้งหมด</div>
                                     <div className="fw-bolder text-dark" style={{ fontSize: '2rem', lineHeight: 1 }}>
                                         {formatNumber(data.total_labor_cost)}
                                         <span className="text-muted fw-semibold fs-6 ms-2">THB</span>
                                     </div>
-                                    <div className="d-flex align-items-center gap-1 text-danger fs-8 mt-1">
-                                        <i className="bi bi-info-circle" />
-                                        (Exclude Overhead Costs)
-                                    </div>
+                                    
                                 </div>
                                 <div className="d-flex align-items-center justify-content-center rounded-3 bg-light-success" style={{ width: 48, height: 48 }}>
                                     <i className="bi bi-cash-stack text-success fs-3" />
@@ -237,7 +219,7 @@ const WorkPhaseDetail: React.FC = () => {
                     <div className="card-header border-0 d-flex justify-content-between align-items-center flex-wrap gap-3 py-4">
                         <div className="d-flex align-items-center gap-2 fw-bold fs-5 text-dark">
                             <i className="bi bi-table text-primary" />
-                            Individual Labor Breakdown
+                            รายงานการทำงานของแต่ละคน
                         </div>
                         <div className="position-relative">
                             <i className="bi bi-search position-absolute top-50 translate-middle-y ms-3 text-muted fs-7" />
@@ -257,19 +239,19 @@ const WorkPhaseDetail: React.FC = () => {
                             <table className="table table-hover align-middle mb-0">
                                 <thead>
                                     <tr className="text-muted fw-bold fs-8 text-uppercase border-bottom">
-                                        <th className="ps-3">EMPLOYEE</th>
+                                        <th className="ps-3">พนักงาน</th>
                                         <th
                                             role="button"
                                             className={sortField === 'time' ? 'text-primary' : ''}
                                             onClick={() => toggleSort('time')}
                                         >
-                                            TIME SPENT
+                                            เวลาที่ใช้
                                             <span className="ms-1 fs-9">
                                                 {sortField === 'time' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
                                             </span>
                                         </th>
                                         <th>
-                                            EFFECTIVE SALARY RATE
+                                            เรทการจ่ายค่าจ้าง
                                             <i className="bi bi-info-circle ms-1 text-muted fs-9" title="เงินเดือน ÷ 30 วัน ÷ 8 ชม." />
                                         </th>
                                         <th
@@ -277,7 +259,7 @@ const WorkPhaseDetail: React.FC = () => {
                                             className={`text-end ${sortField === 'cost' ? 'text-primary' : ''}`}
                                             onClick={() => toggleSort('cost')}
                                         >
-                                            NET COST (THB)
+                                            รวม(THB)
                                             <span className="ms-1 fs-9">
                                                 {sortField === 'cost' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
                                             </span>
@@ -335,7 +317,7 @@ const WorkPhaseDetail: React.FC = () => {
                                     <tfoot>
                                         <tr className="border-top border-2">
                                             <td colSpan={3} className="text-end py-4">
-                                                <span className="fw-bold text-muted text-uppercase fs-8 ls-1">GRAND TOTAL</span>
+                                                <span className="fw-bold text-muted text-uppercase fs-8 ls-1">รวมทั้งหมด</span>
                                             </td>
                                             <td className="text-end py-4">
                                                 <span className="fw-bolder text-primary" style={{ fontSize: '1.4rem' }}>

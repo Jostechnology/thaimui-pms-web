@@ -56,7 +56,34 @@ export const getWorkRunsByWorkOrder = async (workOrderId: number): Promise<APIRe
     }
 };
 
-export const createWorkRun = async (workOrderId: number, payload: { quantity: number }): Promise<APIResponse> => {
+export interface WorkRunSourceAllocation {
+    source_work_run_id: number;
+    qty: number;
+}
+
+export interface TestResultSourceAllocation {
+    test_result_id: number;
+    qty: number;
+}
+
+export const getSalesItemTestResults = async (salesItemId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "GET",
+            `/sales_item/${salesItemId}/test_results`,
+            {},
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
+export const createWorkRun = async (
+    workOrderId: number,
+    payload: { quantity: number; source_work_runs?: WorkRunSourceAllocation[]; test_result_sources?: TestResultSourceAllocation[] }
+): Promise<APIResponse> => {
     try {
         const response = await front_api(
             "POST",
