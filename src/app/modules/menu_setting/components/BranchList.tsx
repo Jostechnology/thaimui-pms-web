@@ -25,14 +25,14 @@ const BranchList: React.FC = () => {
     const filteredBranches = useMemo(() => {
         if (!searchTerm) return branches;
         const lower = searchTerm.toLowerCase();
-        return branches.filter(b => 
-            b.branch_code.toLowerCase().includes(lower) || 
+        return branches.filter(b =>
+            b.branch_code.toLowerCase().includes(lower) ||
             b.branch_name.toLowerCase().includes(lower)
         );
     }, [branches, searchTerm]);
 
     // ─── ฟังก์ชันลบสาขา ───
-    const handleDelete = async (id: number, name: string) => {
+    const handleDelete = async (id: number, name: string, currentStatus: boolean) => {
         const result = await Swal.fire({
             title: 'ยืนยันการลบสาขา?',
             text: `คุณต้องการลบ "${name}" ออกจากระบบใช่หรือไม่? (การกระทำนี้ไม่สามารถย้อนกลับได้)`,
@@ -49,7 +49,7 @@ const BranchList: React.FC = () => {
         });
 
         if (result.isConfirmed) {
-            const res = await deleteBranch(id);
+            const res = await deleteBranch(id, currentStatus);
             if (res.success) {
                 setBranches(prev => prev.filter(b => b.branch_id !== id));
                 Swal.fire({
@@ -70,6 +70,55 @@ const BranchList: React.FC = () => {
         }
     };
 
+    // ─── ฟังก์ชันสลับสถานะ เปิด/ปิด สาขา ───
+    const handleToggleStatus = async (id: number, name: string, currentStatus: boolean) => {
+        // เช็คว่าตอนนี้กำลังจะทำอะไร
+        const actionText = currentStatus ? 'ปิดการใช้งาน' : 'เปิดใช้งาน';
+        const actionColor = currentStatus ? '#d33' : '#198754'; // สีแดงตอนจะปิด, สีเขียวตอนจะเปิด
+
+        const result = await Swal.fire({
+            title: `ยืนยันการ${actionText}?`,
+            text: `คุณต้องการ${actionText}สาขา "${name}" ใช่หรือไม่?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: actionColor,
+            cancelButtonColor: '#F5F8FA',
+            confirmButtonText: `<i class="bi bi-check-circle-fill me-1"></i> ใช่, ${actionText}เลย`,
+            cancelButtonText: '<span class="text-dark">ยกเลิก</span>',
+            reverseButtons: true,
+            customClass: {
+                cancelButton: 'border border-gray-300'
+            }
+        });
+
+        if (result.isConfirmed) {
+            // เรียกใช้ API (พี่แคมป์ส่ง currentStatus ไปให้ API ตามเดิม)
+            const res = await deleteBranch(id, currentStatus);
+
+            if (res.success) {
+                // 🌟 จุดสำคัญ: เปลี่ยนจาก .filter() (เตะทิ้ง) เป็น .map() (เปลี่ยนค่าแทน)
+                setBranches(prev => prev.map(b =>
+                    b.branch_id === id ? { ...b, is_active: !currentStatus } : b
+                ));
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'สำเร็จ!',
+                    text: `${actionText}สาขา "${name}" เรียบร้อยแล้ว`,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: res.message || `ไม่สามารถ${actionText}ได้ กรุณาลองอีกครั้ง`,
+                    confirmButtonColor: '#d33',
+                });
+            }
+        }
+    };
+
     return (
         <Content>
             {/* ─── Header & Action ─── */}
@@ -78,11 +127,11 @@ const BranchList: React.FC = () => {
                     Branch Master List
                     <span className="fs-6 text-gray-400 fw-bold ms-4">จัดการข้อมูลสาขาทั้งหมดในระบบ</span>
                 </h3>
-                
+
                 {/* ปุ่มเพิ่มสาขาใหม่ */}
                 <div className="d-flex align-items-center my-2">
-                    <button 
-                        className="btn btn-primary fw-bolder" 
+                    <button
+                        className="btn btn-primary fw-bolder"
                         onClick={() => navigate('/setting/branch_create')}
                     >
                         <i className="bi bi-plus-lg fs-4 me-2"></i> เพิ่มสาขาใหม่
@@ -97,10 +146,10 @@ const BranchList: React.FC = () => {
                     <div className="card-title">
                         <div className="d-flex align-items-center position-relative my-1">
                             <i className="bi bi-search position-absolute ms-4 fs-4 text-gray-500"></i>
-                            <input 
-                                type="text" 
-                                className="form-control form-control-solid w-250px ps-12" 
-                                placeholder="ค้นหารหัส หรือ ชื่อสาขา..." 
+                            <input
+                                type="text"
+                                className="form-control form-control-solid w-250px ps-12"
+                                placeholder="ค้นหารหัส หรือ ชื่อสาขา..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
@@ -120,7 +169,7 @@ const BranchList: React.FC = () => {
                                     <th className="text-end min-w-150px">จัดการ</th>
                                 </tr>
                             </thead>
-                            
+
                             <tbody className="text-gray-600 fw-bold">
                                 {isLoading ? (
                                     <tr>
@@ -137,7 +186,8 @@ const BranchList: React.FC = () => {
                                     </tr>
                                 ) : (
                                     filteredBranches.map((branch, index) => (
-                                        <tr key={branch.branch_id} className="hover-bg-light">
+                                        <tr key={branch.branch_id} className="hover-bg-light" style={{ opacity: branch.is_active ? 1 : 0.6 }}>
+
                                             {/* รหัสสาขา */}
                                             <td>
                                                 <span className="badge badge-light-primary fs-6 px-3 py-2">
@@ -154,7 +204,12 @@ const BranchList: React.FC = () => {
                                                         </div>
                                                     </div>
                                                     <div className="d-flex flex-column">
-                                                        <span className="text-dark fw-bolder fs-5 mb-1">{branch.branch_name}</span>
+                                                        <span className="text-dark fw-bolder fs-5 mb-1">
+                                                            {branch.branch_name}
+                                                            {!branch.is_active && (
+                                                                <span className="text-danger fs-8 ms-2">(ปิดใช้งาน)</span>
+                                                            )}
+                                                        </span>
                                                         <span className="text-muted fs-8">วันที่สร้าง: {new Date(branch.created_date).toLocaleDateString('th-TH')}</span>
                                                     </div>
                                                 </div>
@@ -172,8 +227,7 @@ const BranchList: React.FC = () => {
                                             {/* ปุ่ม Action */}
                                             <td className="text-end">
                                                 <div className="d-flex justify-content-end gap-2">
-                                                    {/* ปุ่มแก้ไข */}
-                                                    <button 
+                                                    <button
                                                         className="btn btn-icon btn-light-warning btn-sm"
                                                         onClick={() => navigate(`/setting/branch_edit/${branch.branch_id}`)}
                                                         title="แก้ไขสาขา"
@@ -181,19 +235,17 @@ const BranchList: React.FC = () => {
                                                         <i className="bi bi-pencil-square fs-5"></i>
                                                     </button>
 
-                                                    {/* ปุ่มลบ */}
-                                                    <button 
-                                                        className="btn btn-icon btn-light-danger btn-sm"
-                                                        onClick={() => handleDelete(branch.branch_id, branch.branch_name)}
-                                                        title="ลบสาขา"
+                                                    <button
+                                                        className={`btn btn-icon btn-sm ${branch.is_active ? 'btn-light-danger' : 'btn-light-success'}`}
+                                                        onClick={() => handleToggleStatus(branch.branch_id, branch.branch_name, branch.is_active)}
+                                                        title={branch.is_active ? "ปิดการใช้งาน" : "เปิดใช้งาน"}
                                                     >
-                                                        <i className="bi bi-trash3 fs-5"></i>
+                                                        <i className={`bi ${branch.is_active ? 'bi-lock-fill' : 'bi-unlock-fill'} fs-5`}></i>
                                                     </button>
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))
-                                )}
+                                    )))}
                             </tbody>
                         </table>
                     </div>

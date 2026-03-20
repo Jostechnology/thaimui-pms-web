@@ -59,12 +59,13 @@ export const updateBranch = async (branchId: number, data: { branch_code: string
     }
 };
 
-export const deleteBranch = async (branchId: number) => {
+export const deleteBranch = async (branchId: number,currentStatus: boolean) => {
     try {
+        const newStatus = !currentStatus;
         const response = await front_api(
-            "DELETE",
+            "PUT",
             `/delete_branch/${branchId}`,
-            {},
+            {is_active: newStatus},
             { wrapData: false, headers: getHeaders() }
         );
         if (!response) return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };

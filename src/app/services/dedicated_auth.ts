@@ -33,15 +33,21 @@ export const login = async (username: string, password: string) => {
 
             const { value: selectedBranchId } = await Swal.fire({
                 title: 'เลือกสาขาที่ต้องการเข้าทำงาน',
+                text: 'กรุณาเลือกสาขาเพื่อดำเนินการเข้าสู่ระบบ',
+                icon: 'question',
                 input: 'select',
                 inputOptions: branchOptions,
                 inputPlaceholder: '-- กรุณาเลือกสาขา --',
                 showCancelButton: true,
                 confirmButtonText: 'เข้าสู่ระบบ',
                 cancelButtonText: 'ยกเลิก',
+                confirmButtonColor: '#1d84f5',
                 inputValidator: (value) => {
                     if (!value) return 'กรุณาเลือกสาขาก่อนเข้าสู่ระบบ!';
-                }
+                },
+                customClass: {
+                    input: 'form-select-solid',
+                },
             });
 
             if (selectedBranchId) {
