@@ -9,7 +9,6 @@ import { getWorkRunById, completeWorkRun } from '../../../services/workRunServic
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import type { WorkRunDetail as WorkRunDetailType, WorkPhase } from '../../../type_interface/WorkOrderType';
-import ItemComponentDetailModal from './ItemComponentDetailModal';
 
 interface Employee {
     citizen_id: string;

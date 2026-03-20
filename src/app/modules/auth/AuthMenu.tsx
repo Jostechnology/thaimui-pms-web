@@ -147,6 +147,13 @@ export const subRoutesConfig: SubRouteType[] = [
         permission: []
     },
     {
+        module_code: "WORKORDERS_TEMPLATE",
+        main_module_code: "WORKORDERS",
+        path: "/workorder/workorders_template",
+        title: "",
+        permission: []
+    },
+    {
         module_code: "EMPLOYEE_SAL",
         main_module_code: "EMPLOYEE",
         path: "/employee/employee_salary_history",

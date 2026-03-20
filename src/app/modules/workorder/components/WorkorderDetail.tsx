@@ -7,7 +7,6 @@ import { getWorkOrderById } from '../../../services/workorder';
 import { getWorkRunsByWorkOrder, createWorkRun } from '../../../services/workRunService';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
-import ItemComponentDetailModal from './ItemComponentDetailModal';
 import type { WorkOrder, WorkRun } from '../../../type_interface/WorkOrderType';
 import { WorkOrderStatusEnum } from '../../../type_interface/WorkOrderType';
 
@@ -18,7 +17,6 @@ const WorkorderDetail: React.FC = () => {
     const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
     const [workRuns, setWorkRuns] = useState<WorkRun[]>([]);
     const [dataLoading, setDataLoading] = useState(false);
-    const [editComponentId, setEditComponentId] = useState<number | null>(null);
     const [showCreateRunModal, setShowCreateRunModal] = useState(false);
     const [createRunQty, setCreateRunQty] = useState<number>(1);
     const [creating, setCreating] = useState(false);
@@ -293,7 +291,7 @@ const WorkorderDetail: React.FC = () => {
                                             <button
                                                 className='btn btn-sm btn-light-primary d-flex align-items-center gap-1 ms-auto'
                                                 style={{ padding: '6px 12px', borderRadius: '6px' }}
-                                                onClick={() => setEditComponentId(comp.item_component_id)}
+                                                onClick={() => { }}
                                             >
                                                 <i className='bi bi-pencil-square' />
                                                 แก้ไขรายละเอียด
@@ -356,17 +354,6 @@ const WorkorderDetail: React.FC = () => {
                 </Modal.Footer>
             </Modal>
 
-            {/* Item Component Detail Modal */}
-            {workOrder && (
-                <ItemComponentDetailModal
-                    show={editComponentId !== null}
-                    onClose={() => setEditComponentId(null)}
-                    itemComponentId={editComponentId}
-                    workOrder={workOrder as any}
-                    onSaved={() => fetchWorkOrder()}
-                    mode='edit'
-                />
-            )}
         </Content>
     );
 };
