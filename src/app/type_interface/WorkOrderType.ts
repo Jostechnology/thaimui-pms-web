@@ -36,11 +36,28 @@ export interface WorkRun {
     wms_pick_reference: string | null;
 }
 
+export interface ReworkSource {
+    id: number;
+    rework_work_run_id: number;
+    source_work_run_id: number;
+    qty: number;
+    created_date: string;
+}
+
 // Full WorkRun detail — returned from GET /api/work_run/:id
 export interface WorkRunDetail extends WorkRun {
     current_phase: WorkPhase | null;
     work_phases: WorkPhase[];
     test_results: any[];
+    rework_sources: ReworkSource[];
+}
+
+export interface SalesItemTestResult {
+    test_result_id: number;
+    failed_item_qty: number;
+    created_date: string | null;
+    doc_num?: string | null;
+    work_run_id?: number | null;
 }
 
 export interface ComponentMaterialUsage {

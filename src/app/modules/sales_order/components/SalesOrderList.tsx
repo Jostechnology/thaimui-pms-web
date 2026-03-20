@@ -182,7 +182,7 @@ const SalesOrderList: React.FC = () => {
                                                                 <div
                                                                     className="h-6px rounded"
                                                                     style={{
-                                                                        width: Number(so.quantity_to_produce) > 0 ? `${Math.round((Number(so.produced_qty) / Number(so.quantity_to_produce)) * 100)}%` : '0%',
+                                                                        width: Number(so.quantity_to_produce) > 0 ? `${Math.min(100, Math.round((Number(so.produced_qty) / Number(so.quantity_to_produce)) * 100))}%` : '0%',
                                                                         backgroundColor: Number(so.quantity_to_produce) > 0 && Number(so.produced_qty) >= Number(so.quantity_to_produce) ? '#50cd89' : '#009ef7',
                                                                         transition: 'width 0.3s',
                                                                     }}
@@ -208,7 +208,7 @@ const SalesOrderList: React.FC = () => {
                                                                     <div
                                                                         className="h-6px"
                                                                         style={{
-                                                                            width: `${Math.round((so.qc_passed / so.qc_count) * 100)}%`,
+                                                                            width: `${Math.min(100, Math.round((so.qc_passed / so.qc_count) * 100))}%`,
                                                                             backgroundColor: '#50cd89',
                                                                             transition: 'width 0.3s',
                                                                         }}
@@ -218,7 +218,7 @@ const SalesOrderList: React.FC = () => {
                                                                     <div
                                                                         className="h-6px"
                                                                         style={{
-                                                                            width: `${Math.round((so.qc_failed / so.qc_count) * 100)}%`,
+                                                                            width: `${Math.min(100, Math.round((so.qc_failed / so.qc_count) * 100))}%`,
                                                                             backgroundColor: '#f1416c',
                                                                             transition: 'width 0.3s',
                                                                         }}
