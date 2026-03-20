@@ -7,6 +7,7 @@ import WorkPhaseDetail from "./components/WorkPhaseDetail"
 import WorkorderCreate from "./components/WorkorderCreate"
 import WorkRunDetail from "./components/WorkRunDetail"
 import TemplateManagement from "./components/TemplateManagement"
+import TemplateBuilder from "./components/TemplateBuilder"
 
 const WorkorderPage = () => {
 
@@ -22,6 +23,8 @@ const WorkorderPage = () => {
             <Route path="workorders_phase_detail/:phaseId" element={<WorkPhaseDetail />} />
             <Route path="work_run/:workRunId" element={<WorkRunDetail />} />
             <Route path="workorders_template" element={<TemplateManagement />} />
+            <Route path="template_builder" element={<TemplateBuilder />} />
+            <Route path="template_builder/:templateId" element={<TemplateBuilder />} />
         </Routes>
     );
 
