@@ -8,7 +8,7 @@ import { createWorkPhase, updateWorkPhase, deleteWorkPhase } from '../../../serv
 import { getWorkRunById, completeWorkRun } from '../../../services/workRunService';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
-import type { WorkRunDetail as WorkRunDetailType, WorkPhase } from '../../../type_interface/WorkOrderType';
+import type { WorkRunDetail as WorkRunDetailType, WorkPhase, ReworkSource } from '../../../type_interface/WorkOrderType';
 import ItemComponentDetailModal from './ItemComponentDetailModal';
 
 interface Employee {
@@ -449,6 +449,46 @@ const WorkRunDetail: React.FC = () => {
                                     <span className='text-gray-700 fs-7'>{workRun.completion_remark}</span>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Rework Sources */}
+            {workRun && workRun.rework_sources && workRun.rework_sources.length > 0 && (
+                <div className='card shadow-sm mb-8'>
+                    <div className='card-header border-0 pt-5'>
+                        <div className='card-title'>
+                            <span className='card-label fw-bold text-gray-900 fs-5'>แหล่งที่มา (Rework Sources)</span>
+                        </div>
+                    </div>
+                    <div className='card-body pt-0'>
+                        <div className='table-responsive'>
+                            <table className='table table-row-dashed align-middle gs-0 gy-3'>
+                                <thead>
+                                    <tr className='fw-bold text-muted text-uppercase fs-7'>
+                                        <th>Work Run ต้นทาง</th>
+                                        <th>จำนวน</th>
+                                        <th>วันที่สร้าง</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {workRun.rework_sources.map((src: ReworkSource) => (
+                                        <tr key={src.id}>
+                                            <td>
+                                                <span
+                                                    className='text-primary fw-bold fs-6 cursor-pointer'
+                                                    onClick={() => navigate(`/workorder/work_run/${src.source_work_run_id}`)}
+                                                >
+                                                    Work Run #{src.source_work_run_id}
+                                                </span>
+                                            </td>
+                                            <td><span className='fw-bold fs-6'>{src.qty}</span></td>
+                                            <td><span className='text-muted fs-7'>{new Date(src.created_date).toLocaleString('th-TH')}</span></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
