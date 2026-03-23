@@ -566,7 +566,7 @@ const TestResultSection: React.FC<Props> = ({
                                                     {pickingRequests.length > 0 && (
                                                         <div className={workRunSources.length > 0 ? "col-md-6" : "col-12"}>
                                                             <div className="fs-8 fw-bold text-muted text-uppercase mb-2">
-                                                                <i className="bi bi-box-seam me-1"></i>Picking Requests
+                                                                <i className="bi bi-box-seam me-1"></i>คำขอเบิก
                                                             </div>
                                                             <div className="d-flex flex-column gap-2">
                                                                 {pickingRequests.map((pr: any) => {
@@ -577,7 +577,6 @@ const TestResultSection: React.FC<Props> = ({
                                                                             <div className="d-flex align-items-center gap-3">
                                                                                 <span className="fw-bold text-gray-800 fs-7">#{pr.picking_request_code ?? pr.picking_request_id}</span>
                                                                                 <span className={`badge ${prBadge} fs-8`}>{prLabel}</span>
-                                                                                <span className="text-muted fs-8">{pr.items?.length ?? 0} รายการ</span>
                                                                             </div>
                                                                             {pr.wms_reference && (
                                                                                 <span className="text-muted fs-8 fw-semibold">{pr.wms_reference}</span>
@@ -817,7 +816,7 @@ const TestResultSection: React.FC<Props> = ({
                                                         {pickingRequests.length > 0 && (
                                                             <div className={workRunSources.length > 0 ? "col-md-6" : "col-12"}>
                                                                 <div className="fs-8 fw-bold text-muted text-uppercase mb-2">
-                                                                    <i className="bi bi-box-seam me-1"></i>Picking Requests
+                                                                    <i className="bi bi-box-seam me-1"></i>คำขอเบิก
                                                                 </div>
                                                                 <div className="d-flex flex-column gap-2">
                                                                     {pickingRequests.map((pr: any) => {
@@ -828,7 +827,6 @@ const TestResultSection: React.FC<Props> = ({
                                                                                 <div className="d-flex align-items-center gap-3">
                                                                                     <span className="fw-bold text-gray-800 fs-7">#{pr.picking_request_code ?? pr.picking_request_id}</span>
                                                                                     <span className={`badge ${prBadge} fs-8`}>{prLabel}</span>
-                                                                                    <span className="text-muted fs-8">{pr.items?.length ?? 0} รายการ</span>
                                                                                 </div>
                                                                                 {pr.wms_reference && (
                                                                                     <span className="text-muted fs-8 fw-semibold">{pr.wms_reference}</span>

@@ -169,7 +169,7 @@ const PickingRequestList: React.FC = () => {
             {/* Header */}
             <div className='d-flex flex-stack mb-10'>
                 <div className='d-flex flex-column'>
-                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>Picking Requests</h1>
+                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>คำขอเบิก</h1>
                     <span className='text-muted fw-semibold fs-6'>ติดตามและจัดการคำขอเบิกวัสดุทั้งหมดในระบบ</span>
                 </div>
             </div>

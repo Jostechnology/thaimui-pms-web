@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate, useParams } from "react-router-dom";
-import { getSalesOrderById } from '../../../services/salesOrder';
+import { getSalesOrderById, completeSalesItem } from '../../../services/salesOrder';
 import { getMaterialStockSummary } from '../../../services/materialStockService';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
@@ -26,6 +26,10 @@ interface SalesItem {
     unavailable_for_test_qty: number;
     passed_qty: number;
     failed_qty: number;
+    num_qc_work_order : number;
+    num_qc_successed_work_order : number;
+    status: 'PENDING' | 'INPROGRESS' | 'COMPLETED';
+    is_completable: boolean;
 }
 
 interface Material {
@@ -53,6 +57,7 @@ interface SalesOrder {
     group_code: string;
     group_name: string;
     created_date: string;
+    status: 'INPROGRESS' | 'COMPLETED';
     items: SalesItem[];
     material_list: Material[];
 }
@@ -72,6 +77,7 @@ const SalesOrderView: React.FC = () => {
     const [selectedMaterialName, setSelectedMaterialName] = useState('');
     const [showTrackingModal, setShowTrackingModal] = useState(false);
     const [selectedSalesItemId, setSelectedSalesItemId] = useState<number | null>(null);
+    const [completingId, setCompletingId] = useState<number | null>(null);
 
     const fetchData = async () => {
         setLoading();
@@ -98,6 +104,24 @@ const SalesOrderView: React.FC = () => {
             fetchData();
         }
     }, [id]);
+
+    const handleComplete = async (e: React.MouseEvent, salesItemId: number) => {
+        e.stopPropagation();
+        setCompletingId(salesItemId);
+        try {
+            const result = await completeSalesItem(salesItemId);
+            if (result && result.success) {
+                await fetchData();
+            } else {
+                alertMessage(result?.error || "ไม่สามารถเปลี่ยนสถานะได้");
+            }
+        } catch (error) {
+            console.error(error);
+            alertMessage("เกิดข้อผิดพลาด");
+        } finally {
+            setCompletingId(null);
+        }
+    };
 
     const openMaterialDetail = (mat: Material) => {
         setSelectedMaterialId(mat.material_list_id);
@@ -160,7 +184,10 @@ const SalesOrderView: React.FC = () => {
                         Doc Entry: {salesOrder.doc_entry}
                     </p>
                 </div>
-                <div className="d-flex gap-3 mt-3 mt-md-0">
+                <div className="d-flex gap-3 mt-3 mt-md-0 align-items-center">
+                    <span className={`badge fs-6 py-3 px-4 ${salesOrder.status === 'COMPLETED' ? 'badge-light-success' : 'badge-light-warning'}`}>
+                        {salesOrder.status === 'COMPLETED' ? 'เสร็จสิ้น' : 'กำลังดำเนินการ'}
+                    </span>
                     <div className="d-flex align-items-center bg-light p-3 rounded">
                         <div className="d-flex flex-column text-end">
                             <span className="text-muted fs-8 fw-bolder text-uppercase">วันที่สร้าง</span>
@@ -247,7 +274,8 @@ const SalesOrderView: React.FC = () => {
                                     <th className="min-w-80px text-center">จำนวน</th>
                                     <th className="min-w-100px text-end">ราคาต้นทุน</th>
                                     <th className="min-w-100px text-end">ราคา/หน่วย</th>
-                                    <th className="min-w-200px text-center pe-4 rounded-end">ความคืบหน้าการผลิต</th>
+                                    <th className="min-w-200px text-center">ความคืบหน้าการผลิต</th>
+                                    <th className="min-w-120px text-center pe-4 rounded-end">สถานะ</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -279,28 +307,85 @@ const SalesOrderView: React.FC = () => {
                                             <td className="text-end">
                                                 <span className="text-gray-800 fw-bolder d-block fs-6">฿{(item.unit_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                             </td>
-                                            <td className="pe-4">
+                                            <td>
                                                 {(() => {
                                                     const passed = item.passed_qty ?? 0;
                                                     const failed = item.failed_qty ?? 0;
                                                     const unavailable = item.unavailable_for_test_qty ?? 0;
+                                                    const num_qc_work_order = item.num_qc_work_order ?? 0;
+                                                    const num_qc_successed_work_order = item.num_qc_successed_work_order ?? 0;
                                                     const testing = Math.max(0, unavailable - passed - failed);
+
+                                                    const noOrders = num_qc_work_order === 0;
+                                                    const qcComplete = !noOrders && num_qc_successed_work_order === num_qc_work_order;
+                                                    const qcPartial = !noOrders && num_qc_successed_work_order < num_qc_work_order;
+
+                                                    const qcBadgeClass = noOrders
+                                                    ? 'badge badge-light text-muted'
+                                                    : qcComplete
+                                                        ? 'badge badge-light-success'
+                                                        : qcPartial
+                                                        ? 'badge badge-light-warning'
+                                                        : 'badge badge-light-danger';
+
+                                                    const qcIcon = noOrders
+                                                    ? 'bi-slash-circle'
+                                                    : qcComplete
+                                                        ? 'bi-patch-check-fill'
+                                                        : qcPartial
+                                                        ? 'bi-hourglass-split'
+                                                        : 'bi-x-circle-fill';
+
                                                     const stats = [
-                                                        { label: 'กำลังผลิต', value: item.producing_qty ?? 0, icon: 'bi-gear-fill', color: 'text-warning' },
-                                                        { label: 'ผลิตแล้ว', value: item.produced_qty ?? 0, icon: 'bi-check2-circle', color: 'text-primary' },
-                                                        { label: 'กำลังเทส', value: testing, icon: 'bi-hourglass-split', color: 'text-info' },
-                                                        { label: 'ผ่าน', value: passed, icon: 'bi-patch-check-fill', color: 'text-success' },
-                                                        { label: 'ไม่ผ่าน', value: failed, icon: 'bi-x-circle-fill', color: 'text-danger' },
+                                                    { label: 'กำลังผลิต', value: item.producing_qty ?? 0, icon: 'bi-gear-fill', color: 'text-warning' },
+                                                    { label: 'ผลิตแล้ว', value: item.produced_qty ?? 0, icon: 'bi-check2-circle', color: 'text-primary' },
+                                                    { label: 'กำลังเทส', value: testing, icon: 'bi-hourglass-split', color: 'text-info' },
+                                                    { label: 'ผ่าน', value: passed, icon: 'bi-patch-check-fill', color: 'text-success' },
+                                                    { label: 'ไม่ผ่าน', value: failed, icon: 'bi-x-circle-fill', color: 'text-danger' },
                                                     ];
+
                                                     return (
-                                                        <div className="d-flex flex-wrap gap-3">
-                                                            {stats.map(({ label, value, icon, color }) => (
-                                                                <div key={label} className="d-flex align-items-center gap-1">
-                                                                    <i className={`bi ${icon} ${color} fs-7`}></i>
-                                                                    <span className="fw-bold text-gray-800 fs-7">{value}</span>
-                                                                    <span className="text-muted fs-8">{label}</span>
-                                                                </div>
-                                                            ))}
+                                                    <div className="d-flex flex-wrap gap-3 align-items-center">
+                                                        {stats.map(({ label, value, icon, color }) => (
+                                                        <div key={label} className="d-flex align-items-center gap-1">
+                                                            <i className={`bi ${icon} ${color} fs-7`}></i>
+                                                            <span className="fw-bold text-gray-800 fs-7">{value}</span>
+                                                            <span className="text-muted fs-8">{label}</span>
+                                                        </div>
+                                                        ))}
+
+                                                        <div className="d-flex align-items-center gap-1">
+                                                        <span className={qcBadgeClass}>
+                                                            <i className={`bi ${qcIcon} me-1`}></i>
+                                                            {noOrders ? 'ไม่มีใบสั่งเทส' : `ใบสั่งเทส ${num_qc_successed_work_order}/${num_qc_work_order}`}
+                                                        </span>
+                                                        </div>
+                                                    </div>
+                                                    );
+                                                })()}
+                                            </td>
+                                            <td className="text-center pe-4">
+                                                {(() => {
+                                                    const statusLabel = item.status === 'COMPLETED' ? 'เสร็จสิ้น'
+                                                        : item.status === 'INPROGRESS' ? 'กำลังผลิต'
+                                                        : 'รอดำเนินการ';
+                                                    const statusClass = item.status === 'COMPLETED' ? 'badge-light-success'
+                                                        : item.status === 'INPROGRESS' ? 'badge-light-warning'
+                                                        : 'badge-light-secondary';
+                                                    return (
+                                                        <div className="d-flex flex-column align-items-center gap-2">
+                                                            <span className={`badge ${statusClass}`}>{statusLabel}</span>
+                                                            {item.is_completable && (
+                                                                <button
+                                                                    className="btn btn-sm btn-success py-1 px-3"
+                                                                    disabled={completingId === item.sales_item_id}
+                                                                    onClick={(e) => handleComplete(e, item.sales_item_id)}
+                                                                >
+                                                                    {completingId === item.sales_item_id
+                                                                        ? <span className="spinner-border spinner-border-sm" />
+                                                                        : 'ทำเครื่องหมายเสร็จ'}
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     );
                                                 })()}
@@ -309,7 +394,7 @@ const SalesOrderView: React.FC = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={7} className="text-center py-6 text-muted fs-6">ไม่พบรายการสินค้า</td>
+                                        <td colSpan={8} className="text-center py-6 text-muted fs-6">ไม่พบรายการสินค้า</td>
                                     </tr>
                                 )}
                             </tbody>

@@ -86,9 +86,9 @@ const formatDateTime = (dateStr: string | null) => {
 };
 
 // --- Timeline date helpers ---
-const TIMELINE_START_HOUR = 6;
-const TIMELINE_END_HOUR = 22;
-const TIMELINE_TOTAL_HOURS = TIMELINE_END_HOUR - TIMELINE_START_HOUR; // 14
+const TIMELINE_START_HOUR = 0;
+const TIMELINE_END_HOUR = 24;
+const TIMELINE_TOTAL_HOURS = TIMELINE_END_HOUR - TIMELINE_START_HOUR; // 24
 
 /** Check if two date ranges overlap */
 const isSameDay = (d1: Date, d2: Date) =>
@@ -231,6 +231,12 @@ const WorkorderView: React.FC = () => {
             const result = await getWorkRunById(workRunId);
             if (result && result.success && result.data) {
                 setSelectedWorkRun(result.data);
+                const phases = result.data.work_phases || [];
+                const earliest = phases
+                    .filter((p: WorkPhase) => p.start_date)
+                    .map((p: WorkPhase) => new Date(p.start_date!))
+                    .sort((a: Date, b: Date) => a.getTime() - b.getTime())[0];
+                setSelectedDate(earliest ?? new Date());
             }
         } catch (error) {
             console.error(error);
@@ -553,7 +559,7 @@ const WorkorderView: React.FC = () => {
                                         <div className="wo-timeline-label-col">ขั้นตอน</div>
                                         <div className="wo-timeline-bar-col">
                                             <div className="wo-timeline-hours">
-                                                {Array.from({ length: 10 }, (_, i) => (
+                                                {Array.from({ length: 13 }, (_, i) => (
                                                     <span key={i}>{String(TIMELINE_START_HOUR + i * 2).padStart(2, '0')}:00</span>
                                                 ))}
                                             </div>
@@ -592,11 +598,15 @@ const WorkorderView: React.FC = () => {
                                                                 setSelectedPhaseId(prev => prev === phase.work_phase_id ? null : phase.work_phase_id);
                                                             }}
                                                         >
-                                                            <span className="wo-bar-text">
-                                                                {getPhaseStatusLabel(phase.phase_status)}
-                                                            </span>
-                                                            {phase.employee_list.length > 0 && (
-                                                                <span className="wo-bar-badge">{phase.employee_list.length} คน</span>
+                                                            {barInfo.widthPercent >= 8 && (
+                                                                <>
+                                                                    <span className="wo-bar-text">
+                                                                        {getPhaseStatusLabel(phase.phase_status)}
+                                                                    </span>
+                                                                    {phase.employee_list.length > 0 && (
+                                                                        <span className="wo-bar-badge">{phase.employee_list.length} คน</span>
+                                                                    )}
+                                                                </>
                                                             )}
                                                         </div>
                                                     ) : (

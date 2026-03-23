@@ -257,7 +257,7 @@ const WorkorderDetail: React.FC = () => {
                             <table className='table align-middle table-row-dashed fs-6 gy-4'>
                                 <thead>
                                     <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
-                                        <th>Work Run ID</th>
+                                        <th>Work Run Number</th>
                                         <th className='text-center'>จำนวน</th>
                                         <th className='text-center'>ผลิตได้</th>
                                         <th className='text-center'>ของเสีย</th>
@@ -270,7 +270,7 @@ const WorkorderDetail: React.FC = () => {
                                     {workRuns.map((run) => (
                                         <tr key={run.work_run_id}>
                                             <td>
-                                                <span className='text-gray-800 fw-bold'>#{run.work_run_id}</span>
+                                                <span className='text-gray-800 fw-bold'>#{run.lot_number}</span>
                                             </td>
                                             <td className='text-center'>
                                                 <span className='badge badge-light-primary fw-bold'>{run.quantity}</span>
