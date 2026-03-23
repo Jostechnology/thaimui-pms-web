@@ -10,9 +10,12 @@ export interface PickingRequestListItem {
 
 export interface PickingRequest {
     picking_request_id: number;
+    picking_request_code: string | null;
     request_type: "WORK_RUN" | "TEST_RESULT";
     work_run_id: number | null;
+    work_run_lot_number: string | null;
     test_result_id: number | null;
+    test_result_code: string | null;
     status: "PENDING" | "SENT" | "SUCCESS" | "FAILED";
     wms_reference: string | null;
     remark: string | null;
