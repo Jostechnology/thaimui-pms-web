@@ -953,6 +953,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				salesItemDescription={formData.salesItemCode}
 				salesItemId={formData.salesItemId}
 				testResultsPre={testResults}
+				qcItems={formData.items}
 			/>
 		)}
 

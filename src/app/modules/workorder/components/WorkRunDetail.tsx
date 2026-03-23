@@ -4,12 +4,15 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from 'react-bootstrap';
 import Swal from "sweetalert2";
 import { getEmployeeList } from '../../../services/employee';
-import { createWorkPhase, updateWorkPhase, deleteWorkPhase } from '../../../services/workorder';
+import { createWorkPhase, updateWorkPhase, deleteWorkPhase, getWorkOrderById } from '../../../services/workorder';
 import { getWorkRunById, completeWorkRun } from '../../../services/workRunService';
+import { createWorkRunPickingRequest } from '../../../services/pickingRequestService';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import type { WorkRunDetail as WorkRunDetailType, WorkPhase, ReworkSource } from '../../../type_interface/WorkOrderType';
+import type { PickingAvailableItem } from '../../../type_interface/PickingRequestType';
 import ItemComponentDetailModal from './ItemComponentDetailModal';
+import PickingRequestModal from '../../../modals/picking_request_modal/PickingRequestModal';
 
 interface Employee {
     citizen_id: string;
@@ -45,6 +48,9 @@ const WorkRunDetail: React.FC = () => {
     const [editIDList, setEditIDList] = useState<number[]>([]);
     const [showCompleteModal, setShowCompleteModal] = useState(false);
     const [completeForm, setCompleteForm] = useState({ completion_remark: '', defect_qty: 0, usable_qty: 0 });
+    const [showPickingModal, setShowPickingModal] = useState(false);
+    const [pickingItems, setPickingItems] = useState<PickingAvailableItem[]>([]);
+    const [pickingItemsLoading, setPickingItemsLoading] = useState(false);
 
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
@@ -366,6 +372,38 @@ const WorkRunDetail: React.FC = () => {
         }
     };
 
+    const handleOpenPickingModal = async () => {
+        if (!workRun?.work_order_id) return;
+        setPickingItemsLoading(true);
+        try {
+            const res = await getWorkOrderById(workRun.work_order_id);
+            if (res && res.success && res.data) {
+                const wo = res.data;
+                const seen = new Set<string>();
+                const items: PickingAvailableItem[] = [];
+                (wo.item_components ?? []).forEach((comp: any) => {
+                    (comp.material_usages ?? []).forEach((usage: any) => {
+                        const ml = usage.material_list;
+                        if (ml && ml.item_code && !seen.has(ml.item_code)) {
+                            seen.add(ml.item_code);
+                            items.push({ item_code: ml.item_code, item_name: ml.item_name });
+                        }
+                    });
+                });
+                setPickingItems(items);
+            } else {
+                alertMessage("ไม่สามารถดึงข้อมูลวัสดุจาก Work Order ได้");
+                return;
+            }
+        } catch {
+            alertMessage("ไม่สามารถเชื่อมต่อ API ได้");
+            return;
+        } finally {
+            setPickingItemsLoading(false);
+        }
+        setShowPickingModal(true);
+    };
+
     const totalChanges = phases.filter(p => p.isNew).length + editIDList.length + deleteIDList.length;
     const isCompleted = normalizeKey(workRun?.status) === 'COMPLETED';
 
@@ -402,6 +440,18 @@ const WorkRunDetail: React.FC = () => {
                     </div>
                 </div>
                 <div className='d-flex gap-2'>
+                    {!isCompleted && (
+                        <button
+                            className='btn btn-sm btn-warning fw-bold px-6'
+                            onClick={handleOpenPickingModal}
+                            disabled={pickingItemsLoading}
+                        >
+                            {pickingItemsLoading
+                                ? <><span className='spinner-border spinner-border-sm me-1' />กำลังโหลด...</>
+                                : <><i className='bi bi-box-seam me-1'></i>Picking Request</>
+                            }
+                        </button>
+                    )}
                     {!isCompleted && (
                         <button
                             className='btn btn-sm btn-success fw-bold px-6'
@@ -449,6 +499,49 @@ const WorkRunDetail: React.FC = () => {
                                     <span className='text-gray-700 fs-7'>{workRun.completion_remark}</span>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Picking Requests */}
+            {workRun && (workRun as any).picking_requests?.length > 0 && (
+                <div className='card shadow-sm mb-8'>
+                    <div className='card-header border-0 pt-5'>
+                        <div className='card-title'>
+                            <span className='card-label fw-bold text-gray-900 fs-5'>
+                                <i className='bi bi-box-seam me-2 text-primary'></i>Picking Requests
+                            </span>
+                        </div>
+                    </div>
+                    <div className='card-body pt-0'>
+                        <div className='d-flex flex-column gap-3'>
+                            {((workRun as any).picking_requests as any[]).map((pr: any) => {
+                                const prBadge = pr.status === 'SUCCESS' ? 'badge-light-success' : pr.status === 'SENT' ? 'badge-light-primary' : pr.status === 'FAILED' ? 'badge-light-danger' : 'badge-light-warning';
+                                const prLabel = pr.status === 'SUCCESS' ? 'สำเร็จ' : pr.status === 'SENT' ? 'ส่งแล้ว' : pr.status === 'FAILED' ? 'ล้มเหลว' : 'รอดำเนินการ';
+                                return (
+                                    <div key={pr.picking_request_id} className='d-flex align-items-center justify-content-between border rounded px-4 py-3'>
+                                        <div className='d-flex align-items-center gap-3'>
+                                            <span className='fw-bold text-gray-800 fs-7'>PR#{pr.picking_request_id}</span>
+                                            <span className={`badge ${prBadge} fw-bold`}>{prLabel}</span>
+                                            {pr.remark && (
+                                                <span className='text-muted fs-8'>
+                                                    <i className='bi bi-chat-left-text me-1'></i>{pr.remark}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className='d-flex align-items-center gap-4 text-muted fs-8'>
+                                            {pr.wms_reference && (
+                                                <span className='fw-semibold text-gray-700'>
+                                                    <i className='bi bi-tag me-1'></i>{pr.wms_reference}
+                                                </span>
+                                            )}
+                                            <span>{new Date(pr.created_date).toLocaleString('th-TH', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                            <span>โดย {pr.created_by ?? '-'}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
@@ -663,6 +756,16 @@ const WorkRunDetail: React.FC = () => {
                     </div>
                 </Modal.Body>
             </Modal>
+
+            {/* Picking Request Modal */}
+            <PickingRequestModal
+                show={showPickingModal}
+                onHide={() => setShowPickingModal(false)}
+                onSuccess={() => {}}
+                availableItems={pickingItems}
+                onSubmit={(payload) => createWorkRunPickingRequest(Number(workRunId), payload)}
+                title={`Picking Request — Work Run #${workRunId}`}
+            />
 
             {/* Complete Work Run Modal */}
             <Modal show={showCompleteModal} onHide={() => setShowCompleteModal(false)} centered>

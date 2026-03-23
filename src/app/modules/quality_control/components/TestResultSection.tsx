@@ -7,6 +7,9 @@ import {
     deleteTestResult,
 } from "../../../services/testResultService";
 import { getWorkRunsBySalesItem } from "../../../services/workRunService";
+import { createTestResultPickingRequest } from "../../../services/pickingRequestService";
+import type { QCWorkOrderItem } from "../../../type_interface/QCWorkOrderType";
+import PickingRequestModal from "../../../modals/picking_request_modal/PickingRequestModal";
 
 interface WorkRunOption {
     work_run_id: number;
@@ -29,6 +32,7 @@ interface Props {
     salesItemDescription?: string;
     salesItemId?: number;
     testResultsPre: any[];
+    qcItems?: QCWorkOrderItem[];
 }
 
 interface ClaimForm {
@@ -104,6 +108,7 @@ const TestResultSection: React.FC<Props> = ({
     salesItemDescription = "",
     salesItemId,
     testResultsPre,
+    qcItems = [],
 }) => {
     const [testResults, setTestResults] = useState<any[]>(testResultsPre);
     const [loading, setLoading] = useState(false);
@@ -124,6 +129,12 @@ const TestResultSection: React.FC<Props> = ({
     const [finalizeSaving, setFinalizeSaving] = useState(false);
 
     const [expandedId, setExpandedId] = useState<number | null>(null);
+    const [pickingTestResultId, setPickingTestResultId] = useState<number | null>(null);
+
+    const pickingAvailableItems = qcItems.map((item) => ({
+        item_code: item.code,
+        item_name: item.description,
+    }));
 
     useEffect(() => {
         reloadResults();
@@ -327,7 +338,7 @@ const TestResultSection: React.FC<Props> = ({
                             {/* Work Run Allocations */}
                             {salesItemId && (
                                 <div className="mb-5">
-                                    <label className="form-label fw-bold">Work Runs ที่เกี่ยวข้อง (ไม่บังคับ)</label>
+                                    <label className="form-label fw-bold">Work Runs ที่เกี่ยวข้อง</label>
                                     {loadingWorkRuns ? (
                                         <div className="text-muted fs-7 py-2">
                                             <span className="spinner-border spinner-border-sm me-2" />กำลังโหลด Work Runs...
@@ -435,7 +446,8 @@ const TestResultSection: React.FC<Props> = ({
                                 const isCompleted = tr.session_status === "COMPLETED";
                                 const isFinalizing = finalizingId === tr.test_result_id;
                                 const isExpanded = expandedId === tr.test_result_id;
-                                const workRunLinks: any[] = tr.work_runs ?? [];
+                                const workRunSources: any[] = tr.work_run_sources ?? [];
+                                const pickingRequests: any[] = tr.picking_requests ?? [];
 
                                 return (
                                     <div key={tr.test_result_id} className={`border rounded overflow-hidden ${isInProgress ? 'border-warning' : ''}`}>
@@ -452,13 +464,17 @@ const TestResultSection: React.FC<Props> = ({
                                                 <span className="text-muted fs-7">
                                                     <i className="bi bi-box-seam me-1"></i>{tr.claimed_qty ?? quantity} ชิ้น
                                                 </span>
-                                                {workRunLinks.length > 0 && (
+                                                {workRunSources.length > 0 && (
                                                     <span className="d-flex gap-1 flex-wrap">
-                                                        {workRunLinks.map((wr: any) => (
-                                                            <span key={wr.work_run_id} className="badge badge-light-info fs-8">
-                                                                WR#{wr.work_run_id} ({wr.qty_from_run})
-                                                            </span>
-                                                        ))}
+                                                        {workRunSources.map((src: any) => {
+                                                            const wrStatus = src.work_run?.status;
+                                                            const badgeCls = wrStatus === "COMPLETED" ? "badge-light-success" : wrStatus === "INPROGRESS" ? "badge-light-warning" : "badge-light-secondary";
+                                                            return (
+                                                                <span key={src.work_run_id} className={`badge ${badgeCls} fs-8`}>
+                                                                    WR#{src.work_run_id} · {src.qty_from_run} ชิ้น
+                                                                </span>
+                                                            );
+                                                        })}
                                                     </span>
                                                 )}
                                                 {isCompleted && tr.test_date && (
@@ -476,6 +492,15 @@ const TestResultSection: React.FC<Props> = ({
                                                 )}
                                             </div>
                                             <div className="d-flex align-items-center gap-2">
+                                                {isInProgress && (
+                                                    <button
+                                                        className="btn btn-sm btn-light-primary fw-bold"
+                                                        title="สร้าง Picking Request"
+                                                        onClick={(e) => { e.stopPropagation(); setPickingTestResultId(tr.test_result_id); }}
+                                                    >
+                                                        <i className="bi bi-box-seam me-1"></i>Picking Request
+                                                    </button>
+                                                )}
                                                 {isInProgress && !isFinalizing && (
                                                     <button
                                                         className="btn btn-sm btn-warning fw-bold"
@@ -506,6 +531,66 @@ const TestResultSection: React.FC<Props> = ({
                                                 )}
                                             </div>
                                         </div>
+
+                                        {/* ── INPROGRESS body: Work Run Sources + Picking Requests ── */}
+                                        {isInProgress && (workRunSources.length > 0 || pickingRequests.length > 0) && (
+                                            <div className="px-6 py-4 border-top bg-white">
+                                                <div className="row g-4">
+                                                    {/* Work Run Sources */}
+                                                    {workRunSources.length > 0 && (
+                                                        <div className={pickingRequests.length > 0 ? "col-md-6" : "col-12"}>
+                                                            <div className="fs-8 fw-bold text-muted text-uppercase mb-2">
+                                                                <i className="bi bi-diagram-3 me-1"></i>Work Run ที่นำมาทดสอบ
+                                                            </div>
+                                                            <div className="d-flex flex-column gap-2">
+                                                                {workRunSources.map((src: any) => {
+                                                                    const wr = src.work_run ?? {};
+                                                                    const statusBadge = wr.status === "COMPLETED" ? "badge-light-success" : wr.status === "INPROGRESS" ? "badge-light-warning" : "badge-light-secondary";
+                                                                    return (
+                                                                        <div key={src.work_run_id} className="d-flex align-items-center justify-content-between border rounded px-3 py-2">
+                                                                            <div className="d-flex align-items-center gap-3">
+                                                                                <span className="fw-bold text-gray-800 fs-7">WR#{src.work_run_id}</span>
+                                                                                <span className={`badge ${statusBadge} fs-8`}>{wr.status ?? '-'}</span>
+                                                                            </div>
+                                                                            <div className="d-flex gap-4 text-muted fs-8">
+                                                                                <span>นำมา <span className="fw-bold text-gray-700">{src.qty_from_run}</span></span>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Picking Requests */}
+                                                    {pickingRequests.length > 0 && (
+                                                        <div className={workRunSources.length > 0 ? "col-md-6" : "col-12"}>
+                                                            <div className="fs-8 fw-bold text-muted text-uppercase mb-2">
+                                                                <i className="bi bi-box-seam me-1"></i>Picking Requests
+                                                            </div>
+                                                            <div className="d-flex flex-column gap-2">
+                                                                {pickingRequests.map((pr: any) => {
+                                                                    const prBadge = pr.status === "SUCCESS" ? "badge-light-success" : pr.status === "SENT" ? "badge-light-primary" : pr.status === "FAILED" ? "badge-light-danger" : "badge-light-warning";
+                                                                    const prLabel = pr.status === "SUCCESS" ? "สำเร็จ" : pr.status === "SENT" ? "ส่งแล้ว" : pr.status === "FAILED" ? "ล้มเหลว" : "รอดำเนินการ";
+                                                                    return (
+                                                                        <div key={pr.picking_request_id} className="d-flex align-items-center justify-content-between border rounded px-3 py-2">
+                                                                            <div className="d-flex align-items-center gap-3">
+                                                                                <span className="fw-bold text-gray-800 fs-7">PR#{pr.picking_request_id}</span>
+                                                                                <span className={`badge ${prBadge} fs-8`}>{prLabel}</span>
+                                                                                <span className="text-muted fs-8">{pr.items?.length ?? 0} รายการ</span>
+                                                                            </div>
+                                                                            {pr.wms_reference && (
+                                                                                <span className="text-muted fs-8 fw-semibold">{pr.wms_reference}</span>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* ── Phase 2: Finalize Form (INPROGRESS only) ── */}
                                         {isInProgress && isFinalizing && finalizeForm && (
@@ -701,6 +786,61 @@ const TestResultSection: React.FC<Props> = ({
                                                     {tr.standard_reference && <span><span className="fw-bold">มาตรฐาน: </span>{tr.standard_reference}</span>}
                                                     {tr.remark && <span><span className="fw-bold">หมายเหตุ: </span>{tr.remark}</span>}
                                                 </div>
+
+                                                {/* Work Run Sources + Picking Requests (completed) */}
+                                                {(workRunSources.length > 0 || pickingRequests.length > 0) && (
+                                                    <div className="row g-4 mb-5">
+                                                        {workRunSources.length > 0 && (
+                                                            <div className={pickingRequests.length > 0 ? "col-md-6" : "col-12"}>
+                                                                <div className="fs-8 fw-bold text-muted text-uppercase mb-2">
+                                                                    <i className="bi bi-diagram-3 me-1"></i>Work Run ที่นำมาทดสอบ
+                                                                </div>
+                                                                <div className="d-flex flex-column gap-2">
+                                                                    {workRunSources.map((src: any) => {
+                                                                        const wr = src.work_run ?? {};
+                                                                        const statusBadge = wr.status === "COMPLETED" ? "badge-light-success" : wr.status === "INPROGRESS" ? "badge-light-warning" : "badge-light-secondary";
+                                                                        return (
+                                                                            <div key={src.work_run_id} className="d-flex align-items-center justify-content-between border rounded px-3 py-2">
+                                                                                <div className="d-flex align-items-center gap-3">
+                                                                                    <span className="fw-bold text-gray-800 fs-7">WR#{src.work_run_id}</span>
+                                                                                    <span className={`badge ${statusBadge} fs-8`}>{wr.status ?? '-'}</span>
+                                                                                </div>
+                                                                                <div className="d-flex gap-4 text-muted fs-8">
+                                                                                    <span>นำมา <span className="fw-bold text-gray-700">{src.qty_from_run}</span></span>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {pickingRequests.length > 0 && (
+                                                            <div className={workRunSources.length > 0 ? "col-md-6" : "col-12"}>
+                                                                <div className="fs-8 fw-bold text-muted text-uppercase mb-2">
+                                                                    <i className="bi bi-box-seam me-1"></i>Picking Requests
+                                                                </div>
+                                                                <div className="d-flex flex-column gap-2">
+                                                                    {pickingRequests.map((pr: any) => {
+                                                                        const prBadge = pr.status === "SUCCESS" ? "badge-light-success" : pr.status === "SENT" ? "badge-light-primary" : pr.status === "FAILED" ? "badge-light-danger" : "badge-light-warning";
+                                                                        const prLabel = pr.status === "SUCCESS" ? "สำเร็จ" : pr.status === "SENT" ? "ส่งแล้ว" : pr.status === "FAILED" ? "ล้มเหลว" : "รอดำเนินการ";
+                                                                        return (
+                                                                            <div key={pr.picking_request_id} className="d-flex align-items-center justify-content-between border rounded px-3 py-2">
+                                                                                <div className="d-flex align-items-center gap-3">
+                                                                                    <span className="fw-bold text-gray-800 fs-7">PR#{pr.picking_request_id}</span>
+                                                                                    <span className={`badge ${prBadge} fs-8`}>{prLabel}</span>
+                                                                                    <span className="text-muted fs-8">{pr.items?.length ?? 0} รายการ</span>
+                                                                                </div>
+                                                                                {pr.wms_reference && (
+                                                                                    <span className="text-muted fs-8 fw-semibold">{pr.wms_reference}</span>
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                                 {tr.test_result_items && tr.test_result_items.length > 0 && (
                                                     <div className="table-responsive">
                                                         <table className="table table-bordered align-middle fs-7 mb-0">
@@ -740,6 +880,14 @@ const TestResultSection: React.FC<Props> = ({
                     )}
                 </div>
             </div>
+        <PickingRequestModal
+            show={pickingTestResultId !== null}
+            onHide={() => setPickingTestResultId(null)}
+            onSuccess={() => {}}
+            availableItems={pickingAvailableItems}
+            onSubmit={(payload) => createTestResultPickingRequest(pickingTestResultId!, payload)}
+            title={`Picking Request — Test Result #${pickingTestResultId}`}
+        />
         </div>
     );
 };
