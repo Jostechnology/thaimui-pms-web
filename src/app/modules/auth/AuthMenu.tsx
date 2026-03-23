@@ -92,6 +92,16 @@ export const mainRoutesConfig: MainRouteType[] = [
         customIcon: "/media/icons/machine.svg",
         subMenu: [],
         permission: []
+    },
+    {
+        module_code: "DOCUMENTS",
+        path: "/document",
+        title: "",
+        fontIcon: "bi-gear-wide-connected",
+        icon: "wrench",
+        customIcon: "/media/icons/machine.svg",
+        subMenu: [],
+        permission: []
     }
 ]
 
@@ -219,6 +229,13 @@ export const subRoutesConfig: SubRouteType[] = [
         module_code: "MACHINE_DASHBOARD",
         main_module_code: "MACHINE",
         path: "/machine/machine_dashboard",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "PICKING_REQUEST",
+        main_module_code: "DOCUMENTS",
+        path: "/documents/picking_request",
         title: "",
         permission: []
     }

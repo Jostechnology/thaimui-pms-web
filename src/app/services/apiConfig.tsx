@@ -20,7 +20,7 @@ interface ApiOptions {
 }
 
 export const front_api = async (
-	method: "GET" | "POST" | "PUT" | "DELETE",
+	method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
 	path: string,
 	data?: any,
 	options: ApiOptions = {}
@@ -94,7 +94,7 @@ export const front_api = async (
 //  * Convenience wrapper for legacy API endpoints (no data wrapping)
 //  */
 // export const front_api_legacy = async (
-// 	method: "GET" | "POST" | "PUT" | "DELETE",
+// 	method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
 // 	path: string,
 // 	data?: any,
 // 	options: ApiOptions = {}
