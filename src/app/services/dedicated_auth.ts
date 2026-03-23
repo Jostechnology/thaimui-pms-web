@@ -23,6 +23,7 @@ export const login = async (username: string, password: string) => {
 
             if (user_branches.length === 1) {
                 const authResult = authTokenDedicated(access_token, refresh_token, user_branches[0].branch_id);
+                localStorage.setItem('activeBranchName', user_branches[0].branch_name);
                 return { authResult, success: true };
             }
 
@@ -51,7 +52,9 @@ export const login = async (username: string, password: string) => {
             });
 
             if (selectedBranchId) {
+                const selectedBranch = user_branches.find((b: any) => b.branch_id.toString() === selectedBranchId.toString());
                 const authResult = authTokenDedicated(access_token, refresh_token, selectedBranchId);
+                localStorage.setItem('activeBranchName', selectedBranch?.branch_name || '');
                 return { authResult, success: true };
             } else {
                 return { success: false, message: "ยกเลิกการเข้าสู่ระบบ" };
