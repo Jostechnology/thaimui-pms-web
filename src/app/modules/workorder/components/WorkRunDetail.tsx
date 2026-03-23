@@ -448,7 +448,7 @@ const WorkRunDetail: React.FC = () => {
                         >
                             {pickingItemsLoading
                                 ? <><span className='spinner-border spinner-border-sm me-1' />กำลังโหลด...</>
-                                : <><i className='bi bi-box-seam me-1'></i>Picking Request</>
+                                : <><i className='bi bi-box-seam me-1'></i>สร้างคำขอเบิก </>
                             }
                         </button>
                     )}
@@ -510,7 +510,7 @@ const WorkRunDetail: React.FC = () => {
                     <div className='card-header border-0 pt-5'>
                         <div className='card-title'>
                             <span className='card-label fw-bold text-gray-900 fs-5'>
-                                <i className='bi bi-box-seam me-2 text-primary'></i>Picking Requests
+                                <i className='bi bi-box-seam me-2 text-primary'></i>คำขอเบิก
                             </span>
                         </div>
                     </div>
@@ -522,7 +522,7 @@ const WorkRunDetail: React.FC = () => {
                                 return (
                                     <div key={pr.picking_request_id} className='d-flex align-items-center justify-content-between border rounded px-4 py-3'>
                                         <div className='d-flex align-items-center gap-3'>
-                                            <span className='fw-bold text-gray-800 fs-7'>PR#{pr.picking_request_id}</span>
+                                            <span className='fw-bold text-gray-800 fs-7'>#{pr.picking_request_code ?? pr.picking_request_id}</span>
                                             <span className={`badge ${prBadge} fw-bold`}>{prLabel}</span>
                                             {pr.remark && (
                                                 <span className='text-muted fs-8'>
@@ -764,7 +764,7 @@ const WorkRunDetail: React.FC = () => {
                 onSuccess={() => {}}
                 availableItems={pickingItems}
                 onSubmit={(payload) => createWorkRunPickingRequest(Number(workRunId), payload)}
-                title={`Picking Request — Work Run #${workRunId}`}
+                title={`คำขอเบิก — Work Run #${workRun?.lot_number}`}
             />
 
             {/* Complete Work Run Modal */}
