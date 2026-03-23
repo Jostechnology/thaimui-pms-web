@@ -395,16 +395,24 @@ const WorkorderView: React.FC = () => {
                 <div className="d-flex align-items-center gap-3 mb-8 flex-wrap">
                     <span className="text-muted fw-semibold fs-7">Work Run:</span>
                     {workOrder.work_runs.map(run => (
-                        <button
-                            key={run.work_run_id}
-                            className={`btn btn-sm fw-bold ${selectedWorkRunId === run.work_run_id ? 'btn-primary' : 'btn-light'}`}
-                            onClick={() => setSelectedWorkRunId(run.work_run_id)}
-                        >
-                            #{run.work_run_id}
-                            <span className={`ms-2 badge badge-sm ${run.status === 'COMPLETED' ? 'badge-light-success' : run.status === 'INPROGRESS' ? 'badge-light-warning' : 'badge-light-secondary'}`}>
-                                {run.status}
-                            </span>
-                        </button>
+                        <div key={run.work_run_id} className="d-flex align-items-center gap-1">
+                            <button
+                                className={`btn btn-sm fw-bold ${selectedWorkRunId === run.work_run_id ? 'btn-primary' : 'btn-light'}`}
+                                onClick={() => setSelectedWorkRunId(run.work_run_id)}
+                            >
+                                #{run.work_run_id}
+                                <span className={`ms-2 badge badge-sm ${run.status === 'COMPLETED' ? 'badge-light-success' : run.status === 'INPROGRESS' ? 'badge-light-warning' : 'badge-light-secondary'}`}>
+                                    {run.status}
+                                </span>
+                            </button>
+                            <button
+                                className="btn btn-sm btn-icon btn-light-primary"
+                                title={`ไปหน้า Work Run #${run.work_run_id}`}
+                                onClick={() => navigate(`/workorder/work_run/${run.work_run_id}`)}
+                            >
+                                <i className="bi bi-box-arrow-up-right fs-6"></i>
+                            </button>
+                        </div>
                     ))}
                     {workRunLoading && <span className="spinner-border spinner-border-sm text-primary ms-2" />}
                 </div>
@@ -794,25 +802,7 @@ const WorkorderView: React.FC = () => {
                                         <span className="wo-item-value fw-bold">{workOrder.sales_item.item_num}</span>
                                     </div>
                                     <div className="separator separator-dashed my-4"></div>
-                                    <div className="d-flex flex-column gap-2">
-                                        <span className="text-muted fw-bold fs-8 text-uppercase">ความคืบหน้าการผลิต</span>
-                                        <div className="d-flex align-items-center justify-content-between">
-                                            <span className="text-gray-600 fs-7">กำลังผลิต</span>
-                                            <span className="badge badge-light-warning fw-bold">{workOrder.sales_item.producing_qty ?? 0}</span>
-                                        </div>
-                                        <div className="d-flex align-items-center justify-content-between">
-                                            <span className="text-gray-600 fs-7">ผลิตแล้ว</span>
-                                            <span className="badge badge-light-primary fw-bold">{workOrder.sales_item.produced_qty ?? 0}</span>
-                                        </div>
-                                        <div className="d-flex align-items-center justify-content-between">
-                                            <span className="text-gray-600 fs-7">รอทดสอบ</span>
-                                            <span className="badge badge-light-info fw-bold">{workOrder.sales_item.queued_for_test_qty ?? 0}</span>
-                                        </div>
-                                        <div className="d-flex align-items-center justify-content-between">
-                                            <span className="text-gray-600 fs-7">ทดสอบแล้ว</span>
-                                            <span className="badge badge-light-success fw-bold">{workOrder.sales_item.tested_qty ?? 0}</span>
-                                        </div>
-                                    </div>
+                                    
                                     <div className="wo-cost-summary mt-5">
                                         <div className="wo-cost-row">
                                             <span>ราคาต้นทุน</span>
