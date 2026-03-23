@@ -458,7 +458,7 @@ const TestResultSection: React.FC<Props> = ({
                                             onClick={() => isCompleted && setExpandedId(isExpanded ? null : tr.test_result_id)}
                                         >
                                             <div className="d-flex align-items-center gap-4 flex-wrap">
-                                                <span className="fw-bold text-gray-700 fs-6">ครั้งที่ {idx + 1}</span>
+                                                <span className="fw-bold text-gray-700 fs-6">{tr.test_result_code || `ครั้งที่ ${idx + 1}`}</span>
                                                 <SessionStatusBadge status={tr.session_status} />
                                                 {isCompleted && <OverallStatusBadge status={tr.overall_status} />}
                                                 <span className="text-muted fs-7">
@@ -471,7 +471,7 @@ const TestResultSection: React.FC<Props> = ({
                                                             const badgeCls = wrStatus === "COMPLETED" ? "badge-light-success" : wrStatus === "INPROGRESS" ? "badge-light-warning" : "badge-light-secondary";
                                                             return (
                                                                 <span key={src.work_run_id} className={`badge ${badgeCls} fs-8`}>
-                                                                    WR#{src.work_run_id} · {src.qty_from_run} ชิ้น
+                                                                    {src.work_run?.lot_number || `WR#${src.work_run_id}`} · {src.qty_from_run} ชิ้น
                                                                 </span>
                                                             );
                                                         })}
@@ -549,7 +549,7 @@ const TestResultSection: React.FC<Props> = ({
                                                                     return (
                                                                         <div key={src.work_run_id} className="d-flex align-items-center justify-content-between border rounded px-3 py-2">
                                                                             <div className="d-flex align-items-center gap-3">
-                                                                                <span className="fw-bold text-gray-800 fs-7">WR#{src.work_run_id}</span>
+                                                                                <span className="fw-bold text-gray-800 fs-7">#{src.work_run.lot_number ?? src.work_run_id}</span>
                                                                                 <span className={`badge ${statusBadge} fs-8`}>{wr.status ?? '-'}</span>
                                                                             </div>
                                                                             <div className="d-flex gap-4 text-muted fs-8">
@@ -575,7 +575,7 @@ const TestResultSection: React.FC<Props> = ({
                                                                     return (
                                                                         <div key={pr.picking_request_id} className="d-flex align-items-center justify-content-between border rounded px-3 py-2">
                                                                             <div className="d-flex align-items-center gap-3">
-                                                                                <span className="fw-bold text-gray-800 fs-7">PR#{pr.picking_request_id}</span>
+                                                                                <span className="fw-bold text-gray-800 fs-7">#{pr.picking_request_code ?? pr.picking_request_id}</span>
                                                                                 <span className={`badge ${prBadge} fs-8`}>{prLabel}</span>
                                                                                 <span className="text-muted fs-8">{pr.items?.length ?? 0} รายการ</span>
                                                                             </div>
@@ -802,7 +802,7 @@ const TestResultSection: React.FC<Props> = ({
                                                                         return (
                                                                             <div key={src.work_run_id} className="d-flex align-items-center justify-content-between border rounded px-3 py-2">
                                                                                 <div className="d-flex align-items-center gap-3">
-                                                                                    <span className="fw-bold text-gray-800 fs-7">WR#{src.work_run_id}</span>
+                                                                                    <span className="fw-bold text-gray-800 fs-7">#{src.work_run.lot_number ?? src.work_run_id}</span>
                                                                                     <span className={`badge ${statusBadge} fs-8`}>{wr.status ?? '-'}</span>
                                                                                 </div>
                                                                                 <div className="d-flex gap-4 text-muted fs-8">
@@ -826,7 +826,7 @@ const TestResultSection: React.FC<Props> = ({
                                                                         return (
                                                                             <div key={pr.picking_request_id} className="d-flex align-items-center justify-content-between border rounded px-3 py-2">
                                                                                 <div className="d-flex align-items-center gap-3">
-                                                                                    <span className="fw-bold text-gray-800 fs-7">PR#{pr.picking_request_id}</span>
+                                                                                    <span className="fw-bold text-gray-800 fs-7">#{pr.picking_request_code ?? pr.picking_request_id}</span>
                                                                                     <span className={`badge ${prBadge} fs-8`}>{prLabel}</span>
                                                                                     <span className="text-muted fs-8">{pr.items?.length ?? 0} รายการ</span>
                                                                                 </div>
