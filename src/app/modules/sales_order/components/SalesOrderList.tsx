@@ -123,10 +123,11 @@ const SalesOrderList: React.FC = () => {
                                 <thead>
                                     <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
                                         <th className='min-w-100px'>Doc Num</th>
-                                        <th className='min-w-200px'>ข้อมูลลูกค้า</th>
+                                        <th className='min-w-100px'>ข้อมูลลูกค้า</th>
                                         <th className='min-w-150px'>ตัวแทนขาย</th>
                                         <th className='min-w-150px'>สาขา</th>
                                         <th className='min-w-200px'>ความคืบหน้า</th>
+                                        <th className='min-w-100px text-center'>สถานะ</th>
                                         <th className='min-w-125px text-center'>วันที่สร้าง</th>
                                         <th className='text-end min-w-50px'>จัดการ</th>
                                     </tr>
@@ -134,7 +135,7 @@ const SalesOrderList: React.FC = () => {
                                 <tbody className='text-gray-600 fw-semibold'>
                                     {dataLoading ? (
                                         <tr>
-                                            <td colSpan={7} className='text-center p-20'>
+                                            <td colSpan={8} className='text-center p-20'>
                                                 <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
                                                 <span className="ms-3 text-gray-500">กำลังดึงข้อมูล...</span>
                                             </td>
@@ -229,6 +230,11 @@ const SalesOrderList: React.FC = () => {
                                                     </div>
                                                 </td>
                                                 <td className='text-center'>
+                                                    <span className={`badge ${so.status === 'COMPLETED' ? 'badge-light-success' : 'badge-light-warning'}`}>
+                                                        {so.status === 'COMPLETED' ? 'เสร็จสิ้น' : 'กำลังดำเนินการ'}
+                                                    </span>
+                                                </td>
+                                                <td className='text-center'>
                                                     <span className="text-gray-700 fw-bold">
                                                         {so.created_date ? new Date(so.created_date).toLocaleDateString('th-TH', {
                                                             day: '2-digit', month: 'short', year: 'numeric'
@@ -246,7 +252,7 @@ const SalesOrderList: React.FC = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={7} className='text-center p-20'>
+                                            <td colSpan={8} className='text-center p-20'>
                                                 <div className='d-flex flex-column flex-center'>
                                                     <i className='bi bi-search fs-3x text-gray-300 mb-4'></i>
                                                     <span className='text-gray-500'>ไม่พบข้อมูลใบสั่งขายในระบบ</span>
