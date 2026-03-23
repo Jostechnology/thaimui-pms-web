@@ -73,15 +73,15 @@ export const mainRoutesConfig: MainRouteType[] = [
         subMenu: [],
         permission: []
     },
-    {
-        module_code: "TRACKING",
-        path: "/tracking",
-        title: "",
-        fontIcon: "bi-graph-up",
-        icon: "bi bi-graph-up",
-        subMenu: [],
-        permission: []
-    },
+    // {
+    //     module_code: "TRACKING",
+    //     path: "/tracking",
+    //     title: "",
+    //     fontIcon: "bi-graph-up",
+    //     icon: "bi bi-graph-up",
+    //     subMenu: [],
+    //     permission: []
+    // },
     {
         module_code: "PM_MACHINE",
         path: "/pm_machine",
@@ -105,9 +105,8 @@ export const mainRoutesConfig: MainRouteType[] = [
         module_code: "DOCUMENTS",
         path: "/document",
         title: "",
-        fontIcon: "bi-gear-wide-connected",
-        icon: "wrench",
-        customIcon: "/media/icons/machine.svg",
+        fontIcon: "bi-archive",
+        icon: "bi bi-archive",
         subMenu: [],
         permission: []
     }
@@ -139,6 +138,13 @@ export const subRoutesConfig: SubRouteType[] = [
         module_code: "USER_MANAGEMENT",
         main_module_code: "SETTING",
         path: "/setting/user_management",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "DOCUMENT_CODE",
+        main_module_code: "SETTING",
+        path: "/setting/document_code",
         title: "",
         permission: []
     },
@@ -198,20 +204,20 @@ export const subRoutesConfig: SubRouteType[] = [
         title: "",
         permission: []
     },
-    {
-        module_code: "TEST_TRACKING",
-        main_module_code: "TRACKING",
-        path: "/tracking/test_tracking",
-        title: "",
-        permission: []
-    },
-    {
-        module_code: "PRODUCTION_TRACKING",
-        main_module_code: "TRACKING",
-        path: "/tracking/production_tracking",
-        title: "",
-        permission: []
-    },
+    // {
+    //     module_code: "TEST_TRACKING",
+    //     main_module_code: "TRACKING",
+    //     path: "/tracking/test_tracking",
+    //     title: "",
+    //     permission: []
+    // },
+    // {
+    //     module_code: "PRODUCTION_TRACKING",
+    //     main_module_code: "TRACKING",
+    //     path: "/tracking/production_tracking",
+    //     title: "",
+    //     permission: []
+    // },
     {
         module_code: "PM_ITEM",
         main_module_code: "PM_MACHINE",

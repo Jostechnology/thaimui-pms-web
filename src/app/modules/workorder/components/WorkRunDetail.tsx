@@ -425,7 +425,7 @@ const WorkRunDetail: React.FC = () => {
                     </button>
                     <div className='d-flex flex-column'>
                         <h1 className='text-gray-900 fw-bold fs-2 mb-0'>
-                            Work Run #{workRun?.work_run_id || workRunId}
+                            {workRun?.lot_number || `Work Run #${workRun?.work_run_id || workRunId}`}
                         </h1>
                         <div className='d-flex align-items-center gap-2 mt-1'>
                             {workRun && (
@@ -573,7 +573,7 @@ const WorkRunDetail: React.FC = () => {
                                                     className='text-primary fw-bold fs-6 cursor-pointer'
                                                     onClick={() => navigate(`/workorder/work_run/${src.source_work_run_id}`)}
                                                 >
-                                                    Work Run #{src.source_work_run_id}
+                                                    {(src as any).source_lot_number || `Work Run #${src.source_work_run_id}`}
                                                 </span>
                                             </td>
                                             <td><span className='fw-bold fs-6'>{src.qty}</span></td>

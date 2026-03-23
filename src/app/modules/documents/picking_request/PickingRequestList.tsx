@@ -284,7 +284,7 @@ const PickingRequestList: React.FC = () => {
                                                             <i className={`bi ${isExpanded ? 'bi-chevron-up' : 'bi-chevron-down'} fs-5`}></i>
                                                         </button>
                                                     </td>
-                                                    <td className='fw-bold text-gray-800'>#{item.picking_request_id}</td>
+                                                    <td className='fw-bold text-gray-800'>{item.picking_request_code || `#${item.picking_request_id}`}</td>
                                                     <td>
                                                         <span className={`badge ${TYPE_BADGE[item.request_type]} fw-bold`}>
                                                             {TYPE_LABEL[item.request_type] ?? item.request_type}
@@ -292,8 +292,8 @@ const PickingRequestList: React.FC = () => {
                                                     </td>
                                                     <td className='text-gray-700 fw-bold'>
                                                         {item.request_type === 'WORK_RUN'
-                                                            ? `Work Run #${item.work_run_id ?? '-'}`
-                                                            : `Test Result #${item.test_result_id ?? '-'}`}
+                                                            ? (item.work_run_lot_number || `Work Run #${item.work_run_id ?? '-'}`)
+                                                            : (item.test_result_code || `Test Result #${item.test_result_id ?? '-'}`)}
                                                     </td>
                                                     <td className='text-center'>
                                                         <span className='badge badge-light-secondary fw-bold'>
@@ -395,7 +395,7 @@ const PickingRequestList: React.FC = () => {
                 <Modal.Header closeButton>
                     <Modal.Title className='fw-bold'>
                         <i className='bi bi-arrow-repeat me-2 text-primary'></i>
-                        อัปเดตสถานะ — Picking Request #{updateTarget?.picking_request_id}
+                        อัปเดตสถานะ — {updateTarget?.picking_request_code || `Picking Request #${updateTarget?.picking_request_id}`}
                     </Modal.Title>
                 </Modal.Header>
                 <Modal.Body>

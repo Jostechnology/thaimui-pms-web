@@ -28,6 +28,7 @@ export interface WorkRun {
     work_order_id: number;
     quantity: number;
     status: string;
+    lot_number: string | null;
     current_phase_id: number | null;
     completion_remark: string | null;
     created_date: string | null;
