@@ -116,10 +116,14 @@ export const authTokenDedicated = (token: any, refresh_token: any) => {
         saveRoleNameToLocal(auth["role_name"] || "")
         saveEmpIdToLocal(!auth["employee_id"] ? "" : auth["employee_id"]);
         saveTokenExpiredDateToLocal(formatted);
+
+        if (auth["branch_id"] != null) {
+            localStorage.setItem('activeBranchId', auth["branch_id"].toString());
+        }
+
         return true
     } catch (error) {
         console.error("Authentication failed:", error);
-        // giveAccessDenied();
         return false
     }
 }

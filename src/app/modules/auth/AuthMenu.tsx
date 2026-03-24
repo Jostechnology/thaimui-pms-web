@@ -149,6 +149,20 @@ export const subRoutesConfig: SubRouteType[] = [
         permission: []
     },
     {
+        module_code: "BRANCH_MANAGEMENT",
+        main_module_code: "SETTING",
+        path: "/setting/branch_management",
+        title: "",
+        permission: []
+    },
+    {
+        module_code: "BRANCH_LIST",
+        main_module_code: "SETTING",
+        path: "/setting/branch_list",
+        title: "",
+        permission: []
+    },
+    {
         module_code: "DASHBOARD",
         main_module_code: "WORKORDERS",
         path: "/workorder/workorders_dashboard",
