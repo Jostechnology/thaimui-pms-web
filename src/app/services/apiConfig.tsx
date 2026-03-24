@@ -26,7 +26,7 @@ export const front_api = async (
 	options: ApiOptions = {}
 ) => {
 	try {
-		if (isTokenExpired() && path !== "/login" && path !== "/register") {
+		if (isTokenExpired() && path !== "/login" && path !== "/register" && path != "/select-branch") {
 			const refresh_token = getTokenRefresh();
 			if (!refresh_token) {
 				giveAccessDenied();
@@ -62,9 +62,10 @@ export const front_api = async (
 					token: getTokenFromLocal(),
 				});
 			} else {
+				const publicPaths = ["/login", "/register", "/select-branch", "/verify_token"];
 				body = JSON.stringify({
 					...data,
-					...(path !== "/verify_token" ? { token: getTokenFromLocal() } : {}),
+					...(!publicPaths.includes(path) ? { token: getTokenFromLocal() } : {}),
 				});
 			}
 		}
