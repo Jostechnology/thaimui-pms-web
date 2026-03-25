@@ -71,7 +71,6 @@ const WorkorderCreate: React.FC = () => {
     };
 
     useEffect(() => {
-        if (!soSearchKeyword) return;
         const timeout = setTimeout(() => { handleSearchSalesOrder(soSearchKeyword); }, 750);
         return () => clearTimeout(timeout);
     }, [soSearchKeyword]);
