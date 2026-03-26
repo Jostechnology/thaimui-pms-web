@@ -61,6 +61,14 @@ export interface ComponentMaterialUsage {
     };
 }
 
+export interface ComponentTemplateSectionData {
+    section_data_id: number;
+    section_type: string;
+    data: any;
+    section_key: string;
+    item_component_id: number;
+}
+
 export interface ItemComponent {
     item_component_id: number;
     work_order_id: number;
@@ -68,6 +76,8 @@ export interface ItemComponent {
     material_usages: ComponentMaterialUsage[];
     remark: string | null;
     img_url: string | null;
+    component_template_id: number | null;
+    component_template_sections: ComponentTemplateSectionData[];
 }
 
 

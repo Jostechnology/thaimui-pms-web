@@ -101,6 +101,37 @@ export const updateComponentTemplate = async (
     }
 };
 
+export const getItemComponentSections = async (itemComponentId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "GET",
+            `/item_component/${itemComponentId}/sections`,
+            {},
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
+export const saveItemComponentSections = async (
+    itemComponentId: number,
+    payload: { component_template_id: number; sections_data: any[] }
+): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "POST",
+            `/item_component/${itemComponentId}/sections`,
+            payload,
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
 export const deleteComponentTemplate = async (templateId: number): Promise<APIResponse> => {
     try {
         const response = await front_api(

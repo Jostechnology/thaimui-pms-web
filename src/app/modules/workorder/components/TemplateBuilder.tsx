@@ -19,6 +19,8 @@ import type {
     SignatureSection,
     NoteSection,
     SpacerSection,
+    FixedRowTableSection,
+    ImageUploadSection,
     SectionType,
 } from '../../../type_interface/ComponentTemplateType';
 
@@ -29,23 +31,27 @@ const genKey = (prefix: string) => `${prefix}_${Date.now()}_${++_keyCounter}`;
 const SECTION_TYPE_LABELS: Record<SectionType, string> = {
     header: 'Header / ข้อมูลหัว',
     table: 'ตาราง',
+    fixed_row_table: 'ตารางแถวคงที่',
     key_value: 'ฟิลด์ Key-Value',
     checkbox_group: 'กลุ่ม Checkbox',
-    image_select: 'เลือกรูปภาพ',
+    image_select: 'ตัวเลือกรูปภาพ',
     signature: 'ลายเซ็น',
     note: 'หมายเหตุ',
     spacer: 'เว้นระยะ',
+    image_upload: 'เพิ่มรูปภาพ',
 };
 
 const SECTION_TYPE_ICONS: Record<SectionType, string> = {
     header: 'bi-card-heading',
     table: 'bi-table',
+    fixed_row_table: 'bi-list-check',
     key_value: 'bi-input-cursor-text',
     checkbox_group: 'bi-check2-square',
     image_select: 'bi-image',
     signature: 'bi-pen',
     note: 'bi-chat-left-text',
     spacer: 'bi-arrows-expand',
+    image_upload: 'bi-camera',
 };
 
 function createDefaultSection(type: SectionType): TemplateSection {
@@ -114,6 +120,35 @@ function createDefaultSection(type: SectionType): TemplateSection {
             return {
                 type: 'note', key, title: 'หมายเหตุ',
                 placeholder: 'กรอกหมายเหตุ...',
+            };
+        case 'fixed_row_table': {
+            const col1Key = genKey('frc');
+            const col2Key = genKey('frc');
+            return {
+                type: 'fixed_row_table', key, title: 'รายการตรวจสอบ',
+                columns: [
+                    { key: col1Key, label: 'ปลายด้านบน' },
+                    { key: col2Key, label: 'ปลายด้านล่าง' },
+                ],
+                rows: [
+                    { key: genKey('frr'), label: '1. ปล่อยว่าง', cells: [{ columnKey: col1Key, cellType: 'checkbox' }, { columnKey: col2Key, cellType: 'checkbox' }] },
+                    { key: genKey('frr'), label: '2. บีดปลายเหลม', cells: [{ columnKey: col1Key, cellType: 'checkbox' }, { columnKey: col2Key, cellType: 'checkbox' }] },
+                    { key: genKey('frr'), label: '3. อัดปลอก', cells: [{ columnKey: col1Key, cellType: 'checkbox' }, { columnKey: col2Key, cellType: 'checkbox' }] },
+                    { key: genKey('frr'), label: '4. ใส่หัวใจ', cells: [{ columnKey: col1Key, cellType: 'checkbox' }, { columnKey: col2Key, cellType: 'checkbox' }] },
+                    { key: genKey('frr'), label: '5. ถักหัว', cells: [{ columnKey: col1Key, cellType: 'checkbox' }, { columnKey: col2Key, cellType: 'checkbox' }] },
+                    { key: genKey('frr'), label: '6. ทำห่วง ยาว (cm.)', cells: [{ columnKey: col1Key, cellType: 'text' }, { columnKey: col2Key, cellType: 'text' }] },
+                    { key: genKey('frr'), label: '7. อัด STUD', cells: [{ columnKey: col1Key, cellType: 'checkbox' }, { columnKey: col2Key, cellType: 'checkbox' }] },
+                    { key: genKey('frr'), label: '8. หล่อหัว', cells: [{ columnKey: col1Key, cellType: 'checkbox' }, { columnKey: col2Key, cellType: 'checkbox' }] },
+                    { key: genKey('frr'), label: '9. ย้ำตุ่ม (d x L) (mm)', cells: [{ columnKey: col1Key, cellType: 'text' }, { columnKey: col2Key, cellType: 'text' }] },
+                    { key: genKey('frr'), label: '10. อื่นๆ', cells: [{ columnKey: col1Key, cellType: 'text' }, { columnKey: col2Key, cellType: 'text' }] },
+                ],
+            };
+        }
+        case 'image_upload':
+            return {
+                type: 'image_upload', key, title: 'รูปภาพประกอบ',
+                maxImages: 5,
+                description: 'กรุณาแนบรูปภาพ',
             };
         case 'spacer':
             return { type: 'spacer', key, height: 20 };
@@ -276,9 +311,17 @@ const KeyValueSectionEditor: React.FC<{
                 </div>
                 <div className='col-md-4'>
                     <label className='form-label fw-semibold fs-7'>จำนวนคอลัมน์</label>
-                    <input type='number' className='form-control form-control-sm' min={1} max={6}
+                    <select
+                        className='form-select form-select-sm'
                         value={section.columns || 4}
-                        onChange={e => onChange({ ...section, columns: parseInt(e.target.value) || 4 })} />
+                        onChange={e => onChange({ ...section, columns: parseInt(e.target.value) })}
+                    >
+                        <option value={1}>1 คอลัมน์</option>
+                        <option value={2}>2 คอลัมน์</option>
+                        <option value={3}>3 คอลัมน์</option>
+                        <option value={4}>4 คอลัมน์</option>
+                        <option value={6}>6 คอลัมน์</option>
+                    </select>
                 </div>
             </div>
             <label className='form-label fw-semibold fs-7'>ฟิลด์</label>
@@ -336,9 +379,17 @@ const CheckboxGroupSectionEditor: React.FC<{
                 </div>
                 <div className='col-md-4'>
                     <label className='form-label fw-semibold fs-7'>จำนวนคอลัมน์</label>
-                    <input type='number' className='form-control form-control-sm' min={1} max={4}
-                        value={section.columns || 2}
-                        onChange={e => onChange({ ...section, columns: parseInt(e.target.value) || 2 })} />
+                    <select
+                        className='form-select form-select-sm'
+                        value={section.columns || 4}
+                        onChange={e => onChange({ ...section, columns: parseInt(e.target.value) })}
+                    >
+                        <option value={1}>1 คอลัมน์</option>
+                        <option value={2}>2 คอลัมน์</option>
+                        <option value={3}>3 คอลัมน์</option>
+                        <option value={4}>4 คอลัมน์</option>
+                        <option value={6}>6 คอลัมน์</option>
+                    </select>
                 </div>
             </div>
             <label className='form-label fw-semibold fs-7'>รายการ Checkbox</label>
@@ -383,6 +434,15 @@ const ImageSelectSectionEditor: React.FC<{
         onChange({ ...section, options: section.options.filter((_, i) => i !== idx) });
     };
 
+    const handleFileSelect = (idx: number, file: File | null) => {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            updateOpt(idx, { imageUrl: e.target?.result as string });
+        };
+        reader.readAsDataURL(file);
+    };
+
     return (
         <div>
             <div className='row g-3 mb-3'>
@@ -402,14 +462,36 @@ const ImageSelectSectionEditor: React.FC<{
             </div>
             <label className='form-label fw-semibold fs-7'>ตัวเลือกรูปภาพ</label>
             {section.options.map((opt, idx) => (
-                <div key={opt.key} className='d-flex gap-2 mb-2 align-items-center'>
-                    <input className='form-control form-control-sm' placeholder='ชื่อตัวเลือก'
-                        value={opt.label} onChange={e => updateOpt(idx, { label: e.target.value })} />
-                    <input className='form-control form-control-sm' placeholder='URL รูปภาพ (ถ้ามี)'
-                        value={opt.imageUrl || ''} onChange={e => updateOpt(idx, { imageUrl: e.target.value })} />
-                    <button className='btn btn-sm btn-icon btn-light-danger' onClick={() => removeOpt(idx)}>
-                        <i className='bi bi-x-lg'></i>
-                    </button>
+                <div key={opt.key} className='mb-3'>
+                    <div className='d-flex gap-2 mb-1 align-items-center'>
+                        <input className='form-control form-control-sm' placeholder='ชื่อตัวเลือก'
+                            value={opt.label} onChange={e => updateOpt(idx, { label: e.target.value })} />
+                        <button className='btn btn-sm btn-icon btn-light-danger' onClick={() => removeOpt(idx)}>
+                            <i className='bi bi-x-lg'></i>
+                        </button>
+                    </div>
+                    <div className='d-flex gap-2 align-items-center'>
+                        {opt.imageUrl ? (
+                            <img src={opt.imageUrl} alt={opt.label} className='border rounded'
+                                style={{ width: 48, height: 48, objectFit: 'contain', background: '#f9f9f9' }} />
+                        ) : (
+                            <div className='border rounded bg-light d-flex align-items-center justify-content-center'
+                                style={{ width: 48, height: 48, minWidth: 48 }}>
+                                <i className='bi bi-image text-muted'></i>
+                            </div>
+                        )}
+                        <label className='btn btn-sm btn-light-primary'>
+                            <i className='bi bi-upload me-1'></i>เลือกรูป
+                            <input type='file' accept='image/*' className='d-none'
+                                onChange={e => handleFileSelect(idx, e.target.files?.[0] || null)} />
+                        </label>
+                        {opt.imageUrl && (
+                            <button className='btn btn-sm btn-light-danger'
+                                onClick={() => updateOpt(idx, { imageUrl: '' })}>
+                                <i className='bi bi-trash me-1'></i>ลบรูป
+                            </button>
+                        )}
+                    </div>
                 </div>
             ))}
             <button className='btn btn-sm btn-light-primary mt-1' onClick={addOpt}>
@@ -494,6 +576,173 @@ const SpacerSectionEditor: React.FC<{
             onChange={e => onChange({ ...section, height: parseInt(e.target.value) || 20 })} />
     </div>
 );
+
+const ImageUploadSectionEditor: React.FC<{
+    section: ImageUploadSection;
+    onChange: (s: ImageUploadSection) => void;
+}> = ({ section, onChange }) => (
+    <div>
+        <div className='mb-3'>
+            <label className='form-label fw-semibold fs-7'>ชื่อ Section</label>
+            <input className='form-control form-control-sm' value={section.title}
+                onChange={e => onChange({ ...section, title: e.target.value })} />
+        </div>
+        <div className='mb-3'>
+            <label className='form-label fw-semibold fs-7'>คำอธิบาย (แสดงให้ผู้ใช้เห็น)</label>
+            <input className='form-control form-control-sm' placeholder='เช่น กรุณาแนบรูปภาพ'
+                value={section.description || ''}
+                onChange={e => onChange({ ...section, description: e.target.value })} />
+        </div>
+        <div>
+            <label className='form-label fw-semibold fs-7'>จำนวนรูปสูงสุด</label>
+            <input type='number' className='form-control form-control-sm' min={1} max={20}
+                value={section.maxImages || 5}
+                onChange={e => onChange({ ...section, maxImages: parseInt(e.target.value) || 5 })} />
+        </div>
+    </div>
+);
+
+const FixedRowTableSectionEditor: React.FC<{
+    section: FixedRowTableSection;
+    onChange: (s: FixedRowTableSection) => void;
+}> = ({ section, onChange }) => {
+    // ── Column helpers ──
+    const updateCol = (idx: number, patch: Partial<{ label: string; width: string }>) => {
+        const columns = [...section.columns];
+        columns[idx] = { ...columns[idx], ...patch };
+        onChange({ ...section, columns });
+    };
+    const addCol = () => {
+        const newColKey = genKey('frc');
+        const columns = [...section.columns, { key: newColKey, label: 'คอลัมน์ใหม่' }];
+        const rows = section.rows.map(r => ({
+            ...r,
+            cells: [...r.cells, { columnKey: newColKey, cellType: 'checkbox' as const }],
+        }));
+        onChange({ ...section, columns, rows });
+    };
+    const removeCol = (idx: number) => {
+        const removedKey = section.columns[idx].key;
+        const columns = section.columns.filter((_, i) => i !== idx);
+        const rows = section.rows.map(r => ({
+            ...r,
+            cells: r.cells.filter(c => c.columnKey !== removedKey),
+        }));
+        onChange({ ...section, columns, rows });
+    };
+
+    // ── Row helpers ──
+    const updateRow = (idx: number, patch: Partial<{ label: string }>) => {
+        const rows = [...section.rows];
+        rows[idx] = { ...rows[idx], ...patch };
+        onChange({ ...section, rows });
+    };
+    const addRow = () => {
+        const newRow = {
+            key: genKey('frr'),
+            label: `${section.rows.length + 1}. รายการใหม่`,
+            cells: section.columns.map(col => ({ columnKey: col.key, cellType: 'checkbox' as const })),
+        };
+        onChange({ ...section, rows: [...section.rows, newRow] });
+    };
+    const removeRow = (idx: number) => {
+        onChange({ ...section, rows: section.rows.filter((_, i) => i !== idx) });
+    };
+    const moveRow = (idx: number, dir: -1 | 1) => {
+        const newIdx = idx + dir;
+        if (newIdx < 0 || newIdx >= section.rows.length) return;
+        const rows = [...section.rows];
+        [rows[idx], rows[newIdx]] = [rows[newIdx], rows[idx]];
+        onChange({ ...section, rows });
+    };
+
+    // ── Cell type helper ──
+    const updateCellType = (rowIdx: number, colKey: string, cellType: 'checkbox' | 'text') => {
+        const rows = [...section.rows];
+        const cells = rows[rowIdx].cells.map(c =>
+            c.columnKey === colKey ? { ...c, cellType } : c
+        );
+        rows[rowIdx] = { ...rows[rowIdx], cells };
+        onChange({ ...section, rows });
+    };
+
+    return (
+        <div>
+            {/* Section title */}
+            <div className='mb-3'>
+                <label className='form-label fw-semibold fs-7'>ชื่อ Section</label>
+                <input className='form-control form-control-sm' value={section.title}
+                    onChange={e => onChange({ ...section, title: e.target.value })} />
+            </div>
+
+            {/* Columns */}
+            <label className='form-label fw-semibold fs-7'>คอลัมน์ข้อมูล (หัวตาราง)</label>
+            {section.columns.map((col, idx) => (
+                <div key={col.key} className='d-flex gap-2 mb-2 align-items-center'>
+                    <input className='form-control form-control-sm' placeholder='ชื่อคอลัมน์'
+                        value={col.label} onChange={e => updateCol(idx, { label: e.target.value })} />
+                    <input className='form-control form-control-sm' placeholder='ความกว้าง'
+                        style={{ width: '90px' }}
+                        value={col.width || ''} onChange={e => updateCol(idx, { width: e.target.value })} />
+                    <button className='btn btn-sm btn-icon btn-light-danger'
+                        disabled={section.columns.length <= 1}
+                        onClick={() => removeCol(idx)}>
+                        <i className='bi bi-x-lg'></i>
+                    </button>
+                </div>
+            ))}
+            <button className='btn btn-sm btn-light-primary mb-4' onClick={addCol}>
+                <i className='bi bi-plus me-1'></i>เพิ่มคอลัมน์
+            </button>
+
+            {/* Rows */}
+            <label className='form-label fw-semibold fs-7 d-block'>แถว (รายการ)</label>
+            <div className='border rounded p-3 bg-light-primary bg-opacity-10'>
+                {section.rows.map((row, ri) => (
+                    <div key={row.key} className='card shadow-sm mb-2'>
+                        <div className='card-body py-2 px-3'>
+                            <div className='d-flex gap-2 align-items-center mb-2'>
+                                <input className='form-control form-control-sm fw-semibold' placeholder='ชื่อแถว'
+                                    value={row.label} onChange={e => updateRow(ri, { label: e.target.value })} />
+                                <button className='btn btn-sm btn-icon btn-light' title='ขึ้น'
+                                    disabled={ri === 0} onClick={() => moveRow(ri, -1)}>
+                                    <i className='bi bi-chevron-up'></i>
+                                </button>
+                                <button className='btn btn-sm btn-icon btn-light' title='ลง'
+                                    disabled={ri === section.rows.length - 1} onClick={() => moveRow(ri, 1)}>
+                                    <i className='bi bi-chevron-down'></i>
+                                </button>
+                                <button className='btn btn-sm btn-icon btn-light-danger' onClick={() => removeRow(ri)}>
+                                    <i className='bi bi-x-lg'></i>
+                                </button>
+                            </div>
+                            <div className='d-flex flex-wrap gap-3'>
+                                {section.columns.map(col => {
+                                    const cell = row.cells.find(c => c.columnKey === col.key);
+                                    return (
+                                        <div key={col.key} className='d-flex align-items-center gap-1'>
+                                            <span className='fs-8 text-muted text-nowrap'>{col.label}:</span>
+                                            <select className='form-select form-select-sm py-0'
+                                                style={{ width: '100px', height: '28px', fontSize: '0.8rem' }}
+                                                value={cell?.cellType || 'checkbox'}
+                                                onChange={e => updateCellType(ri, col.key, e.target.value as 'checkbox' | 'text')}>
+                                                <option value='checkbox'>Checkbox</option>
+                                                <option value='text'>ข้อความ</option>
+                                            </select>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                ))}
+                <button className='btn btn-sm btn-light-primary mt-1' onClick={addRow}>
+                    <i className='bi bi-plus me-1'></i>เพิ่มแถว
+                </button>
+            </div>
+        </div>
+    );
+};
 
 // ─── Section Preview Components ──────────────────────────────
 
@@ -638,6 +887,61 @@ const SpacerSectionPreview: React.FC<{ section: SpacerSection }> = ({ section })
     </div>
 );
 
+const ImageUploadSectionPreview: React.FC<{ section: ImageUploadSection }> = ({ section }) => (
+    <div>
+        <div className='fw-bold fs-6 mb-3 border-bottom pb-2'>{section.title}</div>
+        {section.description && (
+            <div className='text-muted fs-8 mb-3'>{section.description}</div>
+        )}
+        <div className='border border-dashed rounded p-4 text-center bg-light'>
+            <i className='bi bi-cloud-arrow-up fs-1 text-primary d-block mb-2'></i>
+            <span className='text-muted fs-7 d-block'>กดเพื่อเลือกรูปภาพ หรือลากไฟล์มาวาง</span>
+            <span className='text-muted fs-8'>สูงสุด {section.maxImages || 5} รูป</span>
+        </div>
+    </div>
+);
+
+const FixedRowTableSectionPreview: React.FC<{ section: FixedRowTableSection }> = ({ section }) => (
+    <div>
+        <div className='fw-bold fs-6 mb-3 border-bottom pb-2'>{section.title}</div>
+        <div className='table-responsive'>
+            <table className='table table-bordered table-sm mb-0' style={{ fontSize: '0.8rem' }}>
+                <thead>
+                    <tr className='bg-light'>
+                        <th className='fw-bold text-center' style={{ minWidth: '160px' }}>รายการ</th>
+                        {section.columns.map(col => (
+                            <th key={col.key} className='fw-bold text-center'
+                                style={{ width: col.width || '120px' }}>{col.label}</th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {section.rows.map(row => (
+                        <tr key={row.key}>
+                            <td className='fw-semibold' style={{ whiteSpace: 'nowrap' }}>{row.label}</td>
+                            {section.columns.map(col => {
+                                const cell = row.cells.find(c => c.columnKey === col.key);
+                                return (
+                                    <td key={col.key} className='text-center align-middle'>
+                                        {cell?.cellType === 'text' ? (
+                                            <div className='border-bottom border-dark mx-2' style={{ minWidth: 60, height: 18 }}></div>
+                                        ) : (
+                                            <div className='d-flex justify-content-center'>
+                                                <div className='border border-dark rounded'
+                                                    style={{ width: 15, height: 15 }}></div>
+                                            </div>
+                                        )}
+                                    </td>
+                                );
+                            })}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    </div>
+);
+
 function renderSectionEditor(section: TemplateSection, onChange: (s: TemplateSection) => void) {
     switch (section.type) {
         case 'header': return <HeaderSectionEditor section={section} onChange={onChange} />;
@@ -648,6 +952,8 @@ function renderSectionEditor(section: TemplateSection, onChange: (s: TemplateSec
         case 'signature': return <SignatureSectionEditor section={section} onChange={onChange} />;
         case 'note': return <NoteSectionEditor section={section} onChange={onChange} />;
         case 'spacer': return <SpacerSectionEditor section={section} onChange={onChange} />;
+        case 'fixed_row_table': return <FixedRowTableSectionEditor section={section} onChange={onChange} />;
+        case 'image_upload': return <ImageUploadSectionEditor section={section} onChange={onChange} />;
         default: return <div className='text-muted'>Unknown section type</div>;
     }
 }
@@ -662,6 +968,8 @@ function renderSectionPreview(section: TemplateSection) {
         case 'signature': return <SignatureSectionPreview section={section} />;
         case 'note': return <NoteSectionPreview section={section} />;
         case 'spacer': return <SpacerSectionPreview section={section} />;
+        case 'fixed_row_table': return <FixedRowTableSectionPreview section={section} />;
+        case 'image_upload': return <ImageUploadSectionPreview section={section} />;
         default: return null;
     }
 }

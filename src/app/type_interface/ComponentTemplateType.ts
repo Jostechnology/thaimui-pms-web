@@ -7,7 +7,9 @@ export type SectionType =
     | 'image_select'
     | 'signature'
     | 'note'
-    | 'spacer';
+    | 'spacer'
+    | 'fixed_row_table'
+    | 'image_upload';
 
 // ─── Header Section ──────────────────────────────────────────
 export interface HeaderField {
@@ -115,6 +117,43 @@ export interface NoteSection {
     placeholder?: string;
 }
 
+// ─── Fixed Row Table Section ─────────────────────────────────
+export interface FixedRowTableColumn {
+    key: string;
+    label: string;
+    width?: string;
+}
+
+export type FixedRowCellType = 'checkbox' | 'text';
+
+export interface FixedRowCell {
+    columnKey: string;
+    cellType: FixedRowCellType;
+}
+
+export interface FixedRowTableRow {
+    key: string;
+    label: string;
+    cells: FixedRowCell[];
+}
+
+export interface FixedRowTableSection {
+    type: 'fixed_row_table';
+    key: string;
+    title: string;
+    columns: FixedRowTableColumn[];
+    rows: FixedRowTableRow[];
+}
+
+// ─── Image Upload Section ───────────────────────────────────
+export interface ImageUploadSection {
+    type: 'image_upload';
+    key: string;
+    title: string;
+    maxImages?: number;
+    description?: string;
+}
+
 // ─── Spacer Section ──────────────────────────────────────────
 export interface SpacerSection {
     type: 'spacer';
@@ -131,7 +170,9 @@ export type TemplateSection =
     | ImageSelectSection
     | SignatureSection
     | NoteSection
-    | SpacerSection;
+    | SpacerSection
+    | FixedRowTableSection
+    | ImageUploadSection;
 
 // ─── Template ────────────────────────────────────────────────
 export interface ComponentTemplate {

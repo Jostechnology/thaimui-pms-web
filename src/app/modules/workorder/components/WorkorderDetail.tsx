@@ -291,7 +291,7 @@ const WorkorderDetail: React.FC = () => {
                                             <button
                                                 className='btn btn-sm btn-light-primary d-flex align-items-center gap-1 ms-auto'
                                                 style={{ padding: '6px 12px', borderRadius: '6px' }}
-                                                onClick={() => { }}
+                                                onClick={() => navigate(`/workorder/component_detail/${workOrder!.work_order_id}/${comp.item_component_id}`)}
                                             >
                                                 <i className='bi bi-pencil-square' />
                                                 แก้ไขรายละเอียด
