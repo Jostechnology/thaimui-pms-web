@@ -1,7 +1,7 @@
 // ─── Section Types ───────────────────────────────────────────
 export type SectionType =
     | 'header'
-    | 'table'
+    | 'material_table'
     | 'key_value'
     | 'checkbox_group'
     | 'image_select'
@@ -38,7 +38,7 @@ export interface TableColumn {
 }
 
 export interface TableSection {
-    type: 'table';
+    type: 'material_table';
     key: string;
     title: string;
     columns: TableColumn[];
@@ -164,7 +164,7 @@ export interface SpacerSection {
 // ─── Union Type ──────────────────────────────────────────────
 export type TemplateSection =
     | HeaderSection
-    | TableSection
+    | TableSection // material_table
     | KeyValueSection
     | CheckboxGroupSection
     | ImageSelectSection
