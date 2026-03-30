@@ -165,8 +165,9 @@ const ComponentDetailEditor: React.FC = () => {
             }
 
             case 'material_table': {
-                // Read-only material table
                 const materials = component?.material_usages || [];
+                const minRows = section.defaultRows || 5;
+                const totalRows = Math.max(materials.length, minRows);
                 return (
                     <div>
                         <div className='fw-bold fs-5 mb-3 text-primary border-bottom pb-2'>{section.title}</div>
@@ -180,25 +181,26 @@ const ComponentDetailEditor: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {materials.length > 0 ? materials.map((usage: ComponentMaterialUsage, idx: number) => (
-                                        <tr key={usage.usage_id}>
-                                            {section.columns.map(col => {
-                                                let cellVal = '';
-                                                const label = col.label.toLowerCase();
-                                                if (label.includes('ชื่อ') || label.includes('name')) cellVal = usage.material_list?.item_name || '';
-                                                else if (label.includes('รหัส') || label.includes('code')) cellVal = usage.material_list?.item_code || '';
-                                                else if (label.includes('จำนวน') || label.includes('qty')) cellVal = String(usage.quantity_used || '');
-                                                else if (label.includes('ราคา') || label.includes('price') || label.includes('หน่วย')) cellVal = String(usage.material_list?.unit_price);
-                                                else if (label.includes('รายละเอียด') || label.includes('desc')) cellVal = usage.material_list?.item_description || '';
-                                                else if (label.includes('ลำดับ') || label.includes('#') || label.includes('no')) cellVal = String(idx + 1);
-                                                return <td key={col.key} className='fs-8'>{cellVal}</td>;
-                                            })}
-                                        </tr>
-                                    )) : (
-                                        <tr>
-                                            <td colSpan={section.columns.length} className='text-center text-muted py-4'>ไม่มีข้อมูลวัสดุ</td>
-                                        </tr>
-                                    )}
+                                    {Array.from({ length: totalRows }).map((_, idx) => {
+                                        const usage: ComponentMaterialUsage | undefined = materials[idx];
+                                        return (
+                                            <tr key={idx}>
+                                                {section.columns.map(col => {
+                                                    let cellVal = '';
+                                                    if (usage) {
+                                                        const label = col.label.toLowerCase();
+                                                        if (label.includes('ชื่อ') || label.includes('name')) cellVal = usage.material_list?.item_name || '';
+                                                        else if (label.includes('รหัส') || label.includes('code')) cellVal = usage.material_list?.item_code || '';
+                                                        else if (label.includes('จำนวน') || label.includes('qty')) cellVal = String(usage.quantity_used || '');
+                                                        else if (label.includes('ราคา') || label.includes('price') || label.includes('หน่วย')) cellVal = String(usage.material_list?.unit_price);
+                                                        else if (label.includes('รายละเอียด') || label.includes('desc')) cellVal = usage.material_list?.item_description || '';
+                                                        else if (label.includes('ลำดับ') || label.includes('#') || label.includes('no')) cellVal = String(idx + 1);
+                                                    }
+                                                    return <td key={col.key} className='fs-8' style={{ minHeight: 28 }}>{cellVal}</td>;
+                                                })}
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
