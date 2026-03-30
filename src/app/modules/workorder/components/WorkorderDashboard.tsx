@@ -306,7 +306,7 @@ const WorkorderDashboard: React.FC = () => {
                 <div className='d-flex flex-column'>
                     <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>
                         <i className='bi bi-kanban me-3 text-primary'></i>
-                        Work Order Dashboard
+                        แดชบอร์ดใบสั่งผลิต
                     </h1>
                     <span className='text-muted fw-semibold fs-6'>
                         ภาพรวมและติดตามสถานะใบสั่งผลิตทั้งหมดในระบบ

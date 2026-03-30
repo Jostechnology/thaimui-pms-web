@@ -124,7 +124,7 @@ const QCWorkOrdersList: React.FC = () => {
     const handleDelete = async (id: number) => {
         const result = await Swal.fire({
             title: "ยืนยันการลบ?",
-            text: "คุณต้องการลบ QC Work Order นี้หรือไม่?",
+            text: "คุณต้องการลบใบสั่งเทสนี้หรือไม่?",
             icon: "warning",
             showCancelButton: true,
             confirmButtonColor: "#d33",
@@ -138,7 +138,7 @@ const QCWorkOrdersList: React.FC = () => {
             try {
                 const res = await deleteQCWorkOrder(id);
                 if (res.success) {
-                    Swal.fire("สำเร็จ!", "ลบ QC Work Order เรียบร้อยแล้ว", "success");
+                    Swal.fire("สำเร็จ!", "ลบใบสั่งเทสเรียบร้อยแล้ว", "success");
                     fetchQCWorkOrders();
                 } else {
                     Swal.fire("ผิดพลาด!", res.message || "ไม่สามารถลบข้อมูลได้", "error");
@@ -430,7 +430,7 @@ const QCWorkOrdersList: React.FC = () => {
                                         <td colSpan={6} className='text-center p-20'>
                                             <div className='d-flex flex-column flex-center'>
                                                 <i className='bi bi-search fs-3x text-gray-300 mb-4'></i>
-                                                <span className='text-gray-500'>ไม่พบข้อมูล QC Work Order ในระบบ</span>
+                                                <span className='text-gray-500'>ไม่พบข้อมูลใบสั่งเทสในระบบ</span>
                                             </div>
                                         </td>
                                     </tr>
