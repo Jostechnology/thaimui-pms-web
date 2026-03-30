@@ -11,7 +11,6 @@ import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import type { WorkRunDetail as WorkRunDetailType, WorkPhase, ReworkSource } from '../../../type_interface/WorkOrderType';
 import type { PickingAvailableItem } from '../../../type_interface/PickingRequestType';
-import ItemComponentDetailModal from './ItemComponentDetailModal';
 import PickingRequestModal from '../../../modals/picking_request_modal/PickingRequestModal';
 
 interface Employee {
