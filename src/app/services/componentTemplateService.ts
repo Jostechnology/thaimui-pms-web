@@ -132,6 +132,22 @@ export const saveItemComponentSections = async (
     }
 };
 
+export const saveItemComponentSectionsBatch = async (
+    payload: { item_component_id: number; component_template_id: number; sections_data: any[] }[]
+): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "POST",
+            `/item_component/sections/batch`,
+            payload,
+            { wrapData: true, headers: getHeaders() }
+        );
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
 export const deleteComponentTemplate = async (templateId: number): Promise<APIResponse> => {
     try {
         const response = await front_api(

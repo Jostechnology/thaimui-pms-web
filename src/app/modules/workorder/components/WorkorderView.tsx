@@ -380,7 +380,7 @@ const WorkorderView: React.FC = () => {
                     <p className="text-muted fs-6 ms-11">
                         {workOrder.sales_item
                             ? `สินค้า: ${workOrder.sales_item.item_name} • ${workOrder.sales_item.item_description}`
-                            : `Work Order ID: ${workOrder.work_order_id}`
+                            : `ใบสั่งผลิต: ${workOrder.work_order_id}`
                         }
                     </p>
                 </div>
