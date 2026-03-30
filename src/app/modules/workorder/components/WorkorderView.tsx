@@ -9,7 +9,6 @@ import './WorkorderView.css';
 import { WorkPhaseStatusEnum, type WorkOrder, type WorkPhase, type WorkPhaseBreak, type ItemComponent, type WorkRunDetail as WorkRunDetailType } from '../../../type_interface/WorkOrderType';
 import type { Employee } from '../../../type_interface/EmployeeType';
 import { getWorkRunById } from '../../../services/workRunService';
-import ItemComponentDetailModal from './ItemComponentDetailModal';
 
 // --- Helper functions ---
 const getPhaseStatusColor = (status: string) => {
@@ -245,7 +244,6 @@ const WorkorderView: React.FC = () => {
         }
     };
 
-    const [viewComponentId, setViewComponentId] = useState<number | null>(null);
     const fetchData = async () => {
         setLoading();
         setDataLoading(true);
@@ -862,7 +860,6 @@ const WorkorderView: React.FC = () => {
                                             <button
                                                 className="btn btn-sm btn-light-primary d-flex align-items-center gap-1 ms-auto"
                                                 style={{ padding: '6px 12px', borderRadius: '6px' }}
-                                                onClick={() => setViewComponentId(comp.item_component_id)}
                                             >
                                                 <i className="bi bi-eye" />
                                                 ดูรายละเอียด
@@ -943,15 +940,6 @@ const WorkorderView: React.FC = () => {
                     )}
                 </div>
             </div>
-            {
-                <ItemComponentDetailModal
-                    show={viewComponentId !== null}
-                    itemComponentId={viewComponentId}
-                    workOrder={workOrder}
-                    mode="view"
-                    onClose={() => setViewComponentId(null)}
-                />
-            }
         </Content>
     );
 };
