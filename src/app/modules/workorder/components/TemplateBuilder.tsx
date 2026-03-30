@@ -30,7 +30,7 @@ const genKey = (prefix: string) => `${prefix}_${Date.now()}_${++_keyCounter}`;
 
 const SECTION_TYPE_LABELS: Record<SectionType, string> = {
     header: 'Header / ข้อมูลหัว',
-    table: 'ตาราง',
+    table: 'ตารางวัสดุที่ใช้',
     fixed_row_table: 'ตารางแถวคงที่',
     key_value: 'ฟิลด์ Key-Value',
     checkbox_group: 'กลุ่ม Checkbox',
@@ -62,18 +62,21 @@ function createDefaultSection(type: SectionType): TemplateSection {
                 type: 'header', key, title: 'Header',
                 columns: 4,
                 fields: [
-                    { key: genKey('hf'), label: 'วันที่', type: 'date' },
-                    { key: genKey('hf'), label: 'เลขที่', type: 'text' },
+                    { key: genKey('hf'), label: 'เลขที่ใบสั่งผลิต', type: 'text' },
+                    { key: genKey('hf'), label: 'สินค้า', type: 'text' },
+                    { key: genKey('hf'), label: 'รหัสสินค้า', type: 'text' },
+                    { key: genKey('hf'), label: 'ชื่อ Component', type: 'text' }
                 ],
             };
         case 'table':
             return {
-                type: 'table', key, title: 'รายการ',
+                type: 'table', key, title: 'วัสดุที่ใช้ (Materials)',
                 columns: [
-                    { key: genKey('tc'), label: 'ลำดับ', type: 'number', width: '60px' },
-                    { key: genKey('tc'), label: 'รายละเอียด', type: 'text' },
-                    { key: genKey('tc'), label: 'จำนวน', type: 'number', width: '100px' },
-                    { key: genKey('tc'), label: 'หน่วย', type: 'text', width: '80px' },
+                    { key: genKey('tc'), label: 'ชื่อวัสดุ', type: 'text', width: '60px' },
+                    { key: genKey('tc'), label: 'รหัสวัสดุ', type: 'text', width: '60px' },
+                    { key: genKey('tc'), label: 'รายละเอียด', type: 'text', width: '100px' },
+                    { key: genKey('tc'), label: 'จำนวน', type: 'number', width: '80px' },
+                    { key: genKey('tc'), label: 'ราคา/หน่วย', type: 'number', width: '10px' }
                 ],
                 defaultRows: 5,
             };
@@ -265,7 +268,6 @@ const TableSectionEditor: React.FC<{
                         value={col.type} onChange={e => updateCol(idx, { type: e.target.value })}>
                         <option value='text'>ข้อความ</option>
                         <option value='number'>ตัวเลข</option>
-                        <option value='select'>เลือก</option>
                     </select>
                     <input className='form-control form-control-sm' placeholder='ความกว้าง'
                         style={{ width: '90px' }}
