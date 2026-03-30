@@ -30,7 +30,7 @@ const genKey = (prefix: string) => `${prefix}_${Date.now()}_${++_keyCounter}`;
 
 const SECTION_TYPE_LABELS: Record<SectionType, string> = {
     header: 'Header / ข้อมูลหัว',
-    table: 'ตารางวัสดุที่ใช้',
+    material_table: 'ตารางวัสดุที่ใช้',
     fixed_row_table: 'ตารางแถวคงที่',
     key_value: 'ฟิลด์ Key-Value',
     checkbox_group: 'กลุ่ม Checkbox',
@@ -43,7 +43,7 @@ const SECTION_TYPE_LABELS: Record<SectionType, string> = {
 
 const SECTION_TYPE_ICONS: Record<SectionType, string> = {
     header: 'bi-card-heading',
-    table: 'bi-table',
+    material_table: 'bi-table',
     fixed_row_table: 'bi-list-check',
     key_value: 'bi-input-cursor-text',
     checkbox_group: 'bi-check2-square',
@@ -68,9 +68,9 @@ function createDefaultSection(type: SectionType): TemplateSection {
                     { key: genKey('hf'), label: 'ชื่อ Component', type: 'text' }
                 ],
             };
-        case 'table':
+        case 'material_table':
             return {
-                type: 'table', key, title: 'วัสดุที่ใช้ (Materials)',
+                type: 'material_table', key, title: 'วัสดุที่ใช้ (Materials)',
                 columns: [
                     { key: genKey('tc'), label: 'ชื่อวัสดุ', type: 'text', width: '60px' },
                     { key: genKey('tc'), label: 'รหัสวัสดุ', type: 'text', width: '60px' },
@@ -947,7 +947,7 @@ const FixedRowTableSectionPreview: React.FC<{ section: FixedRowTableSection }> =
 function renderSectionEditor(section: TemplateSection, onChange: (s: TemplateSection) => void) {
     switch (section.type) {
         case 'header': return <HeaderSectionEditor section={section} onChange={onChange} />;
-        case 'table': return <TableSectionEditor section={section} onChange={onChange} />;
+        case 'material_table': return <TableSectionEditor section={section} onChange={onChange} />;
         case 'key_value': return <KeyValueSectionEditor section={section} onChange={onChange} />;
         case 'checkbox_group': return <CheckboxGroupSectionEditor section={section} onChange={onChange} />;
         case 'image_select': return <ImageSelectSectionEditor section={section} onChange={onChange} />;
@@ -963,7 +963,7 @@ function renderSectionEditor(section: TemplateSection, onChange: (s: TemplateSec
 function renderSectionPreview(section: TemplateSection) {
     switch (section.type) {
         case 'header': return <HeaderSectionPreview section={section} />;
-        case 'table': return <TableSectionPreview section={section} />;
+        case 'material_table': return <TableSectionPreview section={section} />;
         case 'key_value': return <KeyValueSectionPreview section={section} />;
         case 'checkbox_group': return <CheckboxGroupSectionPreview section={section} />;
         case 'image_select': return <ImageSelectSectionPreview section={section} />;

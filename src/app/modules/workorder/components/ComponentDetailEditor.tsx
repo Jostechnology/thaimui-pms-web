@@ -164,7 +164,7 @@ const ComponentDetailEditor: React.FC = () => {
                 );
             }
 
-            case 'table': {
+            case 'material_table': {
                 // Read-only material table
                 const materials = component?.material_usages || [];
                 return (
