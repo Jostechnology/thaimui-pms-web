@@ -188,7 +188,7 @@ const ComponentDetailEditor: React.FC = () => {
                                                 if (label.includes('ชื่อ') || label.includes('name')) cellVal = usage.material_list?.item_name || '';
                                                 else if (label.includes('รหัส') || label.includes('code')) cellVal = usage.material_list?.item_code || '';
                                                 else if (label.includes('จำนวน') || label.includes('qty')) cellVal = String(usage.quantity_used || '');
-                                                else if (label.includes('ราคา') || label.includes('price') || label.includes('หน่วย')) cellVal = String(usage.material_list?.unit_price || '');
+                                                else if (label.includes('ราคา') || label.includes('price') || label.includes('หน่วย')) cellVal = String(usage.material_list?.unit_price);
                                                 else if (label.includes('รายละเอียด') || label.includes('desc')) cellVal = usage.material_list?.item_description || '';
                                                 else if (label.includes('ลำดับ') || label.includes('#') || label.includes('no')) cellVal = String(idx + 1);
                                                 return <td key={col.key} className='fs-8'>{cellVal}</td>;
