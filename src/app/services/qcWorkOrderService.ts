@@ -81,7 +81,7 @@ export const createQCWorkOrder = async (data: any): Promise<APIResponse> => {
         return await handleResponse(response);
     } catch (error) {
         console.error("createQCWorkOrder Error:", error);
-        return { success: false, message: "เกิดข้อผิดพลาดในการสร้าง QC Work Order" };
+        return { success: false, message: "เกิดข้อผิดพลาดในการสร้างใบสั่งเทส" };
     }
 };
 
@@ -97,7 +97,7 @@ export const updateQCWorkOrder = async (id: number, data: any): Promise<APIRespo
         return await handleResponse(response);
     } catch (error) {
         console.error("updateQCWorkOrder Error:", error);
-        return { success: false, message: "เกิดข้อผิดพลาดในการแก้ไข QC Work Order" };
+        return { success: false, message: "เกิดข้อผิดพลาดในการแก้ไขใบสั่งเทส" };
     }
 };
 
@@ -113,7 +113,7 @@ export const deleteQCWorkOrder = async (id: number): Promise<APIResponse> => {
         return await handleResponse(response);
     } catch (error) {
         console.error("deleteQCWorkOrder Error:", error);
-        return { success: false, message: "เกิดข้อผิดพลาดในการลบ QC Work Order" };
+        return { success: false, message: "เกิดข้อผิดพลาดในการลบใบสั่งเทส" };
     }
 };
 export const searchQcWorkOrder = async (search: string) => {

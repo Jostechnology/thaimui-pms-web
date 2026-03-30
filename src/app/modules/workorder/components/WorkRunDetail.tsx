@@ -391,7 +391,7 @@ const WorkRunDetail: React.FC = () => {
                 });
                 setPickingItems(items);
             } else {
-                alertMessage("ไม่สามารถดึงข้อมูลวัสดุจาก Work Order ได้");
+                alertMessage("ไม่สามารถดึงข้อมูลวัสดุจากใบสั่งผลิตได้");
                 return;
             }
         } catch {

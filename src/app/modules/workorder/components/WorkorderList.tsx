@@ -173,7 +173,7 @@ const WorkorderList: React.FC = () => {
             {/* Header Section */}
             <div className='d-flex flex-stack mb-10'>
                 <div className='d-flex flex-column'>
-                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>Work Orders</h1>
+                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>ใบสั่งผลิต</h1>
                     <span className='text-muted fw-semibold fs-6'>จัดการและติดตามกระบวนการผลิตทั้งหมดในระบบ</span>
                 </div>
                 <div className='d-flex align-items-center gap-2'>
@@ -181,7 +181,7 @@ const WorkorderList: React.FC = () => {
                         className='btn btn-primary fw-bold px-6 shadow-sm'
                         onClick={() => navigate('/workorder/workorders_create')}
                     >
-                        <i className='bi bi-plus-lg me-2 fs-4'></i> Create Order
+                        <i className='bi bi-plus-lg me-2 fs-4'></i> สร้างใบสั่งผลิต
                     </button>
                 </div>
             </div>

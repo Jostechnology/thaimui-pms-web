@@ -138,7 +138,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				}
 
 			} else {
-				Swal.fire("ผิดพลาด!", result.message || "ไม่พบข้อมูล QC Work Order", "error");
+				Swal.fire("ผิดพลาด!", result.message || "ไม่พบข้อมูลใบสั่งเทส", "error");
 			}
 		} catch (error) {
 			console.error("Error loading QC work order:", error);
@@ -228,7 +228,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 			if (mode === "create") {
 				const result = await createQCWorkOrder(formData);
 				if (result.success) {
-					Swal.fire("สำเร็จ!", "สร้าง QC Work Order เรียบร้อยแล้ว", "success");
+					Swal.fire("สำเร็จ!", "สร้างใบสั่งเทสเรียบร้อยแล้ว", "success");
 					navigate("/quality_control/qc_workorders_list");
 				} else {
 					Swal.fire("ผิดพลาด!", result.message || "ไม่สามารถสร้างข้อมูลได้", "error");
@@ -236,7 +236,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 			} else if (mode === "edit") {
 				const result = await updateQCWorkOrder(Number(qc_workorder_id), formData);
 				if (result.success) {
-					Swal.fire("สำเร็จ!", "แก้ไข QC Work Order เรียบร้อยแล้ว", "success");
+					Swal.fire("สำเร็จ!", "แก้ไขใบสั่งเทสเรียบร้อยแล้ว", "success");
 					navigate("/quality_control/qc_workorders_list");
 				} else {
 					Swal.fire("ผิดพลาด!", result.message || "ไม่สามารถแก้ไขข้อมูลได้", "error");

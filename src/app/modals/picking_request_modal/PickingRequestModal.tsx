@@ -124,7 +124,7 @@ const PickingRequestModal: React.FC<Props> = ({
                 {availableItems.length === 0 ? (
                     <div className="text-center py-8 text-muted">
                         <i className="bi bi-inbox fs-2x d-block mb-3 text-gray-400"></i>
-                        ไม่มีรายการวัสดุในใบสั่งงานนี้
+                        ไม่มีรายการวัสดุในใบสั่งผลิตนี้
                     </div>
                 ) : (
                     <>
