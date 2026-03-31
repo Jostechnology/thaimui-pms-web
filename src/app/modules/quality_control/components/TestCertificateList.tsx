@@ -127,7 +127,7 @@ const TestCertificateList: React.FC = () => {
                                             </td>
                                             <td>
                                                 <span className='text-gray-700 fw-bold'>
-                                                    {cert.qc_work_order_id ? `WO-${cert.qc_work_order_id}` : '-'}
+                                                    {cert.qc_work_order_code ?? '-'}
                                                 </span>
                                             </td>
                                             <td>
