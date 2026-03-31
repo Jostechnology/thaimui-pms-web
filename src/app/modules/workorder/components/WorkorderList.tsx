@@ -299,7 +299,6 @@ const WorkorderList: React.FC = () => {
                                     <th className='min-w-100px'>รหัสใบสั่งผลิต</th>
                                     <th className='min-w-125px'>สินค้า</th>
                                     <th className='min-w-100px'>รายละเอียด</th>
-                                    <th className='min-w-150px text-center'>Work Runs</th>
                                     <th className='min-w-125px text-center'>วันที่สร้าง</th>
                                     <th className='min-w-125px text-center'>สถานะ</th>
                                     <th className='text-end min-w-50px'>จัดการใบสั่งผลิต</th>
@@ -318,7 +317,7 @@ const WorkorderList: React.FC = () => {
                                         <tr key={index} className="hover:bg-light-primary transition-all">
                                             <td className='text-center'>
                                                 <div className="d-flex align-items-center">
-                                                    <span className='text-gray-800 fw-bold fs-6'>{item.doc_num}</span>
+                                                    <span className='text-gray-800 fw-bold fs-6'>{item.work_order_code}</span>
                                                 </div>
                                             </td>
 
@@ -334,20 +333,6 @@ const WorkorderList: React.FC = () => {
                                                         {item.sales_item?.item_description || 'N/A'}
                                                     </span>
                                                 </div>
-                                            </td>
-
-                                            <td className='text-center'>
-                                                {item.work_runs && item.work_runs.length > 0 ? (
-                                                    <div className='d-flex flex-wrap gap-1 justify-content-center'>
-                                                        {item.work_runs.map(run => (
-                                                            <span key={run.work_run_id} className={`badge fw-bold ${run.status === 'COMPLETED' ? 'badge-light-success' : run.status === 'INPROGRESS' ? 'badge-light-warning' : 'badge-light-secondary'}`}>
-                                                                #{run.work_run_id}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <span className='text-muted fs-8'>ยังไม่มี Work Run</span>
-                                                )}
                                             </td>
 
                                             <td className='text-center'>

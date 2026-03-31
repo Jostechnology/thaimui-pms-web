@@ -292,7 +292,7 @@ const PickingRequestList: React.FC = () => {
                                                     </td>
                                                     <td className='text-gray-700 fw-bold'>
                                                         {item.request_type === 'WORK_RUN'
-                                                            ? (item.work_run_lot_number || `Work Run #${item.work_run_id ?? '-'}`)
+                                                            ? (item.lot_number || `Work Run #${item.work_run_id ?? '-'}`)
                                                             : (item.test_result_code || `Test Result #${item.test_result_id ?? '-'}`)}
                                                     </td>
                                                     <td className='text-center'>
