@@ -31,6 +31,7 @@ interface SalesItem {
 
 interface QCWorkOrderData {
     qc_work_order_id: number;
+    qc_work_order_code: string;
     sales_item_id: number;
     qc_status: string;
     qc_date: string | null;
@@ -322,7 +323,7 @@ const QCWorkOrdersList: React.FC = () => {
                                     qcWorkOrders.map((item) => (
                                         <tr key={item.qc_work_order_id} className="hover:bg-light-primary transition-all">
                                             <td className='text-center'>
-                                                หมายเลขไอดี {item.qc_work_order_id}
+                                                {item.qc_work_order_code}
                                             </td>
 
                                             <td>

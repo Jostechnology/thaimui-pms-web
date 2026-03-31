@@ -101,6 +101,7 @@ export interface ItemComponent {
 
 export interface WorkOrder {
     work_order_id: number;
+    work_order_code: string;
     doc_num: string;
     created_date: string;
     quantity: number;

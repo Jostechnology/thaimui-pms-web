@@ -14,10 +14,12 @@ interface WorkRun {
     created_date: string | null;
     wms_pick_reference: string | null;
     current_phase_id: number | null;
+    lot_number : string
 }
 
 interface WorkOrder {
     work_order_id: number;
+    work_order_code: string;
     status: string;
     quantity: number;
     work_runs: WorkRun[];
@@ -35,12 +37,15 @@ interface TestResult {
 
 interface QCWorkOrder {
     qc_work_order_id: number;
+    qc_work_order_code: string;
     qc_status: string;
     qc_date: string | null;
     qc_by: string | null;
     quantity: number;
     remark: string | null;
     test_results: TestResult[];
+    created_by : string
+    created_at : string
 }
 
 interface SalesItemTrackingData {
@@ -183,7 +188,7 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
                                         <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
                                             <div>
                                                 <span className="fw-bold text-gray-900 fs-6">
-                                                    ใบสั่งผลิต #{data.work_order.work_order_id}
+                                                    ใบสั่งผลิต #{data.work_order.work_order_code}
                                                 </span>
                                                 <span className="text-muted fs-7 ms-3">
                                                     จำนวน <span className="fw-bold text-gray-700">{data.work_order.quantity}</span> ชิ้น
@@ -200,7 +205,7 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
                                                 <div className="d-flex flex-column gap-2">
                                                     {data.work_order.work_runs.map((run) => (
                                                         <div key={run.work_run_id} className="d-flex align-items-center flex-wrap gap-3 border rounded px-4 py-3">
-                                                            <span className="fw-bold text-gray-800 fs-7">Run #{run.work_run_id}</span>
+                                                            <span className="fw-bold text-gray-800 fs-7">#{run.lot_number}</span>
                                                             <StatusBadge status={run.status} map={WORK_ORDER_STATUS} />
                                                             <span className="text-muted fs-8">
                                                                 <i className="bi bi-box-seam me-1"></i>qty: {run.quantity}
@@ -249,7 +254,7 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
                                                 <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
                                                     <div>
                                                         <span className="fw-bold text-gray-900 fs-6">
-                                                            ใบสั่งเทส #{qc.qc_work_order_id}
+                                                            ใบสั่งเทส #{qc.qc_work_order_code}
                                                         </span>
                                                         <span className="text-muted fs-7 ms-3">
                                                             จำนวน <span className="fw-bold text-gray-700">{qc.quantity}</span> ชิ้น
@@ -259,14 +264,7 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
                                                 </div>
 
                                                 <div className="row g-3 text-muted fs-7 mb-3">
-                                                    <div className="col-auto">
-                                                        <i className="bi bi-person me-1"></i>
-                                                        ผู้ตรวจ: <span className="text-gray-700 fw-semibold">{qc.qc_by || '-'}</span>
-                                                    </div>
-                                                    <div className="col-auto">
-                                                        <i className="bi bi-calendar me-1"></i>
-                                                        วันที่: <span className="text-gray-700 fw-semibold">{qc.qc_date ? formatThaiDate(qc.qc_date) : '-'}</span>
-                                                    </div>
+                                                    
                                                     {qc.remark && (
                                                         <div className="col-auto">
                                                             <i className="bi bi-chat-left-text me-1"></i>
