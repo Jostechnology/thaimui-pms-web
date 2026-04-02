@@ -13,6 +13,7 @@ import {
 import { getWorkOrderById } from '../../../services/workorder';
 import type { WorkOrder, ItemComponent, ComponentMaterialUsage } from '../../../type_interface/WorkOrderType';
 import type { ComponentTemplate, TemplateSection } from '../../../type_interface/ComponentTemplateType';
+import { downloadComponentDocument } from '../../../services/documentGeneratorService';
 
 // ─── Form data state: keyed by section_key ──────────────────
 type SectionFormData = Record<string, any>;
@@ -34,6 +35,7 @@ const ComponentDetailEditor: React.FC = () => {
     // Form data
     const [formData, setFormData] = useState<SectionFormData>({});
     const [saving, setSaving] = useState(false);
+    const [downloading, setDownloading] = useState(false);
 
     // ── Fetch work order + component ──
     const fetchData = useCallback(async () => {
@@ -89,6 +91,20 @@ const ComponentDetailEditor: React.FC = () => {
             }
         })();
     }, [selectedTemplateId]);
+
+    // ── Download component document ──
+    const handleDownloadDocument = async () => {
+        if (!workOrder?.doc_num || !componentId) return;
+        setDownloading(true);
+        try {
+            const res = await downloadComponentDocument(workOrder.work_order_code, Number(componentId));
+            if (!res.success) {
+                Swal.fire('เกิดข้อผิดพลาด', res.message || 'ไม่สามารถดาวน์โหลดเอกสารได้', 'error');
+            }
+        } finally {
+            setDownloading(false);
+        }
+    };
 
     // ── Update a section's form data ──
     const updateSectionData = (sectionKey: string, data: any) => {
@@ -473,10 +489,16 @@ const ComponentDetailEditor: React.FC = () => {
                         <span className='text-muted fs-7'>ใบสั่งผลิต: {workOrder?.doc_num || '...'}</span>
                     </div>
                 </div>
-                <button className='btn btn-primary fw-bold px-6' onClick={handleSave} disabled={saving || !selectedTemplateId}>
-                    {saving ? <span className='spinner-border spinner-border-sm me-2'></span> : <i className='bi bi-check-lg me-1'></i>}
-                    บันทึก
-                </button>
+                <div className='d-flex gap-2'>
+                    <button className='btn btn-light-success fw-bold px-5' onClick={handleDownloadDocument} disabled={downloading || !workOrder?.doc_num}>
+                        {downloading ? <span className='spinner-border spinner-border-sm me-2'></span> : <i className='bi bi-download me-1'></i>}
+                        ดาวน์โหลดเอกสาร
+                    </button>
+                    <button className='btn btn-primary fw-bold px-6' onClick={handleSave} disabled={saving || !selectedTemplateId}>
+                        {saving ? <span className='spinner-border spinner-border-sm me-2'></span> : <i className='bi bi-check-lg me-1'></i>}
+                        บันทึก
+                    </button>
+                </div>
             </div>
 
             {/* Template Selection */}
