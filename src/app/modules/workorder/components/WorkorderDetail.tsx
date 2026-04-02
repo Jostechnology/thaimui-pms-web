@@ -11,6 +11,7 @@ import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import type { WorkOrder, WorkRun } from '../../../type_interface/WorkOrderType';
 import { WorkOrderStatusEnum } from '../../../type_interface/WorkOrderType';
+import { downloadComponentDocument } from '../../../services/documentGeneratorService';
 
 const WorkorderDetail: React.FC = () => {
     const navigate = useNavigate();
@@ -27,6 +28,7 @@ const WorkorderDetail: React.FC = () => {
     const [salesItemTestResults, setSalesItemTestResults] = useState<SalesItemTestResult[]>([]);
     const [loadingTestResults, setLoadingTestResults] = useState(false);
     const [creating, setCreating] = useState(false);
+    const [downloadingComponentId, setDownloadingComponentId] = useState<number | null>(null);
 
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
@@ -107,6 +109,19 @@ const WorkorderDetail: React.FC = () => {
             setSalesItemTestResults([]);
         } finally {
             setLoadingTestResults(false);
+        }
+    };
+
+    const handleDownloadComponentDocument = async (componentId: number) => {
+        if (!workOrder?.doc_num) return;
+        setDownloadingComponentId(componentId);
+        try {
+            const res = await downloadComponentDocument(workOrder.work_order_code, componentId);
+            if (!res.success) {
+                Swal.fire('เกิดข้อผิดพลาด', res.message || 'ไม่สามารถดาวน์โหลดเอกสารได้', 'error');
+            }
+        } finally {
+            setDownloadingComponentId(null);
         }
     };
 
@@ -345,14 +360,28 @@ const WorkorderDetail: React.FC = () => {
                                                 <span className='fw-bold text-gray-900 fs-4 d-block'>{comp.component_name}</span>
                                                 <span className='text-muted fs-8'>{comp.material_usages?.length || 0} วัสดุ</span>
                                             </div>
-                                            <button
-                                                className='btn btn-sm btn-light-primary d-flex align-items-center gap-1 ms-auto'
-                                                style={{ padding: '6px 12px', borderRadius: '6px' }}
-                                                onClick={() => navigate(`/workorder/component_detail/${workOrder!.work_order_id}/${comp.item_component_id}`)}
-                                            >
-                                                <i className='bi bi-pencil-square' />
-                                                แก้ไขรายละเอียด
-                                            </button>
+                                            <div className='d-flex gap-2 ms-auto'>
+                                                <button
+                                                    className='btn btn-sm btn-light-success d-flex align-items-center gap-1'
+                                                    style={{ padding: '6px 12px', borderRadius: '6px' }}
+                                                    onClick={() => handleDownloadComponentDocument(comp.item_component_id)}
+                                                    disabled={downloadingComponentId === comp.item_component_id}
+                                                >
+                                                    {downloadingComponentId === comp.item_component_id
+                                                        ? <span className='spinner-border spinner-border-sm'></span>
+                                                        : <i className='bi bi-download' />
+                                                    }
+                                                    ดาวน์โหลด
+                                                </button>
+                                                <button
+                                                    className='btn btn-sm btn-light-primary d-flex align-items-center gap-1'
+                                                    style={{ padding: '6px 12px', borderRadius: '6px' }}
+                                                    onClick={() => navigate(`/workorder/component_detail/${workOrder!.work_order_id}/${comp.item_component_id}`)}
+                                                >
+                                                    <i className='bi bi-pencil-square' />
+                                                    แก้ไขรายละเอียด
+                                                </button>
+                                            </div>
                                         </div>
                                         {comp.material_usages && comp.material_usages.length > 0 ? (
                                             <div className='d-flex flex-column gap-3'>
