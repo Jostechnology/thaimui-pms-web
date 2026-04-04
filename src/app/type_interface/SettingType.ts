@@ -76,7 +76,7 @@ export interface AddRoleModalProps {
     isWatch: boolean;
     isEdit: boolean;
     formData: CreateRoleForm;
-    selectedPermissionList: string[][][];
+    selectedPermissionList: Record<string, string[]>;
     handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
     handleSubmit: (module_list: ModuleRequest[]) => void;
     handleSubmitEdit: (module_list: ModuleRequest[]) => void;

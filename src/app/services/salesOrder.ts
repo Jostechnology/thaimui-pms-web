@@ -27,8 +27,6 @@ export const getSalesOrderList = async (
     search: string = ""
 ) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-
         const params = new URLSearchParams({
             page: page.toString(),
             per_page: per_page.toString(),
@@ -36,18 +34,11 @@ export const getSalesOrderList = async (
 
         if (search) params.append("search", search);
 
-        const headers = {
-            "Authorization": `Bearer ${token}`
-        };
-
         const response = await front_api(
             "GET",
             `/sales_order/get_all?${params.toString()}`,
             {},
-            {
-                wrapData: false,
-                headers: headers
-            }
+            { wrapData: false }
         );
 
         if (!response) return false;
@@ -67,16 +58,11 @@ export const getSalesOrderList = async (
 
 export const completeSalesItem = async (sales_item_id: number) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-
         const response = await front_api(
             "POST",
             `/sales_item/${sales_item_id}/complete`,
             {},
-            {
-                wrapData: false,
-                headers: { "Authorization": `Bearer ${token}` }
-            }
+            { wrapData: false }
         );
 
         if (!response) return false;
@@ -91,20 +77,11 @@ export const completeSalesItem = async (sales_item_id: number) => {
 
 export const getSalesOrderById = async (doc_entry: number) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-
-        const headers = {
-            "Authorization": `Bearer ${token}`
-        };
-
         const response = await front_api(
             "GET",
             `/sales_order/get_by_doc_entry/${doc_entry}`,
             {},
-            {
-                wrapData: false,
-                headers: headers
-            }
+            { wrapData: false }
         );
 
         if (!response) return false;

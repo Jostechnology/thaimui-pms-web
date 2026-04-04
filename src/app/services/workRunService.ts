@@ -6,14 +6,6 @@ interface APIResponse {
     data?: any;
 }
 
-const getHeaders = () => {
-    const token = localStorage.getItem('tk-jos');
-    return {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-    };
-};
-
 const handleResponse = async (response: Response | false | undefined): Promise<APIResponse> => {
     if (!response) {
         return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
@@ -34,7 +26,7 @@ export const getWorkRunById = async (workRunId: number): Promise<APIResponse> =>
             "GET",
             `/work_run/${workRunId}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -48,7 +40,7 @@ export const getWorkRunsByWorkOrder = async (workOrderId: number): Promise<APIRe
             "GET",
             `/work_order/${workOrderId}/work_runs`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -72,7 +64,7 @@ export const getSalesItemTestResults = async (salesItemId: number): Promise<APIR
             "GET",
             `/sales_item/${salesItemId}/test_results`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -89,7 +81,7 @@ export const createWorkRun = async (
             "POST",
             `/work_order/${workOrderId}/work_run/create`,
             payload,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -103,7 +95,7 @@ export const getWorkRunsBySalesItem = async (salesItemId: number): Promise<APIRe
             "GET",
             `/sales_item/${salesItemId}/work_runs`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -120,7 +112,7 @@ export const completeWorkRun = async (
             "PUT",
             `/work_run/${workRunId}/complete`,
             payload,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {

@@ -2,14 +2,11 @@ import { front_api } from "./apiConfig";
 
 export const getDocumentCodes = async () => {
     try {
-        const token = localStorage.getItem('tk-jos');
-        const headers = { "Authorization": `Bearer ${token}` };
-
         const response = await front_api(
             "GET",
             "/document_code/get",
             {},
-            { wrapData: false, headers }
+            { wrapData: false }
         );
 
         if (!response) return { success: false };
@@ -24,14 +21,11 @@ export const getDocumentCodes = async () => {
 
 export const createDocumentCodes = async (data: any) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-        const headers = { "Authorization": `Bearer ${token}` };
-
         const response = await front_api(
             "POST",
             "/document_code/create",
             data,
-            { wrapData: true, headers }
+            { wrapData: true }
         );
 
         if (!response) return { success: false };
@@ -46,14 +40,11 @@ export const createDocumentCodes = async (data: any) => {
 
 export const editDocumentCodes = async (data: any) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-        const headers = { "Authorization": `Bearer ${token}` };
-
         const response = await front_api(
             "PUT",
             "/document_code/edit",
             data,
-            { wrapData: true, headers }
+            { wrapData: true }
         );
 
         if (!response) return { success: false };

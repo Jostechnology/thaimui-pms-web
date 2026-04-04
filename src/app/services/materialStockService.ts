@@ -14,14 +14,6 @@ interface APIResponse {
     data?: any;
 }
 
-const getHeaders = () => {
-    const token = localStorage.getItem('tk-jos');
-    return {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-    };
-};
-
 const handleResponse = async (response: Response | false | undefined): Promise<APIResponse> => {
     if (!response) {
         return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
@@ -48,7 +40,7 @@ export const getMaterialStockSummary = async (
             "GET",
             `/material/summary/${salesItemId}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         const result = await handleResponse(response);
         if (result.success && Array.isArray(result.data)) {
@@ -82,7 +74,7 @@ export const validateMaterialStock = async (
             "POST",
             "/material/validate",
             payload,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -102,7 +94,7 @@ export const getMaterialUsageDetail = async (
             "GET",
             `/material/history/${materialListId}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -127,7 +119,7 @@ export const getMaterialTransactions = async (
             "GET",
             `/material/transactions/${salesItemId}?${params.toString()}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -153,7 +145,7 @@ export const getAllMaterialTracking = async (
             "GET",
             `/material/tracking${queryStr ? `?${queryStr}` : ''}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {

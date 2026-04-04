@@ -1,6 +1,6 @@
 import { SidebarMenuItemWithSub } from './SidebarMenuItemWithSub'
 import { SidebarMenuItem } from './SidebarMenuItem'
-import { Module, PermissionResponse, TransformedPermission } from '../../../../../app/type_interface/SettingType'
+import { TransformedPermission } from '../../../../../app/type_interface/SettingType'
 import {
   MainRouteType, SubRouteType, mainRoutesConfig, subRoutesConfig,
   RouteType
@@ -41,50 +41,37 @@ const SidebarMenuMain = () => {
       let result = await getRolePermission(getRoleId());
       if (result) {
         if (result.success) {
-          let data = result.data as Module[];
-          let userMainRoute: MainRouteType[] = [];
-          let actionList: RouteType[] = [];
+          // New compact format: ['ROLE_MANAGEMENT.view', 'ROLE_MANAGEMENT.edit', ...]
+          // Only granted permissions are present; absence means false.
+          const permArray = result.data as string[];
 
-          let mainMenuList: string[] = data.map(item => item.module_code);
-          let subMenu: string[] = data.map(item => {
-            return item.sub_modules.map(sub_item => {
-              return sub_item.module_code;
-            })
-          }).flat();
-          for (let i = 0; i < mainMenuList.length; i++) {
-            let module = mainRoutesConfig.find(item => item.module_code === mainMenuList[i]);
-            if (!module) continue;
+          // Build map: { MODULE_CODE: ['view', 'edit', ...] }
+          const permMap: Record<string, string[]> = {};
+          for (const entry of permArray) {
+            const dotIdx = entry.lastIndexOf('.');
+            if (dotIdx === -1) continue;
+            const code = entry.substring(0, dotIdx);
+            const method = entry.substring(dotIdx + 1);
+            if (!permMap[code]) permMap[code] = [];
+            permMap[code].push(method);
+          }
 
-            module.title = data[i].module_name;
-            // get subMenu
-            let filter_sub_module = subRoutesConfig.filter(sub => sub.main_module_code === module.module_code)
-            let module_sub_item: SubRouteType[] = filter_sub_module.filter((sub_item, sub_i) => {
+          const userMainRoute: MainRouteType[] = [];
+          const actionList: RouteType[] = [];
 
-              // get permission and filter only submenu with permission
-              if (subMenu.includes(sub_item.module_code)) {
-                sub_item.title = data[i].sub_modules.find(module => module.module_code === sub_item.module_code)?.module_name || "";
-                let userMenu = data.filter(item => item.module_code === module.module_code)[0];
-                let userSubMenu = userMenu.sub_modules.filter(item => item.module_code === sub_item.module_code)[0];
-                let permission = (userSubMenu.permission.filter(per => {
-                  per = per as PermissionResponse;
-                  if (per.check) return per;
-                }) as PermissionResponse[]).map(item => item.method);
+          for (const mainRoute of mainRoutesConfig) {
+            const subMenus: SubRouteType[] = subRoutesConfig
+              .filter(sub => sub.main_module_code === mainRoute.module_code && (permMap[sub.module_code]?.length ?? 0) > 0)
+              .map(sub => ({ ...sub, permission: permMap[sub.module_code] }));
 
-                if (permission.length > 0) {
-                  sub_item.permission = [...permission];
-                  return sub_item;
-                }
-              }
-            })
-
-            if (module_sub_item.length > 0) {
-              actionList = [...actionList, ...module_sub_item].flat();
-              module.subMenu = [...module_sub_item];
-              userMainRoute.push(module);
+            if (subMenus.length > 0) {
+              actionList.push(...subMenus);
+              userMainRoute.push({ ...mainRoute, subMenu: subMenus });
             }
           }
-          setPermissionList([...userMainRoute]);
-          setActionList([...actionList]);
+
+          setPermissionList(userMainRoute);
+          setActionList(actionList);
         }
       } else {
         setIsError(true);

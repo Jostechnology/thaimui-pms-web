@@ -17,8 +17,6 @@ export const getWorkOrderList = async (
     month: string = ""
 ) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-
         const params = new URLSearchParams({
             page: page.toString(),
             per_page: per_page.toString(),
@@ -28,17 +26,11 @@ export const getWorkOrderList = async (
         if (statusFilter) params.append("filter", statusFilter);
         if (month) params.append("month", month);
 
-        const headers = {
-            "Authorization": `Bearer ${token}`
-        };
         const response = await front_api(
             "GET",
             `/get_work_order_list?${params.toString()}`,
             {},
-            {
-                wrapData: false,
-                headers: headers
-            }
+            { wrapData: false }
         );
 
         if (!response) return false;
@@ -59,19 +51,11 @@ export const getWorkOrderList = async (
 
 export const getWorkOrderById = async (id: Number) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-
-        const headers = {
-            "Authorization": `Bearer ${token}`
-        };
         const response = await front_api(
             "GET",
             `/get_work_order_by_id/${id}`,
             {},
-            {
-                wrapData: false,
-                headers: headers
-            }
+            { wrapData: false }
         );
 
         if (!response) return false;
@@ -89,14 +73,6 @@ export const getWorkOrderById = async (id: Number) => {
         return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
     }
 }
-
-const getHeaders = () => {
-    const token = localStorage.getItem('tk-jos');
-    return {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-    };
-};
 
 const handleResponse = async (response: Response | false | undefined): Promise<APIResponse> => {
     if (!response) {
@@ -121,7 +97,7 @@ export const createWorkPhase = async (items: any[]): Promise<APIResponse> => {
             "POST",
             "/create_work_phase",
             body,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -136,7 +112,7 @@ export const updateWorkPhase = async (items: any[]): Promise<APIResponse> => {
             "PUT",
             "/update_work_phase",
             body,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -150,7 +126,7 @@ export const deleteWorkPhase = async (payload: { work_phase_ids: number[] }): Pr
             "DELETE",
             "/delete_work_phase",
             payload,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -160,18 +136,11 @@ export const deleteWorkPhase = async (payload: { work_phase_ids: number[] }): Pr
 
 export const getWorkPhaseDetail = async (workPhaseId: number) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-        const headers = {
-            "Authorization": `Bearer ${token}`
-        };
         const response = await front_api(
             "GET",
             `/get_work_phase_detail/${workPhaseId}`,
             {},
-            {
-                wrapData: false,
-                headers: headers
-            }
+            { wrapData: false }
         );
 
         if (!response) return { success: false };
@@ -200,7 +169,7 @@ export const createWorkOrder = async (payload: {
             "POST",
             "/create_work_order",
             payload,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -214,7 +183,7 @@ export const getItemComponentDetail = async (itemComponentId: number) => {
             "GET",
             `/get_item_component_detail/${itemComponentId}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         if (!response) return { success: false };
         const result = await response.json();
@@ -224,5 +193,3 @@ export const getItemComponentDetail = async (itemComponentId: number) => {
         return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
     }
 };
-
-

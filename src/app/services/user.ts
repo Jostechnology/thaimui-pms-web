@@ -2,15 +2,11 @@ import { front_api } from "./apiConfig";
 
 export const getAllRoles = async () => {
     try {
-        const token = localStorage.getItem('tk-jos');
         const response = await front_api(
             "GET",
             "/get_all_roles",
             {},
-            {
-                wrapData: false,
-                headers: { "Authorization": `Bearer ${token}` }
-            }
+            { wrapData: false }
         );
 
         if (!response) return { success: false, data: [] };
@@ -22,15 +18,11 @@ export const getAllRoles = async () => {
 
 export const createUser = async (data: any) => {
     try {
-        const token = localStorage.getItem('tk-jos');
         const response = await front_api(
             "POST",
             "/create_user",
             data,
-            {
-                wrapData: false,
-                headers: { "Authorization": `Bearer ${token}` }
-            }
+            { wrapData: false }
         );
 
         if (!response) return { success: false };

@@ -2,19 +2,11 @@ import { front_api } from "./apiConfig";
 
 export const searchSalesOrderService = async (search: string) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-
-        const headers = {
-            "Authorization": `Bearer ${token}`
-        };
         const response = await front_api(
             "GET",
             `/search_sales_order?search=${search}`,
             {},
-            {
-                wrapData: false,
-                headers: headers
-            }
+            { wrapData: false }
         );
 
         if (!response) return false;
@@ -35,19 +27,11 @@ export const searchSalesOrderService = async (search: string) => {
 
 export const getSalesOrderService = async (doc_entry: number) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-
-        const headers = {
-            "Authorization": `Bearer ${token}`
-        };
         const response = await front_api(
             "GET",
             `/sales_order/get_by_doc_entry/${doc_entry}`,
             {},
-            {
-                wrapData: false,
-                headers: headers
-            }
+            { wrapData: false }
         );
 
         if (!response) return false;
@@ -78,14 +62,11 @@ export const getSalesOrderForCertificate = async (doc_entry: number) => {
 
 export const getSalesItemTracking = async (salesItemId: number) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-        const headers = { "Authorization": `Bearer ${token}` };
-
         const response = await front_api(
             "GET",
             `/sales_item/${salesItemId}/tracking`,
             {},
-            { wrapData: false, headers }
+            { wrapData: false }
         );
 
         if (!response) return { success: false };
@@ -99,14 +80,11 @@ export const getSalesItemTracking = async (salesItemId: number) => {
 
 export const getSalesItemsFromSalesOrder = async (doc_entry: number) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-        const headers = { "Authorization": `Bearer ${token}` };
-
         const response = await front_api(
             "GET",
             `/sales_order/${doc_entry}/sales_items`,
             {},
-            { wrapData: false, headers }
+            { wrapData: false }
         );
 
         if (!response) return { success: false, data: [] };
