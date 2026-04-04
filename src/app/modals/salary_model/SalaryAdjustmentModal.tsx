@@ -5,6 +5,8 @@ import { getEmployeeSalaryHistory, updateEmployeeSalary } from '../../services/e
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import '../Add_salary_modal_style.css';
+import { validateRequired, validatePositiveNumber } from '../../utils/validate_utils';
+import { handleCommaNumberInput, formatWithCommas, parseCommaNumber, formatSignedDecimalInput } from '../../utils/input_format_utils';
 interface SalaryAdjustmentModalProps {
     show: boolean;
     onHide: () => void;
@@ -20,6 +22,7 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
     const [newSalary, setNewSalary] = useState<string>('');
     const [effectiveDate, setEffectiveDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [reason, setReason] = useState<string>('');
+    const [errors, setErrors] = useState<Record<string, string>>({});
     
     const [history, setHistory] = useState<any[]>([]);
     const [historyLoading, setHistoryLoading] = useState<boolean>(false);
@@ -28,12 +31,12 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
 
     useEffect(() => {
         if (employee) {
-            setNewSalary(employee.currentSalary.toString());
+            setNewSalary(formatWithCommas(employee.currentSalary));
             setPercent('0');
             setReason('');
             setEffectiveDate(new Date().toISOString().split('T')[0]);
-            
-            setSelectedDate(null); 
+            setErrors({});
+            setSelectedDate(null);
         }
     }, [employee, show]);
 
@@ -74,26 +77,41 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
     };
 
     const handlePercentChange = (val: string) => {
-        setPercent(val);
-        const p = parseFloat(val);
+        const sanitized = formatSignedDecimalInput(val);
+        setPercent(sanitized);
+        const p = parseFloat(sanitized);
         if (!isNaN(p) && employee) {
             const calculated = employee.currentSalary * (1 + (p / 100));
-            setNewSalary(calculated.toFixed(0));
-        } else if (val === '' && employee) {
-            setNewSalary(employee.currentSalary.toString());
+            const { displayValue } = handleCommaNumberInput(calculated.toFixed(0));
+            setNewSalary(displayValue);
+        } else if (sanitized === '' && employee) {
+            setNewSalary(formatWithCommas(employee.currentSalary));
         }
     };
 
     const handleNewSalaryChange = (val: string) => {
-        setNewSalary(val);
-        const n = parseFloat(val);
-        if (!isNaN(n) && employee && employee.currentSalary > 0) {
-            const p = ((n - employee.currentSalary) / employee.currentSalary) * 100;
+        const { displayValue, numericValue } = handleCommaNumberInput(val);
+        setNewSalary(displayValue);
+        if (numericValue > 0 && employee && employee.currentSalary > 0) {
+            const p = ((numericValue - employee.currentSalary) / employee.currentSalary) * 100;
             setPercent(p.toFixed(2));
         }
+        if (errors.newSalary) setErrors(prev => { const next = { ...prev }; delete next.newSalary; return next; });
+    };
+
+    const validateForm = (): boolean => {
+        const newErrors: Record<string, string> = {};
+        const salaryErr = validateRequired(newSalary, 'ยอดเงินเดือนใหม่')
+            ?? validatePositiveNumber(newSalary, 'ยอดเงินเดือนใหม่');
+        if (salaryErr) newErrors.newSalary = salaryErr;
+        const dateErr = validateRequired(effectiveDate, 'วันที่มีผล');
+        if (dateErr) newErrors.effectiveDate = dateErr;
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
     };
 
     const handleSave = () => {
+        if (!validateForm()) return;
         Swal.fire({
             title: 'ยืนยันการปรับเงินเดือน?',
             text: `ปรับเป็น ${parseFloat(newSalary).toLocaleString()} บาท (มีผล ${effectiveDate})`,
@@ -107,7 +125,7 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
                 (async () => {
                     try {
                         const payload = {
-                            new_salary: Number(newSalary),
+                            new_salary: parseCommaNumber(newSalary),
                             effective_date: `${effectiveDate}T07:00:00`,
                             remark: reason || ''
                         };
@@ -177,22 +195,34 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
                             <div className="col-5">
                                 <label className="form-label fw-bold text-gray-700 fs-7">ปรับขึ้น/ลง (%)</label>
                                 <div className="position-relative">
-                                    <input type="number" className="form-control form-control-solid fw-bold pe-8" value={percent} onChange={(e) => handlePercentChange(e.target.value)} placeholder="0" />
+                                    <input type="text" className="form-control form-control-solid fw-bold pe-8" value={percent} onChange={(e) => handlePercentChange(e.target.value)} placeholder="0" />
                                     <span className="position-absolute top-50 end-0 translate-middle-y me-3 text-gray-500 fw-bold">%</span>
                                 </div>
                             </div>
                             <div className="col-7">
                                 <label className="form-label fw-bold text-gray-700 fs-7 required">ยอดเงินเดือนใหม่</label>
                                 <div className="position-relative">
-                                    <input type="number" className="form-control form-control-solid fw-bold pe-8 border-primary" value={newSalary} onChange={(e) => handleNewSalaryChange(e.target.value)} />
+                                    <input
+                                        type="text"
+                                        className={`form-control form-control-solid fw-bold pe-8 border-primary ${errors.newSalary ? "is-invalid" : ""}`}
+                                        value={newSalary}
+                                        onChange={(e) => handleNewSalaryChange(e.target.value)}
+                                    />
                                     <span className="position-absolute top-50 end-0 translate-middle-y me-3 text-gray-500 fw-bold">฿</span>
                                 </div>
+                                {errors.newSalary && <div className="invalid-feedback d-block">{errors.newSalary}</div>}
                             </div>
                         </div>
 
                         <div className="mb-6">
                             <label className="form-label fw-bold text-gray-700 fs-7 required">มีผลตั้งแต่วันที่</label>
-                            <input type="date" className="form-control form-control-solid" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+                            <input
+                                type="date"
+                                className={`form-control form-control-solid ${errors.effectiveDate ? "is-invalid" : ""}`}
+                                value={effectiveDate}
+                                onChange={(e) => { setEffectiveDate(e.target.value); if (errors.effectiveDate) setErrors(prev => { const next = { ...prev }; delete next.effectiveDate; return next; }); }}
+                            />
+                            {errors.effectiveDate && <div className="invalid-feedback">{errors.effectiveDate}</div>}
                         </div>
 
                         <div className="mb-8">

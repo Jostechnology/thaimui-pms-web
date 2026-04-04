@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { handleCommaNumberInput, parseCommaNumber } from '../../../utils/input_format_utils';
 import Select from 'react-select';
 import { Content } from '../../../../_metronic/layout/components/content';
 import { useAppLoading } from '../../../context/AppLoadingContext';
@@ -105,7 +106,7 @@ const AddRepairModal: React.FC<AddRepairModalProps> = ({ show, onHide, onSuccess
                 maintenance_date: form.maintenance_date!.toISOString().split('T')[0],
                 maintenance_type: form.maintenance_type.trim(),
                 description: form.description.trim() || null,
-                fix_cost: form.fix_cost ? Number(form.fix_cost) : 0,
+                fix_cost: form.fix_cost ? parseCommaNumber(form.fix_cost) : 0,
             };
             const res = await createpmMachine(payload);
             if (res && res.success) {
@@ -208,13 +209,14 @@ const AddRepairModal: React.FC<AddRepairModalProps> = ({ show, onHide, onSuccess
                                         ราคา (บาท)
                                     </label>
                                     <input
-                                        type="number"
+                                        type="text"
                                         className="form-control form-control-solid"
-                                        placeholder="0.00"
+                                        placeholder="0"
                                         value={form.fix_cost}
-                                        onChange={(e) => handleChange('fix_cost', e.target.value)}
-                                        min="0"
-                                        step="0.01"
+                                        onChange={(e) => {
+                                            const { displayValue } = handleCommaNumberInput(e.target.value);
+                                            handleChange('fix_cost', displayValue);
+                                        }}
                                     />
                                 </div>
                                 <div className="col-md-4 fv-row">

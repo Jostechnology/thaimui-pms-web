@@ -10,6 +10,7 @@ import { getWorkRunsBySalesItem } from "../../../services/workRunService";
 import { createTestResultPickingRequest } from "../../../services/pickingRequestService";
 import type { QCWorkOrderItem } from "../../../type_interface/QCWorkOrderType";
 import PickingRequestModal from "../../../modals/picking_request_modal/PickingRequestModal";
+import { formatIntegerInput, toDecimalInput } from "../../../utils/input_format_utils";
 
 interface WorkRunOption {
     work_run_id: number;
@@ -315,11 +316,13 @@ const TestResultSection: React.FC<Props> = ({
                                 <div className="col-md-3">
                                     <label className="form-label fw-bold required">จำนวนที่ขอทดสอบ (Claimed Qty)</label>
                                     <input
-                                        type="number"
+                                        type="text"
                                         className="form-control"
-                                        min={1}
-                                        value={claimForm.claimed_qty}
-                                        onChange={(e) => setClaimForm((p) => ({ ...p, claimed_qty: Number(e.target.value) }))}
+                                        value={claimForm.claimed_qty === 0 ? '' : String(claimForm.claimed_qty)}
+                                        onChange={(e) => {
+                                            const s = formatIntegerInput(e.target.value);
+                                            setClaimForm((p) => ({ ...p, claimed_qty: s === '' ? 0 : Number(s) }));
+                                        }}
                                     />
                                     <div className="form-text text-muted">จำนวนที่จะ "จองไว้" สำหรับทดสอบ</div>
                                 </div>
@@ -392,12 +395,13 @@ const TestResultSection: React.FC<Props> = ({
                                                                 <td className="text-center">
                                                                     {isChecked ? (
                                                                         <input
-                                                                            type="number"
+                                                                            type="text"
                                                                             className="form-control form-control-sm text-center"
-                                                                            min={1}
-                                                                            max={wr.untested_qty || wr.quantity}
-                                                                            value={allocation!.qty_from_run}
-                                                                            onChange={(e) => setAllocationQty(wr.work_run_id, Number(e.target.value))}
+                                                                            value={allocation!.qty_from_run === 0 ? '' : String(allocation!.qty_from_run)}
+                                                                            onChange={(e) => {
+                                                                                const s = formatIntegerInput(e.target.value);
+                                                                                setAllocationQty(wr.work_run_id, s === '' ? 0 : Number(s));
+                                                                            }}
                                                                         />
                                                                     ) : (
                                                                         <span className="text-muted">—</span>
@@ -710,23 +714,19 @@ const TestResultSection: React.FC<Props> = ({
                                                                     </td>
                                                                     <td>
                                                                         <input
-                                                                            type="number"
-                                                                            step="0.01"
-                                                                            min="0"
+                                                                            type="text"
                                                                             className="form-control form-control-sm text-center"
                                                                             value={item.wll_measured}
-                                                                            onChange={(e) => handleFinalizeItemChange(i, "wll_measured", e.target.value)}
+                                                                            onChange={(e) => handleFinalizeItemChange(i, "wll_measured", toDecimalInput(e.target.value))}
                                                                             placeholder="0.00"
                                                                         />
                                                                     </td>
                                                                     <td>
                                                                         <input
-                                                                            type="number"
-                                                                            step="0.01"
-                                                                            min="0"
+                                                                            type="text"
                                                                             className="form-control form-control-sm text-center"
                                                                             value={item.load_test_value}
-                                                                            onChange={(e) => handleFinalizeItemChange(i, "load_test_value", e.target.value)}
+                                                                            onChange={(e) => handleFinalizeItemChange(i, "load_test_value", toDecimalInput(e.target.value))}
                                                                             placeholder="0.00"
                                                                         />
                                                                     </td>
