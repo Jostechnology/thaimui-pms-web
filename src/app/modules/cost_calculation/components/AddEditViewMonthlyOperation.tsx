@@ -11,6 +11,7 @@ import {
     updateOperationCostMonthly,
 } from '../../../services/costCalculation';
 import Swal from 'sweetalert2';
+import { handleCommaNumberInput, parseCommaNumber, formatWithCommas } from '../../../utils/input_format_utils';
 
 type PageMode = 'create' | 'edit' | 'view';
 
@@ -64,15 +65,15 @@ const AddEditViewMonthlyOperation: React.FC = () => {
                 const data = result.data;
                 setFormData({
                     operation_cost_date: new Date(data.operation_cost_date),
-                    depreciation_building_cost: data.depreciation_building_cost != null ? String(data.depreciation_building_cost) : '',
+                    depreciation_building_cost: data.depreciation_building_cost != null ? formatWithCommas(data.depreciation_building_cost) : '',
                     depreciation_building_period: data.depreciation_building_period != null ? String(data.depreciation_building_period) : '1',
-                    depreciation_util_cost: data.depreciation_util_cost != null ? String(data.depreciation_util_cost) : '',
+                    depreciation_util_cost: data.depreciation_util_cost != null ? formatWithCommas(data.depreciation_util_cost) : '',
                     depreciation_util_period: data.depreciation_util_period != null ? String(data.depreciation_util_period) : '1',
-                    office_rent_cost: data.office_rent_cost != null ? String(data.office_rent_cost) : '',
-                    office_supplies_cost: data.office_supplies_cost != null ? String(data.office_supplies_cost) : '',
-                    water_cost: data.water_cost != null ? String(data.water_cost) : '',
-                    electricity_cost: data.electricity_cost != null ? String(data.electricity_cost) : '',
-                    utility_cost: data.utility_cost != null ? String(data.utility_cost) : '',
+                    office_rent_cost: data.office_rent_cost != null ? formatWithCommas(data.office_rent_cost) : '',
+                    office_supplies_cost: data.office_supplies_cost != null ? formatWithCommas(data.office_supplies_cost) : '',
+                    water_cost: data.water_cost != null ? formatWithCommas(data.water_cost) : '',
+                    electricity_cost: data.electricity_cost != null ? formatWithCommas(data.electricity_cost) : '',
+                    utility_cost: data.utility_cost != null ? formatWithCommas(data.utility_cost) : '',
                 });
                 setDataLoaded(true);
             } else {
@@ -89,13 +90,8 @@ const AddEditViewMonthlyOperation: React.FC = () => {
     };
 
     const handleCostChange = (field: string, value: string) => {
-        // อนุญาตให้ใส่ได้เฉพาะตัวเลขและทศนิยม
-        if (value === '' || /^\d*\.?\d*$/.test(value)) {
-            setFormData(prev => ({
-                ...prev,
-                [field]: value
-            }));
-        }
+        const { displayValue } = handleCommaNumberInput(value);
+        setFormData(prev => ({ ...prev, [field]: displayValue }));
     };
 
     const handlePeriodChange = (field: string, value: string) => {
@@ -134,15 +130,15 @@ const AddEditViewMonthlyOperation: React.FC = () => {
 
             const payload = {
                 operation_cost_date: dateString,
-                depreciation_building_cost: parseFloat(formData.depreciation_building_cost) || 0,
+                depreciation_building_cost: parseCommaNumber(formData.depreciation_building_cost) || 0,
                 depreciation_building_period: parseInt(formData.depreciation_building_period) || 1,
-                depreciation_util_cost: parseFloat(formData.depreciation_util_cost) || 0,
+                depreciation_util_cost: parseCommaNumber(formData.depreciation_util_cost) || 0,
                 depreciation_util_period: parseInt(formData.depreciation_util_period) || 1,
-                office_rent_cost: parseFloat(formData.office_rent_cost) || 0,
-                office_supplies_cost: parseFloat(formData.office_supplies_cost) || 0,
-                water_cost: parseFloat(formData.water_cost) || 0,
-                electricity_cost: parseFloat(formData.electricity_cost) || 0,
-                utility_cost: parseFloat(formData.utility_cost) || 0,
+                office_rent_cost: parseCommaNumber(formData.office_rent_cost) || 0,
+                office_supplies_cost: parseCommaNumber(formData.office_supplies_cost) || 0,
+                water_cost: parseCommaNumber(formData.water_cost) || 0,
+                electricity_cost: parseCommaNumber(formData.electricity_cost) || 0,
+                utility_cost: parseCommaNumber(formData.utility_cost) || 0,
             };
 
             let response;

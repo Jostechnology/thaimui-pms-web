@@ -12,6 +12,7 @@ import { useAlertModal } from '../../../context/ModalContext';
 import type { WorkOrder, WorkRun } from '../../../type_interface/WorkOrderType';
 import { WorkOrderStatusEnum } from '../../../type_interface/WorkOrderType';
 import { downloadComponentDocument } from '../../../services/documentGeneratorService';
+import { formatIntegerInput } from '../../../utils/input_format_utils';
 
 const WorkorderDetail: React.FC = () => {
     const navigate = useNavigate();
@@ -462,11 +463,13 @@ const WorkorderDetail: React.FC = () => {
                         <div className='mb-4'>
                             <label className='form-label fw-bold required'>จำนวนที่ต้องการผลิต</label>
                             <input
-                                type='number'
+                                type='text'
                                 className='form-control form-control-solid'
-                                value={createRunQty}
-                                onChange={(e) => setCreateRunQty(Number(e.target.value))}
-                                min={1}
+                                value={createRunQty === 0 ? '' : String(createRunQty)}
+                                onChange={(e) => {
+                                    const s = formatIntegerInput(e.target.value);
+                                    setCreateRunQty(s === '' ? 0 : Number(s));
+                                }}
                             />
                         </div>
                     )}
@@ -507,12 +510,13 @@ const WorkorderDetail: React.FC = () => {
                                                         </td>
                                                         <td>
                                                             <input
-                                                                type='number'
+                                                                type='text'
                                                                 className='form-control form-control-sm form-control-solid text-center'
-                                                                value={sourceAllocations[run.work_run_id] ?? 0}
-                                                                onChange={(e) => handleAllocationChange(run.work_run_id, Number(e.target.value), run.defect_qty!)}
-                                                                min={0}
-                                                                max={run.defect_qty!}
+                                                                value={String(sourceAllocations[run.work_run_id] ?? 0)}
+                                                                onChange={(e) => {
+                                                                    const s = formatIntegerInput(e.target.value);
+                                                                    handleAllocationChange(run.work_run_id, s === '' ? 0 : Number(s), run.defect_qty!);
+                                                                }}
                                                             />
                                                         </td>
                                                     </tr>
@@ -584,15 +588,14 @@ const WorkorderDetail: React.FC = () => {
                                                             </td>
                                                             <td>
                                                                 <input
-                                                                    type='number'
+                                                                    type='text'
                                                                     className='form-control form-control-sm form-control-solid text-center'
-                                                                    value={testResultAllocations[result.test_result_id] ?? 0}
+                                                                    value={String(testResultAllocations[result.test_result_id] ?? 0)}
                                                                     onChange={(e) => {
-                                                                        const val = Math.min(Math.max(0, Number(e.target.value)), result.failed_item_qty);
+                                                                        const s = formatIntegerInput(e.target.value);
+                                                                        const val = Math.min(Math.max(0, s === '' ? 0 : Number(s)), result.failed_item_qty);
                                                                         setTestResultAllocations(prev => ({ ...prev, [result.test_result_id]: val }));
                                                                     }}
-                                                                    min={0}
-                                                                    max={result.failed_item_qty}
                                                                 />
                                                             </td>
                                                         </tr>

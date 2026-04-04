@@ -12,6 +12,7 @@ import { useAlertModal } from '../../../context/ModalContext';
 import type { WorkRunDetail as WorkRunDetailType, WorkPhase, ReworkSource } from '../../../type_interface/WorkOrderType';
 import type { PickingAvailableItem } from '../../../type_interface/PickingRequestType';
 import PickingRequestModal from '../../../modals/picking_request_modal/PickingRequestModal';
+import { formatIntegerInput } from '../../../utils/input_format_utils';
 
 interface Employee {
     citizen_id: string;
@@ -773,21 +774,25 @@ const WorkRunDetail: React.FC = () => {
                     <div className='mb-4'>
                         <label className='form-label fw-bold'>จำนวนที่ใช้งานได้</label>
                         <input
-                            type='number'
+                            type='text'
                             className='form-control form-control-solid'
-                            value={completeForm.usable_qty}
-                            onChange={(e) => setCompleteForm(prev => ({ ...prev, usable_qty: Number(e.target.value) }))}
-                            min={0}
+                            value={completeForm.usable_qty === 0 ? '' : String(completeForm.usable_qty)}
+                            onChange={(e) => {
+                                const s = formatIntegerInput(e.target.value);
+                                setCompleteForm(prev => ({ ...prev, usable_qty: s === '' ? 0 : Number(s) }));
+                            }}
                         />
                     </div>
                     <div className='mb-4'>
                         <label className='form-label fw-bold'>จำนวนของเสีย</label>
                         <input
-                            type='number'
+                            type='text'
                             className='form-control form-control-solid'
-                            value={completeForm.defect_qty}
-                            onChange={(e) => setCompleteForm(prev => ({ ...prev, defect_qty: Number(e.target.value) }))}
-                            min={0}
+                            value={completeForm.defect_qty === 0 ? '' : String(completeForm.defect_qty)}
+                            onChange={(e) => {
+                                const s = formatIntegerInput(e.target.value);
+                                setCompleteForm(prev => ({ ...prev, defect_qty: s === '' ? 0 : Number(s) }));
+                            }}
                         />
                     </div>
                     <div className='mb-4'>

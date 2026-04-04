@@ -2,32 +2,36 @@ import React, { useEffect, useState } from 'react';
 import { Employee, EmployeeStatus } from '../../type_interface/EmployeeType';
 import { createEmployee, updateEmployee } from '../../services/employee';
 import { useAlertModal } from '../../context/ModalContext';
+import { validateRequired, validateEmail, validatePhone, validateCitizenId, validateNonNegativeNumber } from '../../utils/validate_utils';
+import { formatPhoneInput, formatTaxInput, handleCommaNumberInput, parseCommaNumber, formatWithCommas } from '../../utils/input_format_utils';
 
 interface Props {
     show: boolean;
     onHide: () => void;
     onSuccess: () => void;
-    employee?: Employee | null; // If present, we are in Edit mode
+    employee?: Employee | null;
 }
 
 const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employee }) => {
     const { openAlertModal } = useAlertModal();
     const [loading, setLoading] = useState(false);
-    // Form State
+
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [citizenId, setCitizenId] = useState('');
     const [address, setAddress] = useState('');
-    const [status, setStatus] = useState<string>('ทำงานอยู่'); // Default status (Thai)
+    const [status, setStatus] = useState<string>('ทำงานอยู่');
     const [salary_base, setSalaryBase] = useState<number | string>('');
 
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
     const isEditMode = !!employee;
+
     useEffect(() => {
         if (show) {
             if (employee) {
-                // Edit Mode: Prefill data
                 setFirstName(employee.employee_first_name || '');
                 setLastName(employee.employee_last_name || '');
                 setEmail(employee.email || '');
@@ -35,9 +39,8 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                 setCitizenId(employee.citizen_id || '');
                 setAddress(employee.address || '');
                 setStatus(employee.status || 'ทำงานอยู่');
-                setSalaryBase(employee.salary_base || '');
+                setSalaryBase(employee.salary_base ? formatWithCommas(employee.salary_base) : '');
             } else {
-                // Add Mode: Reset form
                 resetForm();
             }
         }
@@ -52,28 +55,48 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
         setAddress('');
         setStatus('ทำงานอยู่');
         setSalaryBase('');
-
+        setErrors({});
     };
 
-    const validate = () => {
-        if (!firstName || !lastName || !citizenId) {
-            openAlertModal("กรุณากรอกข้อมูลสำคัญ (ชื่อ, นามสกุล, เลขบัตร) ให้ครบถ้วน", () => { }, false);
-            return false;
+    const clearError = (field: string) => {
+        if (errors[field]) {
+            setErrors(prev => { const next = { ...prev }; delete next[field]; return next; });
         }
-        // No user creation required here anymore
-        return true;
+    };
+
+    const validateForm = (): boolean => {
+        const newErrors: Record<string, string> = {};
+
+        const firstNameErr = validateRequired(firstName, 'ชื่อ');
+        if (firstNameErr) newErrors.firstName = firstNameErr;
+
+        const lastNameErr = validateRequired(lastName, 'นามสกุล');
+        if (lastNameErr) newErrors.lastName = lastNameErr;
+
+        const citizenIdErr = validateRequired(citizenId, 'เลขบัตรประชาชน')
+            ?? validateCitizenId(citizenId);
+        if (citizenIdErr) newErrors.citizenId = citizenIdErr;
+
+        const phoneErr = validatePhone(phone);
+        if (phoneErr) newErrors.phone = phoneErr;
+
+        const emailErr = validateEmail(email);
+        if (emailErr) newErrors.email = emailErr;
+
+        if (salary_base !== '') {
+            const salaryErr = validateNonNegativeNumber(salary_base, 'ฐานเงินเดือน');
+            if (salaryErr) newErrors.salary_base = salaryErr;
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
     };
 
     const handleSubmit = async () => {
-        if (!validate()) return;
+        if (!validateForm()) return;
 
         setLoading(true);
         try {
-            let targetUserId = employee?.user_id;
-
-            // No automatic user creation — user_id left as-is (may be undefined for new employees)
-
-            // 2. Create/Update Employee
             const employeePayload = {
                 employee_first_name: firstName,
                 employee_last_name: lastName,
@@ -82,25 +105,14 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                 email: email,
                 address: address,
                 status: status,
-                salary_base: salary_base ? Number(salary_base) : 0,
-                user_id: targetUserId,
+                salary_base: salary_base ? parseCommaNumber(String(salary_base)) : 0,
+                user_id: employee?.user_id,
                 ...(isEditMode ? { employee_id: employee?.employee_id } : {})
             };
 
-            let res;
-            if (isEditMode) {
-                // The update API expects employee_id in the payload or URL dePENDING on implementation.
-                // Based on service: updateEmployee takes data. Let's check service implementation again to be sure key is passing correctly.
-                // Service: updateEmployee(data) -> PUT /update_employee -> Controller: update_employee(data) -> Service: update_employee(data.get("employee_id"), data) is NOT how backend is written
-                // Backend: update_employee(data) -> data = request.get_json() -> update_employee(data).
-                // Backend Service implementation: def update_employee(data): employee_id = data.get("employee_id") ...
-                // Wait, let me double check backend service update_employee signature.
-                // Checked previously: def update_employee(data): ... employee = Employee.query.get(data.get("employee_id")) ...
-                // So sending employee_id in body is correct.
-                res = await updateEmployee({ ...employeePayload, employee_id: employee?.employee_id });
-            } else {
-                res = await createEmployee(employeePayload);
-            }
+            const res = isEditMode
+                ? await updateEmployee({ ...employeePayload, employee_id: employee?.employee_id })
+                : await createEmployee(employeePayload);
 
             if (res && res.success) {
                 openAlertModal(isEditMode ? "แก้ไขข้อมูลสำเร็จ" : "เพิ่มพนักงานสำเร็จ", () => {
@@ -110,8 +122,7 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
             } else {
                 openAlertModal(res?.error || "เกิดข้อผิดพลาดในการบันทึกข้อมูล", () => { }, false);
             }
-
-        } catch (e) {
+        } catch {
             openAlertModal("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ", () => { }, false);
         } finally {
             setLoading(false);
@@ -132,47 +143,92 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                     </div>
 
                     <div className="modal-body scroll-y mx-5 mx-xl-10 my-7">
-                        <form id="kt_modal_add_employee_form" className="form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+                        <form className="form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
 
-
-                            {/* Employee Info Section */}
-                            <h3 className="mb-5 text-primary">ข้อมูลพนักงาน (Employee Info)</h3>
+                            <h3 className="mb-5 text-primary">ข้อมูลพนักงาน</h3>
                             <div className="row g-9 mb-8">
                                 <div className="col-md-6 fv-row">
                                     <label className="required fs-6 fw-semibold mb-2">ชื่อ</label>
-                                    <input type="text" className="form-control form-control-solid" placeholder="ชื่อจริง" value={firstName} onChange={e => setFirstName(e.target.value)} />
+                                    <input
+                                        type="text"
+                                        className={`form-control form-control-solid ${errors.firstName ? "is-invalid" : ""}`}
+                                        placeholder="ชื่อจริง"
+                                        value={firstName}
+                                        onChange={e => { setFirstName(e.target.value); clearError('firstName'); }}
+                                    />
+                                    {errors.firstName && <div className="invalid-feedback">{errors.firstName}</div>}
                                 </div>
                                 <div className="col-md-6 fv-row">
                                     <label className="required fs-6 fw-semibold mb-2">นามสกุล</label>
-                                    <input type="text" className="form-control form-control-solid" placeholder="นามสกุล" value={lastName} onChange={e => setLastName(e.target.value)} />
+                                    <input
+                                        type="text"
+                                        className={`form-control form-control-solid ${errors.lastName ? "is-invalid" : ""}`}
+                                        placeholder="นามสกุล"
+                                        value={lastName}
+                                        onChange={e => { setLastName(e.target.value); clearError('lastName'); }}
+                                    />
+                                    {errors.lastName && <div className="invalid-feedback">{errors.lastName}</div>}
                                 </div>
                             </div>
 
                             <div className="row g-9 mb-8">
                                 <div className="col-md-6 fv-row">
                                     <label className="required fs-6 fw-semibold mb-2">เลขบัตรประชาชน</label>
-                                    <input type="text" className="form-control form-control-solid" placeholder="เลขบัตรประชาชน 13 หลัก" value={citizenId} onChange={e => setCitizenId(e.target.value)} maxLength={13} />
+                                    <input
+                                        type="text"
+                                        className={`form-control form-control-solid ${errors.citizenId ? "is-invalid" : ""}`}
+                                        placeholder="เลขบัตรประชาชน 13 หลัก"
+                                        value={citizenId}
+                                        onChange={e => { setCitizenId(formatTaxInput(e.target.value)); clearError('citizenId'); }}
+                                        maxLength={13}
+                                    />
+                                    {errors.citizenId && <div className="invalid-feedback">{errors.citizenId}</div>}
                                 </div>
                                 <div className="col-md-6 fv-row">
                                     <label className="fs-6 fw-semibold mb-2">เบอร์โทรศัพท์</label>
-                                    <input type="text" className="form-control form-control-solid" placeholder="เบอร์โทรศัพท์ติดต่อ" value={phone} onChange={e => setPhone(e.target.value)} />
+                                    <input
+                                        type="text"
+                                        className={`form-control form-control-solid ${errors.phone ? "is-invalid" : ""}`}
+                                        placeholder="เบอร์โทรศัพท์ติดต่อ"
+                                        value={phone}
+                                        onChange={e => { setPhone(formatPhoneInput(e.target.value)); clearError('phone'); }}
+                                        maxLength={10}
+                                    />
+                                    {errors.phone && <div className="invalid-feedback">{errors.phone}</div>}
                                 </div>
                             </div>
 
                             <div className="fv-row mb-8">
                                 <label className="fs-6 fw-semibold mb-2">อีเมล</label>
-                                <input type="email" className="form-control form-control-solid" placeholder="Ex. example@email.com" value={email} onChange={e => setEmail(e.target.value)} />
+                                <input
+                                    type="text"
+                                    className={`form-control form-control-solid ${errors.email ? "is-invalid" : ""}`}
+                                    placeholder="Ex. example@email.com"
+                                    value={email}
+                                    onChange={e => { setEmail(e.target.value); clearError('email'); }}
+                                />
+                                {errors.email && <div className="invalid-feedback">{errors.email}</div>}
                             </div>
 
                             <div className="fv-row mb-8">
                                 <label className="fs-6 fw-semibold mb-2">ที่อยู่</label>
-                                <textarea className="form-control form-control-solid" rows={3} placeholder="ที่อยู่ปัจจุบัน" value={address} onChange={e => setAddress(e.target.value)}></textarea>
+                                <textarea
+                                    className="form-control form-control-solid"
+                                    rows={3}
+                                    placeholder="ที่อยู่ปัจจุบัน"
+                                    value={address}
+                                    onChange={e => setAddress(e.target.value)}
+                                />
                             </div>
 
                             <div className="row g-9 mb-8">
                                 <div className="col-md-6 fv-row">
                                     <label className="required fs-6 fw-semibold mb-2">สถานะพนักงาน</label>
-                                    <select className="form-select form-select-solid" value={status} onChange={e => setStatus(e.target.value)}>
+                                    <select
+                                        className="form-select form-select-solid"
+                                        value={status}
+                                        onChange={e => setStatus(e.target.value)}
+                                    >
                                         {Object.values(EmployeeStatus).map((s) => (
                                             <option key={s} value={s}>{s}</option>
                                         ))}
@@ -180,7 +236,18 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                                 </div>
                                 <div className="col-md-6 fv-row">
                                     <label className="fs-6 fw-semibold mb-2">ฐานเงินเดือน</label>
-                                    <input type="number" className="form-control form-control-solid" placeholder="0.00" value={salary_base} onChange={e => setSalaryBase(e.target.value)} />
+                                    <input
+                                        type="text"
+                                        className={`form-control form-control-solid ${errors.salary_base ? "is-invalid" : ""}`}
+                                        placeholder="0"
+                                        value={salary_base}
+                                        onChange={e => {
+                                            const { displayValue } = handleCommaNumberInput(e.target.value);
+                                            setSalaryBase(displayValue);
+                                            clearError('salary_base');
+                                        }}
+                                    />
+                                    {errors.salary_base && <div className="invalid-feedback">{errors.salary_base}</div>}
                                 </div>
                             </div>
 

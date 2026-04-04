@@ -16,6 +16,7 @@ import { Material } from "../../../type_interface/MaterialType";
 import { createQCWorkOrder, updateQCWorkOrder, getQCWorkOrderById } from "../../../services/qcWorkOrderService";
 import Swal from "sweetalert2";
 import { generateQCWorkOrderPDF } from "../../../utils/generateQCWorkOrderPDF";
+import { formatIntegerInput } from "../../../utils/input_format_utils";
 
 type PageMode = "create" | "view" | "edit";
 
@@ -501,11 +502,13 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 									<label className="form-label">จำนวน (Qty)</label>
 									{!isReadOnly ? (
 										<input
-											type="number"
-											min={1}
+											type="text"
 											className="form-control"
-											value={formData.quantity}
-											onChange={(e) => handleInputChange("quantity", Math.max(1, parseInt(e.target.value) || 1))}
+											value={String(formData.quantity)}
+											onChange={(e) => {
+												const s = formatIntegerInput(e.target.value);
+												handleInputChange("quantity", Math.max(1, s === '' ? 1 : Number(s)));
+											}}
 										/>
 									) : (
 										<input type="text" className="form-control" value={formData.quantity ?? 1} disabled />

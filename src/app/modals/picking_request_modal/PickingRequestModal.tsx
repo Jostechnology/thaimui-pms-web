@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Modal } from "react-bootstrap";
 import Swal from "sweetalert2";
 import type { PickingAvailableItem, PickingRequestPayload } from "../../type_interface/PickingRequestType";
+import { validatePositiveNumber, validateRequired } from "../../utils/validate_utils";
 
 interface PickingItemForm {
     item_code: string;
@@ -31,11 +32,13 @@ const PickingRequestModal: React.FC<Props> = ({
     const [selectedItems, setSelectedItems] = useState<Record<string, PickingItemForm>>({});
     const [remark, setRemark] = useState("");
     const [saving, setSaving] = useState(false);
+    const [itemErrors, setItemErrors] = useState<Record<string, { quantity?: string; unit?: string }>>({});
 
     useEffect(() => {
         if (show) {
             setSelectedItems({});
             setRemark("");
+            setItemErrors({});
         }
     }, [show]);
 
@@ -74,16 +77,22 @@ const PickingRequestModal: React.FC<Props> = ({
             Swal.fire("แจ้งเตือน", "กรุณาเลือกรายการอย่างน้อย 1 รายการ", "warning");
             return;
         }
-        const invalidQty = items.find((it) => !it.quantity || it.quantity <= 0);
-        if (invalidQty) {
-            Swal.fire("แจ้งเตือน", `กรุณาระบุจำนวนสำหรับ "${invalidQty.item_name}"`, "warning");
+
+        const newItemErrors: Record<string, { quantity?: string; unit?: string }> = {};
+        for (const it of items) {
+            const qtyErr = validatePositiveNumber(it.quantity, 'จำนวน');
+            const unitErr = validateRequired(it.unit.trim(), 'หน่วย');
+            if (qtyErr || unitErr) {
+                newItemErrors[it.item_code] = {};
+                if (qtyErr) newItemErrors[it.item_code].quantity = qtyErr;
+                if (unitErr) newItemErrors[it.item_code].unit = unitErr;
+            }
+        }
+        if (Object.keys(newItemErrors).length > 0) {
+            setItemErrors(newItemErrors);
             return;
         }
-        const missingUnit = items.find((it) => !it.unit.trim());
-        if (missingUnit) {
-            Swal.fire("แจ้งเตือน", `กรุณาระบุหน่วยสำหรับ "${missingUnit.item_name}"`, "warning");
-            return;
-        }
+        setItemErrors({});
 
         const payload: PickingRequestPayload = {
             remark: remark.trim() || undefined,
@@ -160,26 +169,54 @@ const PickingRequestModal: React.FC<Props> = ({
                                                     <td className="text-gray-800">{item.item_name}</td>
                                                     <td className="text-center">
                                                         {checked ? (
-                                                            <input
-                                                                type="number"
-                                                                className="form-control form-control-sm text-center"
-                                                                min={1}
-                                                                value={form.quantity}
-                                                                onChange={(e) => updateItemField(item.item_code, "quantity", Number(e.target.value))}
-                                                            />
+                                                            <>
+                                                                <input
+                                                                    type="number"
+                                                                    className={`form-control form-control-sm text-center ${itemErrors[item.item_code]?.quantity ? "is-invalid" : ""}`}
+                                                                    min={1}
+                                                                    value={form.quantity}
+                                                                    onChange={(e) => {
+                                                                        updateItemField(item.item_code, "quantity", Number(e.target.value));
+                                                                        if (itemErrors[item.item_code]?.quantity) {
+                                                                            setItemErrors(prev => {
+                                                                                const next = { ...prev };
+                                                                                if (next[item.item_code]) delete next[item.item_code].quantity;
+                                                                                return next;
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                {itemErrors[item.item_code]?.quantity && (
+                                                                    <div className="invalid-feedback">{itemErrors[item.item_code].quantity}</div>
+                                                                )}
+                                                            </>
                                                         ) : (
                                                             <span className="text-muted">—</span>
                                                         )}
                                                     </td>
                                                     <td className="text-center">
                                                         {checked ? (
-                                                            <input
-                                                                type="text"
-                                                                className="form-control form-control-sm text-center"
-                                                                placeholder="pcs"
-                                                                value={form.unit}
-                                                                onChange={(e) => updateItemField(item.item_code, "unit", e.target.value)}
-                                                            />
+                                                            <>
+                                                                <input
+                                                                    type="text"
+                                                                    className={`form-control form-control-sm text-center ${itemErrors[item.item_code]?.unit ? "is-invalid" : ""}`}
+                                                                    placeholder="pcs"
+                                                                    value={form.unit}
+                                                                    onChange={(e) => {
+                                                                        updateItemField(item.item_code, "unit", e.target.value);
+                                                                        if (itemErrors[item.item_code]?.unit) {
+                                                                            setItemErrors(prev => {
+                                                                                const next = { ...prev };
+                                                                                if (next[item.item_code]) delete next[item.item_code].unit;
+                                                                                return next;
+                                                                            });
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                {itemErrors[item.item_code]?.unit && (
+                                                                    <div className="invalid-feedback">{itemErrors[item.item_code].unit}</div>
+                                                                )}
+                                                            </>
                                                         ) : (
                                                             <span className="text-muted">—</span>
                                                         )}
