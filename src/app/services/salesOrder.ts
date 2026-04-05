@@ -9,6 +9,8 @@ export interface SalesOrderSummary {
     slp_name: string;
     bpl_code: string;
     bpl_name: string;
+    branch_code: string | null;
+    branch_name: string | null;
     group_code: string;
     group_name: string;
     created_date: string;

@@ -54,6 +54,8 @@ interface SalesOrder {
     slp_name: string;
     bpl_code: string;
     bpl_name: string;
+    branch_code: string;
+    branch_name: string;
     group_code: string;
     group_name: string;
     created_date: string;
@@ -240,6 +242,14 @@ const SalesOrderView: React.FC = () => {
                                 <div className="col-sm-8 fw-bold">
                                     <i className="bi bi-shop me-2 text-muted"></i>
                                     {salesOrder.bpl_name}
+                                </div>
+                            </div>
+                            <div className="row mb-4">
+                                <div className="col-sm-4 text-muted fw-bolder">สาขาผลิต:</div>
+                                <div className="col-sm-8 fw-bold">
+                                    <i className="bi bi-building me-2 text-muted"></i>
+                                    {salesOrder.branch_name ? `${salesOrder.branch_name}` : <span className="badge badge-light-warning ms-2">ยังไม่ระบุสาขาผลิต</span>}
+                                    {salesOrder.branch_code && <span className="badge badge-light-info ms-2">{salesOrder.branch_code}</span>}
                                 </div>
                             </div>
                             <div className="row">

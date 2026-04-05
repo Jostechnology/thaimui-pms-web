@@ -162,9 +162,18 @@ const SalesOrderList: React.FC = () => {
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <div className="d-flex align-items-center gap-2">
-                                                        <i className="bi bi-shop text-primary fs-4"></i>
-                                                        <span className="text-gray-800 fw-bold fs-6">{so.bpl_name || '-'}</span>
+                                                    <div className="d-flex flex-column gap-1">
+                                                        <div className="d-flex align-items-center gap-2">
+                                                            <i className="bi bi-shop text-primary fs-6"></i>
+                                                            <span className="text-gray-800 fw-bold fs-6">{so.bpl_name || '-'}</span>
+                                                        </div>
+                                                        <div className="d-flex align-items-center gap-2">
+                                                            <i className="bi bi-building text-muted fs-6"></i>
+                                                            {so.branch_name
+                                                                ? <span className="text-muted fw-semibold fs-7">{so.branch_name}</span>
+                                                                : <span className="text-muted fs-7 fst-italic">ยังไม่ระบุสาขาผลิต</span>
+                                                            }
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td>
