@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate, useParams } from "react-router-dom";
-import { getSalesOrderById, completeSalesItem } from '../../../services/salesOrder';
+import { getSalesOrderById, completeSalesItem, assignBranchToSalesOrder } from '../../../services/salesOrder';
 import { getMaterialStockSummary } from '../../../services/materialStockService';
+import { getBranchList } from '../../../services/branchService';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
+import { useMasterData } from '../../../context/MasterDataContext';
+import { getUserAction } from '../../../helpers/pageAccess';
 import type { MaterialStockSummary } from '../../../type_interface/MaterialStockType';
 import MaterialUsageDetailModal from '../../Tracking/components/MaterialUsageDetailModal';
 import SalesItemTrackingModal from '../../quality_control/components/SalesItemTrackingModal';
@@ -64,11 +67,19 @@ interface SalesOrder {
     material_list: Material[];
 }
 
+interface Branch {
+    branch_id: number;
+    branch_code: string;
+    branch_name: string;
+}
+
 const SalesOrderView: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
+    const { masterData } = useMasterData();
+    const allowedActions = getUserAction(masterData.actionList, "SALE_ORDER", "UNASSIGNED_SO");
 
     const [salesOrder, setSalesOrder] = useState<SalesOrder | null>(null);
     const [dataLoading, setDataLoading] = useState(true);
@@ -80,17 +91,25 @@ const SalesOrderView: React.FC = () => {
     const [showTrackingModal, setShowTrackingModal] = useState(false);
     const [selectedSalesItemId, setSelectedSalesItemId] = useState<number | null>(null);
     const [completingId, setCompletingId] = useState<number | null>(null);
+    const [branches, setBranches] = useState<Branch[]>([]);
+    const [assigningBranch, setAssigningBranch] = useState(false);
 
     const fetchData = async () => {
         setLoading();
         setDataLoading(true);
         try {
-            const result = await getSalesOrderById(Number(id));
+            const [result, branchResult] = await Promise.all([
+                getSalesOrderById(Number(id)),
+                getBranchList(),
+            ]);
             if (result && result.success && result.data) {
                 setSalesOrder(result.data);
             } else {
                 alertMessage("ไม่สามารถดึงข้อมูลใบสั่งขายได้");
                 navigate('/sales_order/list');
+            }
+            if (branchResult && branchResult.success) {
+                setBranches(branchResult.data || []);
             }
         } catch (error) {
             console.error(error);
@@ -98,6 +117,24 @@ const SalesOrderView: React.FC = () => {
         } finally {
             setUnLoading();
             setDataLoading(false);
+        }
+    };
+
+    const handleAssignBranch = async (branchId: number) => {
+        if (!salesOrder) return;
+        setAssigningBranch(true);
+        try {
+            const result = await assignBranchToSalesOrder(salesOrder.doc_entry, branchId);
+            if (result && result.success) {
+                await fetchData();
+            } else {
+                alertMessage((result as any)?.message || "ไม่สามารถกำหนดสาขาผลิตได้");
+            }
+        } catch (error) {
+            console.error(error);
+            alertMessage("เกิดข้อผิดพลาด");
+        } finally {
+            setAssigningBranch(false);
         }
     };
 
@@ -246,10 +283,34 @@ const SalesOrderView: React.FC = () => {
                             </div>
                             <div className="row mb-4">
                                 <div className="col-sm-4 text-muted fw-bolder">สาขาผลิต:</div>
-                                <div className="col-sm-8 fw-bold">
-                                    <i className="bi bi-building me-2 text-muted"></i>
-                                    {salesOrder.branch_name ? `${salesOrder.branch_name}` : <span className="badge badge-light-warning ms-2">ยังไม่ระบุสาขาผลิต</span>}
-                                    {salesOrder.branch_code && <span className="badge badge-light-info ms-2">{salesOrder.branch_code}</span>}
+                                <div className="col-sm-8">
+                                    {allowedActions.edit ? (
+                                        <div className="d-flex align-items-center gap-2">
+                                            <select
+                                                className="form-select form-select-sm"
+                                                value={branches.find(b => b.branch_code === salesOrder.branch_code)?.branch_id ?? ''}
+                                                disabled={assigningBranch}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    if (val) handleAssignBranch(Number(val));
+                                                }}
+                                            >
+                                                <option value="">-- เลือกสาขาผลิต --</option>
+                                                {branches.map(b => (
+                                                    <option key={b.branch_id} value={b.branch_id}>
+                                                        {b.branch_name} ({b.branch_code})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {assigningBranch && <span className="spinner-border spinner-border-sm text-primary" />}
+                                        </div>
+                                    ) : (
+                                        <div className="fw-bold">
+                                            <i className="bi bi-building me-2 text-muted"></i>
+                                            {salesOrder.branch_name ? salesOrder.branch_name : <span className="badge badge-light-warning">ยังไม่ระบุสาขาผลิต</span>}
+                                            {salesOrder.branch_code && <span className="badge badge-light-info ms-2">{salesOrder.branch_code}</span>}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="row">

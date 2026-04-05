@@ -141,7 +141,7 @@ const SidebarMenuMain = () => {
                       {
                         menu.subMenu.map((sub_menu, s_index) => {
                           return (
-                            <SidebarMenuItem
+                            sub_menu.display && <SidebarMenuItem
                               key={`${sub_menu.title}-${s_index}`}
                               to={sub_menu.path}
                               title={sub_menu.title}

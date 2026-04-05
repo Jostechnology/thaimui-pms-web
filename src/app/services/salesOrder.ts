@@ -77,6 +77,25 @@ export const completeSalesItem = async (sales_item_id: number) => {
     }
 }
 
+export const assignBranchToSalesOrder = async (doc_entry: number, branch_id: number) => {
+    try {
+        const response = await front_api(
+            "POST",
+            `/sales_order/${doc_entry}/pms_assign_branch`,
+            { branch_id },
+            { wrapData: false }
+        );
+
+        if (!response) return false;
+
+        const result = await response.json();
+        return response.ok ? { ...result, success: true } : { ...result, success: false };
+    } catch (error) {
+        console.error("assignBranchToSalesOrder Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+}
+
 export const getSalesOrderById = async (doc_entry: number) => {
     try {
         const response = await front_api(
