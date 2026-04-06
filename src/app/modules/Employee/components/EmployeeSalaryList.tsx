@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import Swal from 'sweetalert2';
 import { useAlertModal } from '../../../context/ModalContext';
 import { useAppLoading } from '../../../context/AppLoadingContext';
+import { useTableParams } from '../../../hooks/useTableParams';
+import TablePaginator from '../../../custom_components/TablePaginator';
 import SalaryAdjustmentModal from '../../../modals/salary_model/SalaryAdjustmentModal';
 import SalarySummaryModal from '../../../modals/salary_model/SalarySummaryModal';
 import { EmployeeStatus, EmployeeStatusLabel } from '../../../type_interface/EmployeeType';
 import { getEmployeeSalaryList } from '../../../services/employee';
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 
-// Interface ของข้อมูลพนักงาน (รองรับฟิลด์ต่างๆ ที่ระบบอาจส่งมา)
 export interface EmployeeData {
     employee_id: number;
     employee_first_name: string;
@@ -27,76 +25,62 @@ export interface EmployeeData {
 }
 
 const EmployeeSalaryList: React.FC = () => {
-    const [employees, setEmployees] = useState<EmployeeData[]>([]);
-    const [loading, setLoading] = useState<boolean>(false);
-    const [searchTerm, setSearchTerm] = useState<string>("");
+    const { setLoading, setUnLoading } = useAppLoading();
+    const [searchParams] = useSearchParams();
 
-    const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
-    const [currentPage, setCurrentPage] = useState<number>(1);
-    const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+    const [employees, setEmployees] = useState<EmployeeData[]>([]);
+    const [dataLoading, setDataLoading] = useState<boolean>(false);
+    const [totalPages, setTotalPages] = useState<number>(0);
+
+    const [searchTerm, setSearchTerm] = useState<string>(searchParams.get('search') || '');
+    const [keyword, setKeyword] = useState<string>(searchParams.get('search') || '');
+    const [currentPage, setCurrentPage] = useState<number>(parseInt(searchParams.get('page') || '1'));
+    const [pageConfig, setPageConfig] = useState<number>(parseInt(searchParams.get('pageConfig') || '10'));
 
     const [showAdjustModal, setShowAdjustModal] = useState(false);
     const [showSummaryModal, setShowSummaryModal] = useState(false);
-
     const [selectedEmp, setSelectedEmp] = useState<any>(null);
 
+    useTableParams({
+        currentPage,
+        setCurrentPage,
+        pageConfig,
+        setPageConfig,
+        keyword,
+        setKeyword,
+        setSearchTerm,
+    });
+
     const fetchData = async () => {
-        setLoading(true);
+        setDataLoading(true);
+        setLoading();
         try {
-            // let monthParam = "";
-            // if (selectedDate) {
-            //     const year = selectedDate.getFullYear();
-            //     const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            //     monthParam = `${year}-${month}`;
-            // }
-            const res = await getEmployeeSalaryList(searchTerm);
+            const res = await getEmployeeSalaryList(currentPage, pageConfig, keyword);
             if (res && res.success && res.data && res.data.items) {
                 setEmployees(res.data.items);
+                setTotalPages(res.pagination?.pages ?? 0);
             } else {
                 setEmployees([]);
+                setTotalPages(0);
             }
         } catch (error) {
             console.error(error);
             setEmployees([]);
+            setTotalPages(0);
         } finally {
-            setLoading(false);
+            setUnLoading();
+            setDataLoading(false);
         }
     };
 
     useEffect(() => {
-        const delayDebounceFn = setTimeout(() => {
-            fetchData();
-        }, 500);
-        return () => clearTimeout(delayDebounceFn);
-    }, [searchTerm, selectedDate]);
+        fetchData();
+    }, [currentPage, pageConfig, keyword]);
 
     const handleOpenAdjustModal = (emp: EmployeeData) => {
-        // เปิดโมดอลเพื่อปรับเงินเดือน (บันทึก employee สำหรับส่งเข้า modal)
-        console.log("เปิดโมดอลปรับเงินเดือน:", emp);
         setSelectedEmp(emp);
         setShowAdjustModal(true);
     };
-    // ฟังก์ชันตัวอย่างสำหรับเปิดหน้าสรุป (ยังไม่ใช้งาน)
-    // const handleOpenSummaryModal = (emp: EmployeeData) => {
-    //     console.log("เปิดหน้าสรุปเงินเดือน:", emp);
-    //     setSelectedEmp(emp);
-    //     setShowSummaryModal(true);
-    // };
-    // ตัวอย่าง custom input ของ DatePicker (ยังคงเป็นคอมเมนต์)
-    // const CustomDateInput = React.forwardRef(({ value, onClick }: any, ref: any) => (
-    //     <div className="d-flex align-items-center position-relative my-1" onClick={onClick} ref={ref}>
-    //         <button className="btn btn-sm btn-light-primary fw-bold me-2">
-    //             <i className="bi bi-calendar3 me-1"></i> เลือกเดือน
-    //         </button>
-    //         <input
-    //             type="text"
-    //             className="form-control form-control-sm form-control-solid w-150px text-center fw-bold cursor-pointer"
-    //             value={value}
-    //             readOnly
-    //             placeholder="เลือกเดือน"
-    //         />
-    //     </div>
-    // ));
 
     const formatCurrency = (amount: number | undefined | null) => {
         return (amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -104,14 +88,11 @@ const EmployeeSalaryList: React.FC = () => {
 
     const getThaiStatus = (status?: string | null) => {
         if (!status) return '-';
-        // กรณี backend ส่งค่าเป็นชื่อค่า enum ตัวอย่าง: 'UNEMPLOYED'
         if ((EmployeeStatusLabel as any)[status]) return (EmployeeStatusLabel as any)[status];
-        // กรณี backend ส่งค่าเป็นคีย์ของ enum เช่น 'UNEMPLOYED'
         if ((EmployeeStatus as any)[status]) {
             const enumValue = (EmployeeStatus as any)[status];
             return (EmployeeStatusLabel as any)[enumValue] || enumValue;
         }
-        // ลองจับคู่แบบไม่สนตัวพิมพ์ (case-insensitive) กับค่า enum
         const found = Object.values(EmployeeStatus).find((v: string) => v.toLowerCase() === status.toLowerCase());
         if (found) return (EmployeeStatusLabel as any)[found] || found;
         return status;
@@ -128,17 +109,6 @@ const EmployeeSalaryList: React.FC = () => {
 
                 <div className="card-toolbar">
                     <div className="d-flex align-items-center gap-2 gap-lg-3">
-                        {/* <div className="d-flex align-items-center">
-                            <DatePicker
-                                selected={selectedDate}
-                                onChange={(date) => setSelectedDate(date)}
-                                dateFormat="MMMM yyyy" // Display format: "February 2026"
-                                showMonthYearPicker // Show only month and year
-                                customInput={<CustomDateInput />}
-                            />
-                        </div> */}
-
-                        {/* ช่องค้นหา */}
                         <div className="d-flex align-items-center position-relative">
                             <span className="svg-icon svg-icon-1 position-absolute ms-4">
                                 <i className="bi bi-search fs-3"></i>
@@ -149,13 +119,13 @@ const EmployeeSalaryList: React.FC = () => {
                                 placeholder="ค้นหาจากชื่อพนักงาน..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && setKeyword(searchTerm)}
                             />
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* --- Body Section (Table) --- */}
             <div className="card-body pt-0">
                 <div className="table-responsive">
                     <table className="table align-middle table-row-dashed fs-6 gy-5">
@@ -168,7 +138,7 @@ const EmployeeSalaryList: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="fw-semibold text-gray-600">
-                            {loading ? (
+                            {dataLoading ? (
                                 <tr>
                                     <td colSpan={4} className="text-center py-10">
                                         <span className="spinner-border spinner-border-sm text-primary me-2"></span>
@@ -196,7 +166,7 @@ const EmployeeSalaryList: React.FC = () => {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className=" text-success fw-bold fs-6">
+                                        <td className="text-success fw-bold fs-6">
                                             {formatCurrency(item.base_salary || item.salary_base)}
                                         </td>
                                         <td className="text-center">
@@ -223,36 +193,24 @@ const EmployeeSalaryList: React.FC = () => {
                     </table>
                 </div>
 
-                {/* --- Footer Section (Pagination) --- */}
                 <div className="d-flex flex-stack flex-wrap pt-10">
-                    <div className="fs-6 fw-semibold text-gray-700"></div>
-
-                    <div className="d-flex align-items-center">
-                        <div className="d-flex align-items-center me-5">
-                            <span className="text-muted fw-bold me-2">จำนวนรายการ</span>
-                            <select
-                                className="form-select form-select-sm form-select-solid w-75px"
-                                value={itemsPerPage}
-                                onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                            >
-                                <option value="10">10</option>
-                                <option value="20">20</option>
-                                <option value="50">50</option>
-                            </select>
-                        </div>
-
-                        <ul className="pagination">
-                            <li className={`page-item previous ${currentPage === 1 ? 'disabled' : ''}`}>
-                                <button className="page-link" onClick={() => setCurrentPage(p => Math.max(1, p - 1))}><i className="previous"></i></button>
-                            </li>
-                            <li className="page-item active">
-                                <a href="#" className="page-link">{currentPage}</a>
-                            </li>
-                            <li className="page-item next">
-                                <button className="page-link" onClick={() => setCurrentPage(p => p + 1)}><i className="next"></i></button>
-                            </li>
-                        </ul>
+                    <div className="d-flex align-items-center me-5">
+                        <span className="text-muted fw-bold me-2">จำนวนรายการ</span>
+                        <select
+                            className="form-select form-select-sm form-select-solid w-75px"
+                            value={pageConfig}
+                            onChange={(e) => { setPageConfig(Number(e.target.value)); setCurrentPage(1); }}
+                        >
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select>
                     </div>
+                    <TablePaginator
+                        currentPage={currentPage}
+                        setCurrentPage={setCurrentPage}
+                        totalPages={totalPages}
+                    />
                 </div>
             </div>
 

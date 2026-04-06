@@ -1,8 +1,10 @@
 import { front_api } from "./apiConfig";
 
-export const getEmployeeList = async (search: string = "", status: string = "") => {
+export const getEmployeeList = async (page: number = 1, per_page: number = 10, search: string = "", status: string = "") => {
     try {
         const params = new URLSearchParams();
+        params.append("page", page.toString());
+        params.append("per_page", per_page.toString());
         if (search) params.append("search", search);
         if (status && status !== "all") params.append("status", status);
 
@@ -86,12 +88,12 @@ export const deleteEmployee = async (employee_id: number) => {
     }
 };
 
-export const getEmployeeSalaryList = async (search: string = '') => {
+export const getEmployeeSalaryList = async (page: number = 1, per_page: number = 10, search: string = '') => {
     try {
         const params = new URLSearchParams();
-        if (search) params.append('search', search)
-        // if (status && status !== 'all') params.append('status', status);
-
+        params.append('page', page.toString());
+        params.append('per_page', per_page.toString());
+        if (search) params.append('search', search);
 
         const response = await front_api(
             'GET',
