@@ -378,10 +378,10 @@ const WorkorderView: React.FC = () => {
                         </h1>
                     </div>
                     <p className="text-muted fs-6 ms-11">
-                        {workOrder.sales_item
-                            ? `สินค้า: ${workOrder.sales_item.item_name} • ${workOrder.sales_item.item_description}`
-                            : `ใบสั่งผลิต: ${workOrder.work_order_code}`
-                        }
+                        {workOrder.sales_item ? `สินค้า: ${workOrder.sales_item.item_name} • ${workOrder.sales_item.item_description ?? "ไม่มีรายละเอียด"}` : "ไม่พบข้อมูลสินค้า"}
+                    </p>
+                    <p className="text-muted fs-6 ms-11">
+                        {`ใบสั่งผลิต: ${workOrder.work_order_code}`}
                     </p>
                 </div>
                 <div className="d-flex gap-3 mt-3 mt-md-0">
