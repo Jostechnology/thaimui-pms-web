@@ -89,6 +89,7 @@ jobs:
 
           echo "TAG=${{ github.sha }}" > .env
           echo 'VITE_FRONT_API=${{ vars.VITE_FRONT_API_DEV }}' >> .env
+          echo 'VITE_DOCUMENT_GENERATOR_URL=${{ vars.VITE_DOCUMENT_GENERATOR_URL }}' >> .env
 
           echo "Logging in to GitLab Container Registry"
           docker login -u ${{ secrets.GITLAB_USERNAME }} -p ${{ secrets.GITLAB_ACCESS_TOKEN }} registry.gitlab.com
