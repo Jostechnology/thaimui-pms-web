@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Content } from '../../../../_metronic/layout/components/content';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAppLoading } from '../../../context/AppLoadingContext';
@@ -22,7 +22,17 @@ import type {
     FixedRowTableSection,
     ImageUploadSection,
     SectionType,
+    LayoutRowNode,
 } from '../../../type_interface/ComponentTemplateType';
+import {
+    LayoutEditor,
+    LayoutPreview,
+    migrateSectionsToLayout,
+    flattenLayoutToSections,
+    makeCol,
+    makeSectionNode,
+    appendChildAtPath,
+} from './TemplateLayout';
 
 // ─── Helpers ─────────────────────────────────────────────────
 let _keyCounter = 0;
@@ -986,8 +996,13 @@ const TemplateBuilder: React.FC = () => {
     const { alertMessage } = useAlertModal();
 
     const [templateName, setTemplateName] = useState('');
-    const [sections, setSections] = useState<TemplateSection[]>([]);
-    const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+    // Root of the recursive layout tree. Always a row; each top-level
+    // section lives inside a full-width column under this row.
+    const [layout, setLayout] = useState<LayoutRowNode>(() => ({
+        kind: 'row',
+        key: genKey('root'),
+        children: [],
+    }));
     const [submitting, setSubmitting] = useState(false);
 
     // ─── Load existing template if editing ───
@@ -999,7 +1014,13 @@ const TemplateBuilder: React.FC = () => {
                     const res = await getComponentTemplateById(Number(templateId));
                     if (res && res.success && res.data) {
                         setTemplateName(res.data.name || '');
-                        setSections(res.data.sections || []);
+                        // Prefer the new layout tree if the backend returned one,
+                        // otherwise migrate the legacy flat section list.
+                        if (res.data.layout) {
+                            setLayout(res.data.layout);
+                        } else {
+                            setLayout(migrateSectionsToLayout(res.data.sections || []));
+                        }
                     } else {
                         alertMessage('ไม่สามารถดึงข้อมูล Template ได้');
                         navigate('/workorder/workorders_template');
@@ -1013,38 +1034,11 @@ const TemplateBuilder: React.FC = () => {
         }
     }, [templateId]);
 
-    // ─── Section CRUD ───
-    const addSection = (type: SectionType) => {
-        const newSection = createDefaultSection(type);
-        setSections(prev => [...prev, newSection]);
-        setExpandedIdx(sections.length);
-    };
-
-    const updateSection = useCallback((idx: number, updated: TemplateSection) => {
-        setSections(prev => prev.map((s, i) => i === idx ? updated : s));
-    }, []);
-
-    const removeSection = (idx: number) => {
-        setSections(prev => prev.filter((_, i) => i !== idx));
-        if (expandedIdx === idx) setExpandedIdx(null);
-        else if (expandedIdx !== null && expandedIdx > idx) setExpandedIdx(expandedIdx - 1);
-    };
-
-    const moveSection = (idx: number, dir: -1 | 1) => {
-        const newIdx = idx + dir;
-        if (newIdx < 0 || newIdx >= sections.length) return;
-        const arr = [...sections];
-        [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
-        setSections(arr);
-        if (expandedIdx === idx) setExpandedIdx(newIdx);
-        else if (expandedIdx === newIdx) setExpandedIdx(idx);
-    };
-
-    const duplicateSection = (idx: number) => {
-        const original = sections[idx];
-        const copy = JSON.parse(JSON.stringify(original));
-        copy.key = genKey(copy.type);
-        setSections(prev => [...prev.slice(0, idx + 1), copy, ...prev.slice(idx + 1)]);
+    // Quick-add toolbar: append a full-width column containing a new section
+    // at the bottom of the root row.
+    const quickAddSection = (type: SectionType) => {
+        const newCol = makeCol(12, makeSectionNode(createDefaultSection(type)));
+        setLayout(prev => appendChildAtPath(prev, [], newCol));
     };
 
     // ─── Save ───
@@ -1053,7 +1047,8 @@ const TemplateBuilder: React.FC = () => {
             Swal.fire('กรุณากรอกชื่อ Template', '', 'warning');
             return;
         }
-        if (sections.length === 0) {
+        const flatSections = flattenLayoutToSections(layout);
+        if (flatSections.length === 0) {
             Swal.fire('กรุณาเพิ่ม Section อย่างน้อย 1 รายการ', '', 'warning');
             return;
         }
@@ -1061,7 +1056,9 @@ const TemplateBuilder: React.FC = () => {
         setSubmitting(true);
         setLoading();
         try {
-            const payload = { name: templateName.trim(), sections };
+            // Send both the new tree (`layout`) and the legacy flat list
+            // (`sections`) so older readers and the PDF service keep working.
+            const payload = { name: templateName.trim(), sections: flatSections, layout };
             let res;
             if (isEdit) {
                 res = await updateComponentTemplate(Number(templateId), payload);
@@ -1124,11 +1121,11 @@ const TemplateBuilder: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Add Section Toolbar */}
+                    {/* Quick-add Section Toolbar — appends a full-width section at the root */}
                     <div className='card shadow-sm mb-5'>
                         <div className='card-header border-0 py-4'>
                             <h3 className='card-title fw-bold fs-5 mb-0'>
-                                <i className='bi bi-plus-circle me-2 text-primary'></i>เพิ่ม Section
+                                <i className='bi bi-plus-circle me-2 text-primary'></i>เพิ่ม Section (เต็มแถว)
                             </h3>
                         </div>
                         <div className='card-body pt-0 pb-4'>
@@ -1136,70 +1133,44 @@ const TemplateBuilder: React.FC = () => {
                                 {(Object.keys(SECTION_TYPE_LABELS) as SectionType[]).map(type => (
                                     <button key={type}
                                         className='btn btn-sm btn-outline btn-outline-dashed btn-outline-primary'
-                                        onClick={() => addSection(type)}>
+                                        onClick={() => quickAddSection(type)}>
                                         <i className={`bi ${SECTION_TYPE_ICONS[type]} me-1`}></i>
                                         {SECTION_TYPE_LABELS[type]}
                                     </button>
                                 ))}
                             </div>
+                            <div className='text-muted fs-8 mt-2'>
+                                <i className='bi bi-info-circle me-1'></i>
+                                หรือเพิ่ม Row / Column / Section ซ้อนเข้าไปภายในโครงสร้างด้านล่าง (ลึกได้สูงสุด 3 ชั้น)
+                            </div>
                         </div>
                     </div>
 
-                    {/* Sections List */}
-                    {sections.length === 0 ? (
-                        <div className='card shadow-sm'>
-                            <div className='card-body text-center py-15 text-muted'>
-                                <i className='bi bi-layers fs-1 d-block mb-3'></i>
-                                <span className='fs-6'>ยังไม่มี Section — กดปุ่มด้านบนเพื่อเพิ่ม</span>
-                            </div>
+                    {/* Layout tree editor */}
+                    <div className='card shadow-sm mb-4'>
+                        <div className='card-header border-0 py-4'>
+                            <h3 className='card-title fw-bold fs-5 mb-0'>
+                                <i className='bi bi-diagram-3 me-2 text-primary'></i>โครงสร้าง Template
+                            </h3>
                         </div>
-                    ) : (
-                        sections.map((section, idx) => (
-                            <div key={section.key} className='card shadow-sm mb-4'>
-                                {/* Section Header */}
-                                <div className='card-header border-0 py-3 d-flex align-items-center justify-content-between'
-                                    style={{ cursor: 'pointer', userSelect: 'none' }}
-                                    onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}>
-                                    <div className='d-flex align-items-center'>
-                                        <span className='badge badge-light-primary me-3 fw-bold'>
-                                            {idx + 1}
-                                        </span>
-                                        <i className={`bi ${SECTION_TYPE_ICONS[section.type]} me-2 text-primary`}></i>
-                                        <span className='fw-bold fs-6'>
-                                            {SECTION_TYPE_LABELS[section.type]}
-                                            {('title' in section && section.title) && (
-                                                <span className='text-muted fw-normal ms-2'>— {(section as any).title}</span>
-                                            )}
-                                        </span>
-                                    </div>
-                                    <div className='d-flex gap-1' onClick={e => e.stopPropagation()}>
-                                        <button className='btn btn-sm btn-icon btn-light' title='ขึ้น'
-                                            disabled={idx === 0} onClick={() => moveSection(idx, -1)}>
-                                            <i className='bi bi-chevron-up'></i>
-                                        </button>
-                                        <button className='btn btn-sm btn-icon btn-light' title='ลง'
-                                            disabled={idx === sections.length - 1} onClick={() => moveSection(idx, 1)}>
-                                            <i className='bi bi-chevron-down'></i>
-                                        </button>
-                                        <button className='btn btn-sm btn-icon btn-light-info' title='คัดลอก'
-                                            onClick={() => duplicateSection(idx)}>
-                                            <i className='bi bi-copy'></i>
-                                        </button>
-                                        <button className='btn btn-sm btn-icon btn-light-danger' title='ลบ'
-                                            onClick={() => removeSection(idx)}>
-                                            <i className='bi bi-trash'></i>
-                                        </button>
-                                    </div>
+                        <div className='card-body pt-0'>
+                            {layout.children.length === 0 ? (
+                                <div className='text-center py-10 text-muted'>
+                                    <i className='bi bi-layers fs-1 d-block mb-3'></i>
+                                    <span className='fs-6'>ยังไม่มี Section — ใช้ปุ่มด้านบน หรือปุ่ม + ใน Column</span>
                                 </div>
-                                {/* Section Body (collapsible) */}
-                                {expandedIdx === idx && (
-                                    <div className='card-body border-top pt-4'>
-                                        {renderSectionEditor(section, (updated) => updateSection(idx, updated))}
-                                    </div>
-                                )}
-                            </div>
-                        ))
-                    )}
+                            ) : (
+                                <LayoutEditor
+                                    root={layout}
+                                    onChange={setLayout}
+                                    renderSectionEditor={renderSectionEditor}
+                                    createDefaultSection={createDefaultSection}
+                                    sectionTypeLabels={SECTION_TYPE_LABELS}
+                                    sectionTypeIcons={SECTION_TYPE_ICONS}
+                                />
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {/* RIGHT — Preview */}
@@ -1211,25 +1182,20 @@ const TemplateBuilder: React.FC = () => {
                             </h3>
                         </div>
                         <div className='card-body pt-0'>
-                            {sections.length === 0 ? (
+                            {layout.children.length === 0 ? (
                                 <div className='text-center py-15 text-muted'>
                                     <i className='bi bi-file-earmark fs-1 d-block mb-3'></i>
                                     <span className='fs-6'>เพิ่ม Section เพื่อดู Preview</span>
                                 </div>
                             ) : (
                                 <div className='border rounded p-4 bg-white'>
-                                    {/* Template Title */}
                                     <div className='text-center mb-4'>
                                         <h4 className='fw-bold'>{templateName || 'ชื่อ Template'}</h4>
                                     </div>
-                                    {sections.map((section, idx) => (
-                                        <div key={section.key}
-                                            className={`mb-4 ${expandedIdx === idx ? 'border border-primary rounded p-3' : ''}`}
-                                            style={{ cursor: 'pointer' }}
-                                            onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}>
-                                            {renderSectionPreview(section)}
-                                        </div>
-                                    ))}
+                                    <LayoutPreview
+                                        root={layout}
+                                        renderSectionPreview={renderSectionPreview}
+                                    />
                                 </div>
                             )}
                         </div>

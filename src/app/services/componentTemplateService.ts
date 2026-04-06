@@ -62,6 +62,7 @@ export const getComponentTemplateById = async (templateId: number): Promise<APIR
 export const createComponentTemplate = async (payload: {
     name: string;
     sections: any[];
+    layout?: any; // recursive layout tree — see ComponentTemplateType.LayoutRowNode
 }): Promise<APIResponse> => {
     try {
         const response = await front_api(
@@ -78,7 +79,7 @@ export const createComponentTemplate = async (payload: {
 
 export const updateComponentTemplate = async (
     templateId: number,
-    payload: { name?: string; sections?: any[] }
+    payload: { name?: string; sections?: any[]; layout?: any }
 ): Promise<APIResponse> => {
     try {
         const response = await front_api(
