@@ -177,18 +177,18 @@ const SalesOrderList: React.FC = () => {
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <div className="d-flex flex-column gap-2" style={{ minWidth: 160 }}>
-                                                        {/* Work Order progress */}
-                                                        <div>
-                                                            <div className="d-flex justify-content-between align-items-center mb-1">
+                                                    <div className="d-flex flex-column gap-3" style={{ minWidth: 200 }}>
+                                                        {/* Production */}
+                                                        <div className="d-flex flex-column gap-1">
+                                                            <div className="d-flex justify-content-between align-items-center">
                                                                 <span className="text-muted fs-8 fw-semibold">
                                                                     <i className="bi bi-gear me-1"></i>ผลิต
                                                                 </span>
                                                                 <span className="text-gray-700 fw-bold fs-8">
-                                                                    {so.produced_qty}/{so.quantity_to_produce}
+                                                                    {so.produced_qty}/{so.quantity_to_produce} ชิ้น
                                                                 </span>
                                                             </div>
-                                                            <div className="h-6px rounded bg-light">
+                                                            <div className="h-6px rounded bg-light mb-1">
                                                                 <div
                                                                     className="h-6px rounded"
                                                                     style={{
@@ -198,22 +198,26 @@ const SalesOrderList: React.FC = () => {
                                                                     }}
                                                                 />
                                                             </div>
+                                                            <span className={`badge ${so.produce_has_workorder >= so.produce_total ? 'badge-light-success' : 'badge-light-warning'} fs-9 w-100 text-start`}>
+                                                                <i className={`bi ${so.produce_has_workorder >= so.produce_total ? 'bi-check-circle' : 'bi-exclamation-circle'} me-1`}></i>
+                                                                ใบสั่งผลิต {so.produce_has_workorder}/{so.produce_total} รายการ
+                                                            </span>
                                                         </div>
 
-                                                        {/* QC progress */}
-                                                        <div>
-                                                            <div className="d-flex justify-content-between align-items-center mb-1">
+                                                        {/* QC */}
+                                                        <div className="d-flex flex-column gap-1">
+                                                            <div className="d-flex justify-content-between align-items-center">
                                                                 <span className="text-muted fs-8 fw-semibold">
                                                                     <i className="bi bi-clipboard2-check me-1"></i>QC
                                                                 </span>
                                                                 <span className="text-gray-700 fw-bold fs-8">
-                                                                    {so.qc_passed}/{so.qc_count}
+                                                                    {so.qc_passed}/{so.qc_count} ผ่าน
                                                                     {so.qc_failed > 0 && (
                                                                         <span className="text-danger ms-1">({so.qc_failed} ไม่ผ่าน)</span>
                                                                     )}
                                                                 </span>
                                                             </div>
-                                                            <div className="h-6px rounded bg-light d-flex overflow-hidden">
+                                                            <div className="h-6px rounded bg-light d-flex overflow-hidden mb-1">
                                                                 {so.qc_count > 0 && so.qc_passed > 0 && (
                                                                     <div
                                                                         className="h-6px"
@@ -235,6 +239,10 @@ const SalesOrderList: React.FC = () => {
                                                                     />
                                                                 )}
                                                             </div>
+                                                            <span className={`badge ${so.test_has_qcworkorder >= so.test_total ? 'badge-light-success' : 'badge-light-warning'} fs-9 w-100 text-start`}>
+                                                                <i className={`bi ${so.test_has_qcworkorder >= so.test_total ? 'bi-check-circle' : 'bi-exclamation-circle'} me-1`}></i>
+                                                                ใบสั่งเทส {so.test_has_qcworkorder}/{so.test_total} รายการ
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </td>

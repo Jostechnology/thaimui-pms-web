@@ -25,12 +25,14 @@ interface SalesItem {
     cost_price: number;
     producing_qty: number;
     produced_qty: number;
-    available_for_test_qty: number;
     unavailable_for_test_qty: number;
     passed_qty: number;
     failed_qty: number;
     num_qc_work_order : number;
     num_qc_successed_work_order : number;
+    produce: boolean;
+    test: boolean;
+    work_order: { work_order_id: number; work_order_code: string } | null;
     status: 'PENDING' | 'INPROGRESS' | 'COMPLETED';
     is_completable: boolean;
 }
@@ -346,7 +348,8 @@ const SalesOrderView: React.FC = () => {
                                     <th className="min-w-100px text-end">ราคาต้นทุน</th>
                                     <th className="min-w-100px text-end">ราคา/หน่วย</th>
                                     <th className="min-w-200px text-center">ความคืบหน้าการผลิต</th>
-                                    <th className="min-w-120px text-center pe-4 rounded-end">สถานะ</th>
+                                    <th className="min-w-120px text-center">สถานะ</th>
+                                    <th className="min-w-150px text-center pe-4 rounded-end">การดำเนินการ</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -382,10 +385,8 @@ const SalesOrderView: React.FC = () => {
                                                 {(() => {
                                                     const passed = item.passed_qty ?? 0;
                                                     const failed = item.failed_qty ?? 0;
-                                                    const unavailable = item.unavailable_for_test_qty ?? 0;
                                                     const num_qc_work_order = item.num_qc_work_order ?? 0;
                                                     const num_qc_successed_work_order = item.num_qc_successed_work_order ?? 0;
-                                                    const testing = Math.max(0, unavailable - passed - failed);
 
                                                     const noOrders = num_qc_work_order === 0;
                                                     const qcComplete = !noOrders && num_qc_successed_work_order === num_qc_work_order;
@@ -408,9 +409,9 @@ const SalesOrderView: React.FC = () => {
                                                         : 'bi-x-circle-fill';
 
                                                     const stats = [
-                                                    { label: 'กำลังผลิต', value: item.producing_qty ?? 0, icon: 'bi-gear-fill', color: 'text-warning' },
+                                                    // { label: 'กำลังผลิต', value: item.producing_qty ?? 0, icon: 'bi-gear-fill', color: 'text-warning' },
                                                     { label: 'ผลิตแล้ว', value: item.produced_qty ?? 0, icon: 'bi-check2-circle', color: 'text-primary' },
-                                                    { label: 'กำลังเทส', value: testing, icon: 'bi-hourglass-split', color: 'text-info' },
+                                                    // { label: 'กำลังเทส', value: testing, icon: 'bi-hourglass-split', color: 'text-info' },
                                                     { label: 'ผ่าน', value: passed, icon: 'bi-patch-check-fill', color: 'text-success' },
                                                     { label: 'ไม่ผ่าน', value: failed, icon: 'bi-x-circle-fill', color: 'text-danger' },
                                                     ];
@@ -425,17 +426,12 @@ const SalesOrderView: React.FC = () => {
                                                         </div>
                                                         ))}
 
-                                                        <div className="d-flex align-items-center gap-1">
-                                                        <span className={qcBadgeClass}>
-                                                            <i className={`bi ${qcIcon} me-1`}></i>
-                                                            {noOrders ? 'ไม่มีใบสั่งเทส' : `ใบสั่งเทส ${num_qc_successed_work_order}/${num_qc_work_order}`}
-                                                        </span>
-                                                        </div>
+                                                        
                                                     </div>
                                                     );
                                                 })()}
                                             </td>
-                                            <td className="text-center pe-4">
+                                            <td className="text-center">
                                                 {(() => {
                                                     const statusLabel = item.status === 'COMPLETED' ? 'เสร็จสิ้น'
                                                         : item.status === 'INPROGRESS' ? 'กำลังผลิต'
@@ -461,11 +457,37 @@ const SalesOrderView: React.FC = () => {
                                                     );
                                                 })()}
                                             </td>
+                                            <td className="text-center pe-4">
+                                                <div className="d-flex flex-column align-items-center gap-2">
+                                                    {item.produce && !item.work_order && (
+                                                        <button
+                                                            className="btn btn-sm btn-light-primary py-1 px-3"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                navigate(`/workorder/workorders_create?doc_entry=${item.doc_entry}&sales_item_id=${item.sales_item_id}`);
+                                                            }}
+                                                        >
+                                                            <i className="bi bi-gear me-1"></i>สร้างใบสั่งผลิต
+                                                        </button>
+                                                    )}
+                                                    {item.test && item.num_qc_work_order === 0 && (
+                                                        <button
+                                                            className="btn btn-sm btn-light-warning py-1 px-3"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                navigate(`/quality_control/qc_workorders_list/create?doc_entry=${item.doc_entry}&sales_item_id=${item.sales_item_id}`);
+                                                            }}
+                                                        >
+                                                            <i className="bi bi-clipboard2-check me-1"></i>สร้างใบสั่ง QC
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={8} className="text-center py-6 text-muted fs-6">ไม่พบรายการสินค้า</td>
+                                        <td colSpan={9} className="text-center py-6 text-muted fs-6">ไม่พบรายการสินค้า</td>
                                     </tr>
                                 )}
                             </tbody>

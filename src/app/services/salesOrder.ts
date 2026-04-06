@@ -20,6 +20,10 @@ export interface SalesOrderSummary {
     qc_count: number;
     qc_passed: number;
     qc_failed: number;
+    produce_total: number;
+    produce_has_workorder: number;
+    test_total: number;
+    test_has_qcworkorder: number;
     status: 'INPROGRESS' | 'COMPLETED';
 }
 

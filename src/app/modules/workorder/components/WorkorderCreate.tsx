@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Select from 'react-select';
 import { Content } from '../../../../_metronic/layout/components/content';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import { searchSalesOrderService, getSalesOrderService } from '../../../services/salesOrderService';
@@ -39,8 +39,14 @@ type SectionFormData = Record<string, any>;
 
 const WorkorderCreate: React.FC = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
+
+    // Pre-fill from URL params (when navigating from SalesOrderView)
+    const pendingSalesItemId = useRef<number | null>(
+        searchParams.get('sales_item_id') ? Number(searchParams.get('sales_item_id')) : null
+    );
 
     // Sales Order search & selection
     const [salesOrderOptions, setSalesOrderOptions] = useState<SalesOrderSearch[]>([]);
@@ -86,6 +92,36 @@ const WorkorderCreate: React.FC = () => {
             }
         })();
     }, []);
+
+    // ── Pre-fill from URL params ──
+    useEffect(() => {
+        const docEntryParam = searchParams.get('doc_entry');
+        if (!docEntryParam) return;
+        const docEntry = Number(docEntryParam);
+        (async () => {
+            try {
+                const res = await getSalesOrderService(docEntry);
+                if (res && res.success && res.data) {
+                    const detail = res.data as SalesOrderDetail;
+                    const soOption: SalesOrderSearch = {
+                        doc_entry: String(detail.doc_entry),
+                        doc_num: String(detail.doc_num),
+                    };
+                    setSalesOrderOptions([soOption]);
+                    setSelectedSalesOrder(soOption);
+                    setSelectedDocEntry(docEntry);
+                }
+            } catch { /* ignore */ }
+        })();
+    }, []);
+
+    // ── Apply pending sales_item_id once salesItems is populated ──
+    useEffect(() => {
+        if (pendingSalesItemId.current !== null && salesItems.length > 0) {
+            setSelectedSalesItemId(pendingSalesItemId.current);
+            pendingSalesItemId.current = null;
+        }
+    }, [salesItems]);
 
     const handleSearchSalesOrder = async (keyword: string) => {
         try {
