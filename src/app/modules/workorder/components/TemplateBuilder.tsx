@@ -822,8 +822,8 @@ const UNIFIED_COLS = [
     { key: 'type', label: 'ประเภท', width: 110 },
     { key: 'detail', label: 'รายละเอียด', width: 320 },
     { key: 'per_set', label: 'ต่อชุด', width: 280 },
-    { key: 'set', label: 'ชุด (set)', width: 70 },
-    { key: 'total', label: 'จำนวน', width: 90 },
+    { key: 'set', label: 'จำนวนชุด', width: 70 },
+    { key: 'total', label: 'จำนวนรวม', width: 90 },
     { key: 'unit', label: 'หน่วย', width: 80 },
 ];
 

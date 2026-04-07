@@ -595,6 +595,7 @@ const WorkorderCreate: React.FC = () => {
                                 const availableForThisComponent = materials.filter(m =>
                                     !selectedInThisComponent.includes(m.material_list_id)
                                 ).length;
+                                const total = availableForThisComponent + selectedInThisComponent.length
 
                                 return (
                                     <div key={comp.id} className="card card-flush shadow-sm border-0 mb-5">
@@ -633,8 +634,7 @@ const WorkorderCreate: React.FC = () => {
                                                         addMaterial(comp.id)
                                                     }}
                                                     disabled={
-                                                        (availableForThisComponent < selectedInThisComponent.length) ||
-                                                        hasUnselectedInThisComp
+                                                        (total <= comp.materials.length)
                                                     }
                                                 >
                                                     <i className="bi bi-plus me-1"></i> เพิ่มวัตถุดิบ
@@ -643,7 +643,6 @@ const WorkorderCreate: React.FC = () => {
 
                                             {comp.materials.map((mat, matIdx) => {
                                                 const selectedMaterial = materials.find(m => m.material_list_id === mat.material_list_id);
-                                                console.log(selectedMaterial)
                                                 const usedByOthers = selectedMaterial ? getTotalUsedForMaterial(selectedMaterial.material_list_id, comp.id, mat.id) : 0;
                                                 const availableFromStock = selectedMaterial ? getAvailableQuantity(selectedMaterial.material_list_id) : 0;
                                                 const maxQty = selectedMaterial ? availableFromStock - usedByOthers : 1;
