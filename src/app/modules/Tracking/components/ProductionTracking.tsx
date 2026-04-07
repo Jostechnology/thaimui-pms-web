@@ -229,7 +229,10 @@ const ProductionTracking: React.FC = () => {
                                                 >
                                                     <td className="text-muted fs-7">{idx + 1}</td>
                                                     <td className="text-muted fs-7 fw-semibold">{item.item_code}</td>
-                                                    <td className="fw-semibold text-gray-800">{item.item_name}</td>
+                                                    <td className="fw-semibold text-gray-800">
+                                                        {item.item_name}
+                                                        {item.item_group && <span className="badge badge-light-info ms-2 fs-8">{item.item_group}</span>}
+                                                    </td>
                                                     <td className="text-muted fs-7">{item.item_description}</td>
                                                     <td className="text-center fw-bold">{item.total_quantity}</td>
                                                     <td className="text-center text-primary fw-bold">{item.used_in_production}</td>

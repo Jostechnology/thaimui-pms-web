@@ -215,7 +215,10 @@ const WorkorderDetail: React.FC = () => {
                         <div className='row g-4'>
                             <div className='col-md-4'>
                                 <span className='text-muted fs-8 fw-bold d-block'>ชื่อสินค้า</span>
-                                <span className='text-gray-800 fw-bold fs-6'>{workOrder.sales_item.item_name}</span>
+                                <span className='text-gray-800 fw-bold fs-6'>
+                                    {workOrder.sales_item.item_name}
+                                    {workOrder.sales_item.item_group && <span className="badge badge-light-info ms-2 fs-8">{workOrder.sales_item.item_group}</span>}
+                                </span>
                             </div>
                             <div className='col-md-4'>
                                 <span className='text-muted fs-8 fw-bold d-block'>รหัสสินค้า</span>
@@ -393,7 +396,10 @@ const WorkorderDetail: React.FC = () => {
                                                                 <i className='bi bi-box-seam text-primary fs-6'></i>
                                                             </div>
                                                             <div className='d-flex flex-column'>
-                                                                <span className='fw-semibold text-gray-800 fs-7'>{usage.material_list?.item_name || '-'}</span>
+                                                                <span className='fw-semibold text-gray-800 fs-7'>
+                                                                    {usage.material_list?.item_name || '-'}
+                                                                    {usage.material_list?.item_group && <span className="badge badge-light-info ms-2 fs-8">{usage.material_list.item_group}</span>}
+                                                                </span>
                                                                 <span className='text-muted fs-9'>{usage.material_list?.item_code || '-'}</span>
                                                             </div>
                                                         </div>

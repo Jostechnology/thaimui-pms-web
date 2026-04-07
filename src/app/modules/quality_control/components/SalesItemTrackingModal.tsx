@@ -52,6 +52,7 @@ interface SalesItemTrackingData {
     sales_item_id: number;
     item_code: string;
     item_name: string;
+    item_group: string;
     item_num: number;
     item_description: string | null;
     doc_num: number;
@@ -158,6 +159,7 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
                                         <div className="fw-bold fs-5 text-gray-900 mb-1">
                                             {data.item_name}
                                             <span className="text-muted fw-semibold fs-7 ms-2">{data.item_code}</span>
+                                            {data.item_group && <span className="badge badge-light-info ms-2 fs-8">{data.item_group}</span>}
                                         </div>
                                         {data.item_description && (
                                             <div className="text-muted fs-7 mb-1">{data.item_description}</div>

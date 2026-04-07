@@ -92,6 +92,7 @@ const SalesOrderView: React.FC = () => {
     const [showTrackingModal, setShowTrackingModal] = useState(false);
     const [selectedSalesItemId, setSelectedSalesItemId] = useState<number | null>(null);
     const [completingId, setCompletingId] = useState<number | null>(null);
+    const [materialSalesItemFilter, setMaterialSalesItemFilter] = useState<number | 'all'>('all');
     const [branches, setBranches] = useState<Branch[]>([]);
     const [assigningBranch, setAssigningBranch] = useState(false);
 
@@ -367,7 +368,10 @@ const SalesOrderView: React.FC = () => {
                                             </td>
                                             <td>
                                                 <div className="d-flex flex-column">
-                                                    <span className="text-gray-800 fw-bolder fs-6">{item.item_name}</span>
+                                                    <span className="text-gray-800 fw-bolder fs-6">
+                                                        {item.item_name}
+                                                        {item.item_group && <span className="badge badge-light-info ms-2 fs-8">{item.item_group}</span>}
+                                                    </span>
                                                     <span className="text-muted fw-bold d-block fs-7">{item.item_description || '-'}</span>
                                                 </div>
                                             </td>
@@ -509,7 +513,20 @@ const SalesOrderView: React.FC = () => {
                                 <i className="bi bi-tools fs-2 me-2 text-warning"></i> รายการวัตถุดิบ ({salesOrder.material_list.length})
                             </span>
                         </h3>
-                        <div className="card-toolbar">
+                        <div className="card-toolbar d-flex align-items-center gap-3">
+                            <select
+                                className="form-select form-select-sm"
+                                style={{ minWidth: 240 }}
+                                value={materialSalesItemFilter}
+                                onChange={e => setMaterialSalesItemFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                            >
+                                <option value="all">ทุกสินค้า</option>
+                                {salesOrder.items.map(it => (
+                                    <option key={it.sales_item_id} value={it.sales_item_id}>
+                                        {it.item_code} - {it.item_name}
+                                    </option>
+                                ))}
+                            </select>
                             <span className="text-muted fs-7">
                                 <i className="bi bi-hand-index me-1"></i>คลิกที่รายการเพื่อดูรายละเอียดการใช้งาน
                             </span>
@@ -559,6 +576,7 @@ const SalesOrderView: React.FC = () => {
                                 <thead>
                                     <tr className="fw-bolder text-muted bg-light">
                                         <th className="ps-4 min-w-60px rounded-start">จำนวน</th>
+                                        <th className="min-w-120px">รหัสสินค้า</th>
                                         <th className="min-w-100px">รหัสวัตถุดิบ</th>
                                         <th className="min-w-200px">ชื่อวัตถุดิบ</th>
                                         <th className="min-w-100px text-end">ราคาต้นทุน</th>
@@ -567,7 +585,10 @@ const SalesOrderView: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {salesOrder.material_list.map((mat, index) => {
+                                    {salesOrder.material_list
+                                        .filter(mat => materialSalesItemFilter === 'all' || mat.sales_item_id === materialSalesItemFilter)
+                                        .map((mat, index) => {
+                                        const parentItem = salesOrder.items.find(it => it.sales_item_id === mat.sales_item_id);
                                         const stock = stockMap[mat.material_list_id];
                                         const usedPct = stock && stock.total_quantity > 0
                                             ? Math.min(100, ((stock.used_in_production + stock.used_in_testing) / stock.total_quantity) * 100)
@@ -585,10 +606,19 @@ const SalesOrderView: React.FC = () => {
                                                 style={{ cursor: 'pointer' }}
                                             >
                                                 <td className="ps-4 text-gray-800 fw-bolder fs-6">{mat.original_num ?? '-'}</td>
+                                                <td>
+                                                    <span className="text-gray-700 fw-bold d-block fs-7">{parentItem?.item_code || '-'}</span>
+                                                    {parentItem?.item_name && (
+                                                        <span className="text-muted fs-8">{parentItem.item_name}</span>
+                                                    )}
+                                                </td>
                                                 <td className="text-gray-800 fw-bold">{mat.item_code}</td>
                                                 <td>
                                                     <div className="d-flex flex-column">
-                                                        <span className="text-gray-800 fw-bolder fs-6">{mat.item_name}</span>
+                                                        <span className="text-gray-800 fw-bolder fs-6">
+                                                            {mat.item_name}
+                                                            {mat.item_group && <span className="badge badge-light-info ms-2 fs-8">{mat.item_group}</span>}
+                                                        </span>
                                                         {mat.item_description && (
                                                             <span className="text-muted fs-7">{mat.item_description}</span>
                                                         )}

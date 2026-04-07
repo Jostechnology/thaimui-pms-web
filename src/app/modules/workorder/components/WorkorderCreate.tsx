@@ -16,10 +16,11 @@ import type { SalesOrderSearch, SalesOrderDetail } from '../../../type_interface
 import type { SalesItem } from '../../../type_interface/SalesItemType';
 import type { Material } from '../../../type_interface/MaterialType';
 import type { MaterialStockSummary as MaterialStockSummaryData } from '../../../type_interface/MaterialStockType';
-import type { WorkOrder, ItemComponent, ComponentMaterialUsage } from '../../../type_interface/WorkOrderType';
+import type { WorkOrder, ItemComponent } from '../../../type_interface/WorkOrderType';
 import type { ComponentTemplate, TemplateSection } from '../../../type_interface/ComponentTemplateType';
 import { aggregateMaterialUsageFromComponents, validateMaterialQuantities, buildValidationSummaryMessage } from '../../../utils/materialValidation';
 import MaterialStockSummary from '../../../custom_components/MaterialStockSummary';
+import TemplateSectionForm from './TemplateSectionForm';
 import Swal from 'sweetalert2';
 
 interface MaterialRow {
@@ -469,314 +470,6 @@ const WorkorderCreate: React.FC = () => {
         }
     };
 
-    // ─── Render one section form for a component (step 2) ─────
-    const renderDetailSectionForm = (comp: ItemComponent, section: TemplateSection) => {
-        const fd = detailFormData[comp.item_component_id] || {};
-        const data = fd[section.key] || {};
-        const update = (newData: any) => updateDetailSectionData(comp.item_component_id, section.key, newData);
-
-        switch (section.type) {
-            case 'header': {
-                const woData: Record<string, string> = {};
-                if (createdWorkOrder) {
-                    woData['เลขที่ใบสั่งผลิต'] = String(createdWorkOrder.doc_num || '');
-                    woData['สินค้า'] = createdWorkOrder.sales_item?.item_name || '';
-                    woData['รหัสสินค้า'] = createdWorkOrder.sales_item?.item_code || '';
-                    woData['ชื่อ Component'] = comp.component_name || '';
-                }
-                return (
-                    <div>
-                        <div className='fw-bold fs-5 mb-3 text-primary border-bottom pb-2'>{section.title}</div>
-                        <div className='row g-3'>
-                            {section.fields.map(f => {
-                                const val = data[f.key] ?? (woData[f.label] || '');
-                                return (
-                                    <div key={f.key} className={`col-md-${12 / (section.columns || 4)}`}>
-                                        <label className='form-label fw-semibold fs-7'>{f.label}</label>
-                                        <input className='form-control form-control-sm bg-light-primary' value={val} readOnly />
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                );
-            }
-
-            case 'material_table': {
-                const mat_usages = comp.material_usages || [];
-                return (
-                    <div>
-                        <div className='fw-bold fs-5 mb-3 text-primary border-bottom pb-2'>{section.title}</div>
-                        <div className='table-responsive'>
-                            <table className='table table-bordered table-sm'>
-                                <thead>
-                                    <tr className='bg-light'>
-                                        {section.columns.map(col => (
-                                            <th key={col.key} className='fw-bold fs-8'>{col.label}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {mat_usages.length > 0 ? mat_usages.map((usage: ComponentMaterialUsage, idx: number) => (
-                                        <tr key={usage.usage_id}>
-                                            {section.columns.map(col => {
-                                                let cellVal = '';
-                                                const label = col.label.toLowerCase();
-                                                if (label.includes('ชื่อ') || label.includes('name')) cellVal = usage.material_list?.item_name || '';
-                                                else if (label.includes('รหัส') || label.includes('code')) cellVal = usage.material_list?.item_code || '';
-                                                else if (label.includes('จำนวน') || label.includes('qty')) cellVal = String(usage.quantity_used || '');
-                                                else if (label.includes('ราคา') || label.includes('price') || label.includes('หน่วย')) cellVal = String(usage.material_list?.unit_price);
-                                                else if (label.includes('รายละเอียด') || label.includes('desc')) cellVal = usage.material_list?.item_description || '';
-                                                else if (label.includes('ลำดับ') || label.includes('#') || label.includes('no')) cellVal = String(idx + 1);
-                                                return <td key={col.key} className='fs-8'>{cellVal}</td>;
-                                            })}
-                                        </tr>
-                                    )) : (
-                                        <tr>
-                                            <td colSpan={section.columns.length} className='text-center text-muted py-4'>ไม่มีข้อมูลวัสดุ</td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                );
-            }
-
-            case 'key_value':
-                return (
-                    <div>
-                        <div className='fw-bold fs-5 mb-3 text-primary border-bottom pb-2'>{section.title}</div>
-                        <div className='row g-3'>
-                            {section.fields.map(f => (
-                                <div key={f.key} className={`col-md-${12 / (section.columns || 2)}`}>
-                                    <label className='form-label fw-semibold fs-7'>
-                                        {f.label} {f.unit && <span className='text-muted'>({f.unit})</span>}
-                                    </label>
-                                    <input
-                                        type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}
-                                        className='form-control form-control-sm'
-                                        value={data[f.key] || f.defaultValue || ''}
-                                        onChange={e => update({ ...data, [f.key]: e.target.value })}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                );
-
-            case 'checkbox_group':
-                return (
-                    <div>
-                        <div className='fw-bold fs-5 mb-3 text-primary border-bottom pb-2'>{section.title}</div>
-                        <div className='row g-2'>
-                            {section.items.map(item => (
-                                <div key={item.key} className={`col-md-${12 / (section.columns || 2)}`}>
-                                    <div className='d-flex align-items-center gap-2'>
-                                        <div className='form-check'>
-                                            <input
-                                                className='form-check-input'
-                                                type='checkbox'
-                                                checked={data[item.key]?.checked || false}
-                                                onChange={e => update({ ...data, [item.key]: { ...data[item.key], checked: e.target.checked } })}
-                                            />
-                                            <label className='form-check-label fs-7'>{item.label}</label>
-                                        </div>
-                                        {item.hasTextField && (
-                                            <input
-                                                className='form-control form-control-sm ms-2'
-                                                style={{ maxWidth: 200 }}
-                                                placeholder={item.textFieldLabel || ''}
-                                                value={data[item.key]?.text || ''}
-                                                onChange={e => update({ ...data, [item.key]: { ...data[item.key], text: e.target.value } })}
-                                            />
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                );
-
-            case 'image_select':
-                return (
-                    <div>
-                        <div className='fw-bold fs-5 mb-3 text-primary border-bottom pb-2'>{section.title}</div>
-                        <div className='d-flex flex-wrap gap-3'>
-                            {section.options.map(opt => (
-                                <div
-                                    key={opt.key}
-                                    className={`d-flex flex-column align-items-center gap-2 p-3 border rounded ${(data.selected || []).includes(opt.key) ? 'border-primary bg-light-primary' : ''}`}
-                                    style={{ cursor: 'pointer', minWidth: 100 }}
-                                    onClick={() => {
-                                        if (section.multiple) {
-                                            const selected = data.selected || [];
-                                            const newSelected = selected.includes(opt.key)
-                                                ? selected.filter((k: string) => k !== opt.key)
-                                                : [...selected, opt.key];
-                                            update({ ...data, selected: newSelected });
-                                        } else {
-                                            update({ ...data, selected: [opt.key] });
-                                        }
-                                    }}
-                                >
-                                    {opt.imageUrl ? (
-                                        <img src={opt.imageUrl} alt={opt.label} style={{ width: 60, height: 60, objectFit: 'contain' }} />
-                                    ) : (
-                                        <div className='border rounded bg-white d-flex align-items-center justify-content-center' style={{ width: 60, height: 60 }}>
-                                            <i className='bi bi-image text-muted fs-4'></i>
-                                        </div>
-                                    )}
-                                    <span className='fs-8 text-center'>{opt.label}</span>
-                                    <div
-                                        className={`border rounded d-flex align-items-center justify-content-center ${(data.selected || []).includes(opt.key) ? 'bg-primary border-primary' : 'border-dark'}`}
-                                        style={{ width: 18, height: 18, minWidth: 18 }}
-                                    >
-                                        {(data.selected || []).includes(opt.key) && (
-                                            <i className='bi bi-check text-white' style={{ fontSize: '0.7rem' }}></i>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                );
-
-            case 'fixed_row_table':
-                return (
-                    <div>
-                        <div className='fw-bold fs-5 mb-3 text-primary border-bottom pb-2'>{section.title}</div>
-                        <div className='table-responsive'>
-                            <table className='table table-bordered table-sm mb-0'>
-                                <thead>
-                                    <tr className='bg-light'>
-                                        <th className='fw-bold text-center' style={{ minWidth: 160 }}>รายการ</th>
-                                        {section.columns.map(col => (
-                                            <th key={col.key} className='fw-bold text-center' style={{ width: col.width || '120px' }}>{col.label}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {section.rows.map(row => (
-                                        <tr key={row.key}>
-                                            <td className='fw-semibold' style={{ whiteSpace: 'nowrap' }}>{row.label}</td>
-                                            {section.columns.map(col => {
-                                                const cell = row.cells.find(c => c.columnKey === col.key);
-                                                const cellKey = `${row.key}_${col.key}`;
-                                                return (
-                                                    <td key={col.key} className='text-center align-middle'>
-                                                        {cell?.cellType === 'text' ? (
-                                                            <input
-                                                                className='form-control form-control-sm text-center'
-                                                                value={data[cellKey] || ''}
-                                                                onChange={e => update({ ...data, [cellKey]: e.target.value })}
-                                                            />
-                                                        ) : (
-                                                            <div className='form-check d-flex justify-content-center m-0'>
-                                                                <input
-                                                                    className='form-check-input'
-                                                                    type='checkbox'
-                                                                    checked={data[cellKey] || false}
-                                                                    onChange={e => update({ ...data, [cellKey]: e.target.checked })}
-                                                                />
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                );
-                                            })}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                );
-
-            case 'signature':
-                return (
-                    <div>
-                        <div className='fw-bold fs-5 mb-3 text-primary border-bottom pb-2'>{section.title}</div>
-                        <div className='row g-3'>
-                            {section.fields.map(f => (
-                                <div key={f.key} className={`col-md-${Math.max(3, Math.floor(12 / section.fields.length))}`}>
-                                    <div className='text-center'>
-                                        <div className='border-bottom border-dark mb-2' style={{ height: 60 }}></div>
-                                        <input
-                                            className='form-control form-control-sm text-center'
-                                            placeholder={f.label}
-                                            value={data[f.key] || ''}
-                                            onChange={e => update({ ...data, [f.key]: e.target.value })}
-                                        />
-                                        {f.role && <span className='fs-9 text-muted'>{f.role}</span>}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                );
-
-            case 'note':
-                return (
-                    <div>
-                        <div className='fw-bold fs-5 mb-3 text-primary border-bottom pb-2'>{section.title}</div>
-                        <textarea
-                            className='form-control'
-                            rows={3}
-                            placeholder={section.placeholder || 'กรอกหมายเหตุ...'}
-                            value={data.text || ''}
-                            onChange={e => update({ text: e.target.value })}
-                        />
-                    </div>
-                );
-
-            case 'image_upload': {
-                const images: string[] = data.images || [];
-                const maxImages = section.maxImages || 5;
-                const handleUpload = (file: File | null) => {
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        update({ ...data, images: [...images, ev.target?.result as string] });
-                    };
-                    reader.readAsDataURL(file);
-                };
-                return (
-                    <div>
-                        <div className='fw-bold fs-5 mb-3 text-primary border-bottom pb-2'>{section.title}</div>
-                        {section.description && <div className='text-muted fs-8 mb-3'>{section.description}</div>}
-                        <div className='d-flex flex-wrap gap-3 mb-3'>
-                            {images.map((img, idx) => (
-                                <div key={idx} className='position-relative'>
-                                    <img src={img} alt={`upload-${idx}`} className='border rounded'
-                                        style={{ width: 100, height: 100, objectFit: 'contain', background: '#f9f9f9' }} />
-                                    <button
-                                        className='btn btn-sm btn-icon btn-danger position-absolute'
-                                        style={{ top: -6, right: -6, width: 20, height: 20, padding: 0 }}
-                                        onClick={() => update({ ...data, images: images.filter((_, i) => i !== idx) })}
-                                    >
-                                        <i className='bi bi-x' style={{ fontSize: '0.7rem' }}></i>
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                        {images.length < maxImages && (
-                            <label className='btn btn-sm btn-light-primary'>
-                                <i className='bi bi-camera me-1'></i>เลือกรูปภาพ ({images.length}/{maxImages})
-                                <input type='file' accept='image/*' className='d-none'
-                                    onChange={e => handleUpload(e.target.files?.[0] || null)} />
-                            </label>
-                        )}
-                    </div>
-                );
-            }
-
-            case 'spacer':
-                return <div style={{ height: section.height || 20 }}></div>;
-
-            default:
-                return <div className='text-muted'>ไม่รู้จัก section type</div>;
-        }
-    };
 
     const hasAnySelectedMaterial = components.some(comp =>
         comp.materials.some(m => m.material_list_id !== '')
@@ -856,7 +549,7 @@ const WorkorderCreate: React.FC = () => {
                                                 value={item.sales_item_id}
                                                 disabled={!!item.work_order}
                                             >
-                                                {item.item_name}
+                                                {item.item_name}{item.item_group ? ` [${item.item_group}]` : ''}
                                                 {item.work_order ? ' (มี ใบสั่งผลิต แล้ว)' : ''}
                                             </option>
                                         ))}
@@ -936,9 +629,11 @@ const WorkorderCreate: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     className="btn btn-sm btn-light-primary fw-bold"
-                                                    onClick={() => addMaterial(comp.id)}
+                                                    onClick={() => {
+                                                        addMaterial(comp.id)
+                                                    }}
                                                     disabled={
-                                                        availableForThisComponent <= selectedInThisComponent.length ||
+                                                        (availableForThisComponent < selectedInThisComponent.length) ||
                                                         hasUnselectedInThisComp
                                                     }
                                                 >
@@ -948,6 +643,7 @@ const WorkorderCreate: React.FC = () => {
 
                                             {comp.materials.map((mat, matIdx) => {
                                                 const selectedMaterial = materials.find(m => m.material_list_id === mat.material_list_id);
+                                                console.log(selectedMaterial)
                                                 const usedByOthers = selectedMaterial ? getTotalUsedForMaterial(selectedMaterial.material_list_id, comp.id, mat.id) : 0;
                                                 const availableFromStock = selectedMaterial ? getAvailableQuantity(selectedMaterial.material_list_id) : 0;
                                                 const maxQty = selectedMaterial ? availableFromStock - usedByOthers : 1;
@@ -972,7 +668,7 @@ const WorkorderCreate: React.FC = () => {
                                                                 <option value="">เลือกวัตถุดิบ (Material)</option>
                                                                 {availableForDropdown.map((m) => (
                                                                     <option key={m.material_list_id} value={m.material_list_id}>
-                                                                        {m.item_name}
+                                                                        {m.item_name}{m.item_group ? ` [${m.item_group}]` : ''}
                                                                     </option>
                                                                 ))}
                                                             </select>
@@ -1125,7 +821,16 @@ const WorkorderCreate: React.FC = () => {
                                         <div className='d-flex flex-column gap-5'>
                                             {template.sections.map((sec: TemplateSection) => (
                                                 <div key={sec.key} className='border rounded p-4'>
-                                                    {renderDetailSectionForm(comp, sec)}
+                                                    <TemplateSectionForm
+                                                        section={sec}
+                                                        data={(detailFormData[comp.item_component_id] || {})[sec.key] || {}}
+                                                        onUpdate={data => updateDetailSectionData(comp.item_component_id, sec.key, data)}
+                                                        workOrderDocNum={createdWorkOrder?.doc_num}
+                                                        salesItemName={createdWorkOrder?.sales_item?.item_name}
+                                                        salesItemCode={createdWorkOrder?.sales_item?.item_code}
+                                                        componentName={comp.component_name}
+                                                        materialUsages={comp.material_usages}
+                                                    />
                                                 </div>
                                             ))}
                                         </div>

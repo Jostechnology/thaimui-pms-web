@@ -40,6 +40,7 @@ export interface MaterialStockSummary {
     sales_item_id: number;
     item_code: string;
     item_name: string;
+    item_group: string;
     item_description: string;
     /** จำนวนทั้งหมดที่มี (จาก t_material_list.original_num) */
     total_quantity: number;
@@ -70,6 +71,7 @@ export interface MaterialUsageDetail {
     material_list_id: number;
     item_code: string;
     item_name: string;
+    item_group: string;
     item_description: string;
     total_quantity: number;
     used_in_production: number;

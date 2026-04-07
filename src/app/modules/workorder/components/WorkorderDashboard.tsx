@@ -499,6 +499,7 @@ const WorkorderDashboard: React.FC = () => {
                                                 <div className='d-flex flex-column'>
                                                     <span className='text-gray-800 fw-bold fs-7'>
                                                         {wo.sales_item?.item_name || '-'}
+                                                        {wo.sales_item?.item_group && <span className="badge badge-light-info ms-2 fs-8">{wo.sales_item.item_group}</span>}
                                                     </span>
                                                     {wo.sales_item?.item_code && (
                                                         <span className='text-muted fs-8'>{wo.sales_item.item_code}</span>

@@ -819,11 +819,9 @@ const blank = (w = 50) => (
  * "รายละเอียด" cell, rendered inline based on each row's itemType.
  */
 const UNIFIED_COLS = [
-    { key: 'no', label: '#', width: 36 },
     { key: 'type', label: 'ประเภท', width: 110 },
-    { key: 'code', label: 'รหัส / เบอร์', width: 130 },
     { key: 'detail', label: 'รายละเอียด', width: 320 },
-    { key: 'per_set', label: 'ต่อชุด', width: 110 },
+    { key: 'per_set', label: 'ต่อชุด', width: 280 },
     { key: 'set', label: 'ชุด (set)', width: 70 },
     { key: 'total', label: 'จำนวน', width: 90 },
     { key: 'unit', label: 'หน่วย', width: 80 },
@@ -831,15 +829,13 @@ const UNIFIED_COLS = [
 
 const RowDetailCell: React.FC<{ row: MaterialRow }> = ({ row }) => {
     if (row.itemType === 'SLING') {
-        const legs = Math.max(1, row.slingLegs || 1);
         return (
             <div className='fs-8 d-flex flex-column gap-1'>
-                <div>โครงสร้าง {blank(50)} แกน {blank(45)} ยี่ห้อ {blank(55)}</div>
-                <div>เกรด {blank(45)} N/mm² · ขนาด {blank(40)} mm</div>
-                {Array.from({ length: legs }).map((_, i) => (
-                    <div key={i}>(ผลิต) ขา {i + 1} ยาว {blank(40)} ม. × {blank(25)} เส้น/ชุด</div>
-                ))}
-                <div>ความยาวที่คิดราคา/ใช้จริง {blank(40)} ม. × {blank(25)} เส้น/ชุด</div>
+                <div>ลวดสลิง {blank(90)} ยี่ห้อ {blank(75)}</div>
+                <div>โครงสร้าง {blank(60)} แกน {blank(45)} เกลียว {blank(55)}</div>
+                <div>ขนาด {blank(40)} mm เกรด {blank(45)} N/mm²</div>
+                
+                {/* <div>ความยาวที่คิดราคา/ใช้จริง {blank(40)} ม. × {blank(25)} เส้น/ชุด</div> */}
             </div>
         );
     }
@@ -857,7 +853,6 @@ const RowDetailCell: React.FC<{ row: MaterialRow }> = ({ row }) => {
         return (
             <div className='fs-8 d-flex flex-column gap-1'>
                 <div>{blank(200)}</div>
-                <div>ปลอก {blank(80)}</div>
             </div>
         );
     }
@@ -880,9 +875,17 @@ const RowPerSetCell: React.FC<{ row: MaterialRow }> = ({ row }) => {
         );
     }
     if (row.itemType === 'SLING') {
-        return <div className='fs-8'>จำนวน {blank(50)} ม.</div>;
+        const legs = Math.max(1, row.slingLegs || 1);
+        return  <div className='d-flex flex-column gap-1 fs-8'>
+                    {Array.from({ length: legs }).map((_, i) => (
+                        <div key={i}>(ผลิต) ขา {i + 1} ยาว {blank(40)} ม. × {blank(25)} เส้น/ชุด</div>
+                    ))}
+                </div>
     }
-    return <div className='fs-8'>จำนวน {blank(40)} ตัว</div>;
+    return <div className='fs-8'>
+                ปลอก {blank(60)} <br />
+                จำนวน {blank(60)}
+            </div>;
 };
 
 const RowTotalCell: React.FC<{ row: MaterialRow }> = ({ row }) => {
@@ -947,12 +950,10 @@ const TableSectionPreview: React.FC<{ section: TableSection }> = ({ section }) =
                             const meta = MATERIAL_ITEM_TYPES.find(t => t.value === row.itemType);
                             return (
                                 <tr key={row.key}>
-                                    <td className='text-center fs-8 text-muted align-middle'>{ri + 1}</td>
-                                    <td className='align-middle'>
-                                        <span className='badge badge-light-primary fs-9'>{meta?.label}</span>
-                                        <div className='fs-9 text-muted'>{meta?.nameTh}</div>
+                                    <td className='align-middle text-center'>
+                                        <div className='fs-9 text-muted'>{meta?.nameTh} ({meta?.label})</div>
+                                        <span className='fs-8'>{blank(100)}</span>
                                     </td>
-                                    <td className='align-middle fs-8'>{blank(100)}</td>
                                     <td className='align-middle'><RowDetailCell row={row} /></td>
                                     <td className='text-center align-middle'><RowPerSetCell row={row} /></td>
                                     <td className='text-center align-middle fs-8'>{blank(40)}</td>
