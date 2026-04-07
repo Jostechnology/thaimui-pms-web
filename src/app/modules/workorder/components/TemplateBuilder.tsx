@@ -22,7 +22,10 @@ import type {
     FixedRowTableSection,
     ImageUploadSection,
     SectionType,
+    MaterialItemType,
+    MaterialRow,
 } from '../../../type_interface/ComponentTemplateType';
+import { MATERIAL_ITEM_TYPES } from '../../../type_interface/ComponentTemplateType';
 
 // ─── Helpers ─────────────────────────────────────────────────
 let _keyCounter = 0;
@@ -71,14 +74,18 @@ function createDefaultSection(type: SectionType): TemplateSection {
         case 'material_table':
             return {
                 type: 'material_table', key, title: 'วัสดุที่ใช้ (Materials)',
-                columns: [
-                    { key: genKey('tc'), label: 'ชื่อวัสดุ', type: 'text', width: '60px' },
-                    { key: genKey('tc'), label: 'รหัสวัสดุ', type: 'text', width: '60px' },
-                    { key: genKey('tc'), label: 'รายละเอียด', type: 'text', width: '100px' },
-                    { key: genKey('tc'), label: 'จำนวน', type: 'number', width: '80px' },
-                    { key: genKey('tc'), label: 'ราคา/หน่วย', type: 'number', width: '10px' }
+                rows: [
+                    { key: genKey('mr'), itemType: 'SLING', slingLegs: 2 },
+                    { key: genKey('mr'), itemType: 'FERRULE' },
+                    { key: genKey('mr'), itemType: 'THIMBLE' },
                 ],
-                defaultRows: 5,
+                columns: [
+                    { key: genKey('tc'), label: 'ชื่อวัสดุ', type: 'text' },
+                    { key: genKey('tc'), label: 'รหัสวัสดุ', type: 'text' },
+                    { key: genKey('tc'), label: 'รายละเอียด', type: 'text' },
+                    { key: genKey('tc'), label: 'จำนวน', type: 'number' },
+                    { key: genKey('tc'), label: 'หน่วย', type: 'text' },
+                ],
             };
         case 'key_value':
             return {
@@ -229,57 +236,92 @@ const TableSectionEditor: React.FC<{
     section: TableSection;
     onChange: (s: TableSection) => void;
 }> = ({ section, onChange }) => {
-    const updateCol = (idx: number, patch: any) => {
-        const columns = [...section.columns];
-        columns[idx] = { ...columns[idx], ...patch };
-        onChange({ ...section, columns });
+    const rows: MaterialRow[] = section.rows && section.rows.length > 0
+        ? section.rows
+        : (section.itemType ? [{ key: genKey('mr'), itemType: section.itemType, slingLegs: section.slingLegs }] : []);
+
+    const setRows = (next: MaterialRow[]) => onChange({ ...section, rows: next });
+
+    const updateRow = (idx: number, patch: Partial<MaterialRow>) => {
+        const next = rows.map((r, i) => (i === idx ? { ...r, ...patch } : r));
+        setRows(next);
     };
-    const addCol = () => {
-        onChange({
-            ...section,
-            columns: [...section.columns, { key: genKey('tc'), label: 'คอลัมน์ใหม่', type: 'text' }],
-        });
-    };
-    const removeCol = (idx: number) => {
-        onChange({ ...section, columns: section.columns.filter((_, i) => i !== idx) });
+    const addRow = () => setRows([...rows, { key: genKey('mr'), itemType: 'FERRULE' }]);
+    const removeRow = (idx: number) => setRows(rows.filter((_, i) => i !== idx));
+    const moveRow = (idx: number, dir: -1 | 1) => {
+        const j = idx + dir;
+        if (j < 0 || j >= rows.length) return;
+        const next = [...rows];
+        [next[idx], next[j]] = [next[j], next[idx]];
+        setRows(next);
     };
 
     return (
         <div>
             <div className='row g-3 mb-3'>
-                <div className='col-md-8'>
+                <div className='col-md-12'>
                     <label className='form-label fw-semibold fs-7'>ชื่อตาราง</label>
                     <input className='form-control form-control-sm' value={section.title}
                         onChange={e => onChange({ ...section, title: e.target.value })} />
                 </div>
-                <div className='col-md-4'>
-                    <label className='form-label fw-semibold fs-7'>จำนวนแถวเริ่มต้น</label>
-                    <input type='number' className='form-control form-control-sm' min={1}
-                        value={section.defaultRows || 5}
-                        onChange={e => onChange({ ...section, defaultRows: parseInt(e.target.value) || 5 })} />
-                </div>
             </div>
-            <label className='form-label fw-semibold fs-7'>คอลัมน์</label>
-            {section.columns.map((col, idx) => (
-                <div key={col.key} className='d-flex gap-2 mb-2 align-items-center'>
-                    <input className='form-control form-control-sm' placeholder='ชื่อคอลัมน์'
-                        value={col.label} onChange={e => updateCol(idx, { label: e.target.value })} />
-                    <select className='form-select form-select-sm w-auto'
-                        value={col.type} onChange={e => updateCol(idx, { type: e.target.value })}>
-                        <option value='text'>ข้อความ</option>
-                        <option value='number'>ตัวเลข</option>
-                    </select>
-                    <input className='form-control form-control-sm' placeholder='ความกว้าง'
-                        style={{ width: '90px' }}
-                        value={col.width || ''} onChange={e => updateCol(idx, { width: e.target.value })} />
-                    <button className='btn btn-sm btn-icon btn-light-danger' onClick={() => removeCol(idx)}>
-                        <i className='bi bi-x-lg'></i>
-                    </button>
-                </div>
-            ))}
-            <button className='btn btn-sm btn-light-primary mt-1' onClick={addCol}>
-                <i className='bi bi-plus me-1'></i>เพิ่มคอลัมน์
-            </button>
+
+            <label className='form-label fw-semibold fs-7'>แถววัสดุ (กำหนดประเภทต่อแถว)</label>
+            <div className='border rounded p-2 bg-light-primary'>
+                {rows.length === 0 && (
+                    <div className='text-muted fs-8 text-center py-2'>ยังไม่มีแถว — กดปุ่มด้านล่างเพื่อเพิ่ม</div>
+                )}
+                {rows.map((row, idx) => (
+                    <div key={row.key} className='d-flex gap-2 mb-2 align-items-center bg-white p-2 rounded border'>
+                        <span className='badge badge-light-dark fs-8' style={{ width: 28 }}>{idx + 1}</span>
+                        <select
+                            className='form-select form-select-sm'
+                            style={{ maxWidth: 260 }}
+                            value={row.itemType}
+                            onChange={e => updateRow(idx, { itemType: e.target.value as MaterialItemType })}
+                        >
+                            {MATERIAL_ITEM_TYPES.map(t => (
+                                <option key={t.value} value={t.value}>{t.label} — {t.nameTh}</option>
+                            ))}
+                        </select>
+                        {row.itemType === 'SLING' && (
+                            <div className='d-flex align-items-center gap-1'>
+                                <span className='fs-8 text-muted'>ขา</span>
+                                <input
+                                    type='number'
+                                    min={1}
+                                    className='form-control form-control-sm'
+                                    style={{ width: 70 }}
+                                    value={row.slingLegs || 1}
+                                    onChange={e => updateRow(idx, { slingLegs: parseInt(e.target.value) || 1 })}
+                                />
+                            </div>
+                        )}
+                        <div className='ms-auto d-flex gap-1'>
+                            <button className='btn btn-sm btn-icon btn-light' disabled={idx === 0}
+                                onClick={() => moveRow(idx, -1)} title='ขึ้น'>
+                                <i className='bi bi-arrow-up'></i>
+                            </button>
+                            <button className='btn btn-sm btn-icon btn-light' disabled={idx === rows.length - 1}
+                                onClick={() => moveRow(idx, 1)} title='ลง'>
+                                <i className='bi bi-arrow-down'></i>
+                            </button>
+                            <button className='btn btn-sm btn-icon btn-light-danger'
+                                onClick={() => removeRow(idx)} title='ลบ'>
+                                <i className='bi bi-x-lg'></i>
+                            </button>
+                        </div>
+                    </div>
+                ))}
+                <button className='btn btn-sm btn-light-primary mt-1' onClick={addRow}>
+                    <i className='bi bi-plus me-1'></i>เพิ่มแถววัสดุ
+                </button>
+            </div>
+            <div className='form-text fs-8 mt-2'>
+                <i className='bi bi-info-circle me-1'></i>
+                ตารางเดียวรวมหลายประเภทได้ — ช่องในแต่ละแถวจะถูกกำหนดตามประเภทของแถวนั้น ๆ
+                (SLING มีความยาวแยกตามจำนวนขา, CHAIN มีหน่วย ม. และ กก., ที่เหลือใช้รูปแบบ FERRULE)
+            </div>
         </div>
     );
 };
@@ -766,34 +808,165 @@ const HeaderSectionPreview: React.FC<{ section: HeaderSection }> = ({ section })
     </div>
 );
 
-const TableSectionPreview: React.FC<{ section: TableSection }> = ({ section }) => (
-    <div>
-        <div className='fw-bold fs-6 mb-3 border-bottom pb-2'>{section.title}</div>
-        <div className='table-responsive'>
-            <table className='table table-bordered table-sm mb-0'>
-                <thead className='bg-light'>
-                    <tr>
-                        {section.columns.map(col => (
-                            <th key={col.key} className='fs-8 fw-bold text-center'
-                                style={{ width: col.width || 'auto' }}>{col.label}</th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {Array.from({ length: section.defaultRows || 3 }).map((_, ri) => (
-                        <tr key={ri}>
-                            {section.columns.map((col, ci) => (
-                                <td key={col.key} className='text-center text-muted fs-8'>
-                                    {ci === 0 && col.type === 'number' ? ri + 1 : ''}
-                                </td>
+// ── Material table preview (mixed item types, one row each) ──
+const blank = (w = 50) => (
+    <span className='d-inline-block border-bottom border-dark' style={{ minWidth: w, height: 12 }} />
+);
+
+/**
+ * Unified columns that apply across all item types. Per-type specifics
+ * (SLING legs, CHAIN 2-unit totals, FERRULE ปลอก) live inside the
+ * "รายละเอียด" cell, rendered inline based on each row's itemType.
+ */
+const UNIFIED_COLS = [
+    { key: 'no', label: '#', width: 36 },
+    { key: 'type', label: 'ประเภท', width: 110 },
+    { key: 'code', label: 'รหัส / เบอร์', width: 130 },
+    { key: 'detail', label: 'รายละเอียด', width: 320 },
+    { key: 'per_set', label: 'ต่อชุด', width: 110 },
+    { key: 'set', label: 'ชุด (set)', width: 70 },
+    { key: 'total', label: 'จำนวน', width: 90 },
+    { key: 'unit', label: 'หน่วย', width: 80 },
+];
+
+const RowDetailCell: React.FC<{ row: MaterialRow }> = ({ row }) => {
+    if (row.itemType === 'SLING') {
+        const legs = Math.max(1, row.slingLegs || 1);
+        return (
+            <div className='fs-8 d-flex flex-column gap-1'>
+                <div>โครงสร้าง {blank(50)} แกน {blank(45)} ยี่ห้อ {blank(55)}</div>
+                <div>เกรด {blank(45)} N/mm² · ขนาด {blank(40)} mm</div>
+                {Array.from({ length: legs }).map((_, i) => (
+                    <div key={i}>(ผลิต) ขา {i + 1} ยาว {blank(40)} ม. × {blank(25)} เส้น/ชุด</div>
+                ))}
+                <div>ความยาวที่คิดราคา/ใช้จริง {blank(40)} ม. × {blank(25)} เส้น/ชุด</div>
+            </div>
+        );
+    }
+    if (row.itemType === 'CHAIN') {
+        return (
+            <div className='fs-8 d-flex flex-column gap-1'>
+                <div>ผู้ผลิต {blank(70)} · ขนาด {blank(40)} mm · เกรด {blank(45)}</div>
+                <div>(ผลิต) ยาว {blank(40)} ม. × {blank(25)} เส้น/ชุด</div>
+                <div>ยาวที่คิดราคา/ใช้จริง {blank(40)} ม. × {blank(25)} เส้น/ชุด</div>
+                <div>น้ำหนักที่ใช้จริง {blank(40)} กก./เส้น × {blank(25)} เส้น/ชุด</div>
+            </div>
+        );
+    }
+    if (row.itemType === 'FERRULE') {
+        return (
+            <div className='fs-8 d-flex flex-column gap-1'>
+                <div>{blank(200)}</div>
+                <div>ปลอก {blank(80)}</div>
+            </div>
+        );
+    }
+    // Default FERRULE-like layout for every other category
+    return (
+        <div className='fs-8'>
+            {blank(220)}
+        </div>
+    );
+};
+
+const RowPerSetCell: React.FC<{ row: MaterialRow }> = ({ row }) => {
+    if (row.itemType === 'CHAIN') {
+        // Chain has two per-set values (meters & kilograms)
+        return (
+            <div className='d-flex flex-column gap-1 fs-8'>
+                <div>{blank(50)} ม.</div>
+                <div>{blank(50)} กก.</div>
+            </div>
+        );
+    }
+    if (row.itemType === 'SLING') {
+        return <div className='fs-8'>จำนวน {blank(50)} ม.</div>;
+    }
+    return <div className='fs-8'>จำนวน {blank(40)} ตัว</div>;
+};
+
+const RowTotalCell: React.FC<{ row: MaterialRow }> = ({ row }) => {
+    if (row.itemType === 'CHAIN') {
+        return (
+            <div className='d-flex flex-column gap-1 fs-8'>
+                <div>{blank(60)}</div>
+                <div>{blank(60)}</div>
+            </div>
+        );
+    }
+    return <div className='fs-8'>{blank(60)}</div>;
+};
+
+const RowUnitCell: React.FC<{ row: MaterialRow }> = ({ row }) => {
+    if (row.itemType === 'CHAIN') {
+        return (
+            <div className='d-flex flex-column gap-1 fs-8'>
+                <div>เมตร</div>
+                <div>กิโลกรัม</div>
+            </div>
+        );
+    }
+    if (row.itemType === 'SLING') return <div className='fs-8'>เมตร</div>;
+    return <div className='fs-8'>ตัว</div>;
+};
+
+const TableSectionPreview: React.FC<{ section: TableSection }> = ({ section }) => {
+    // Back-compat: derive rows from legacy single-itemType sections
+    const rows: MaterialRow[] = section.rows && section.rows.length > 0
+        ? section.rows
+        : (section.itemType
+            ? Array.from({ length: Math.max(1, section.defaultRows || 1) }).map((_, i) => ({
+                key: `legacy_${i}`,
+                itemType: section.itemType as MaterialItemType,
+                slingLegs: section.slingLegs,
+            }))
+            : []);
+
+    return (
+        <div>
+            <div className='fw-bold fs-6 mb-3 border-bottom pb-2'>{section.title}</div>
+            <div className='table-responsive'>
+                <table className='table table-bordered table-sm mb-0'>
+                    <thead className='bg-light'>
+                        <tr>
+                            {UNIFIED_COLS.map(c => (
+                                <th key={c.key} className='fs-8 fw-bold text-center'
+                                    style={{ minWidth: c.width }}>{c.label}</th>
                             ))}
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {rows.length === 0 ? (
+                            <tr>
+                                <td colSpan={UNIFIED_COLS.length}
+                                    className='text-center text-muted fs-8 py-3'>
+                                    ยังไม่มีแถว — เพิ่มแถวใน Editor ด้านข้าง
+                                </td>
+                            </tr>
+                        ) : rows.map((row, ri) => {
+                            const meta = MATERIAL_ITEM_TYPES.find(t => t.value === row.itemType);
+                            return (
+                                <tr key={row.key}>
+                                    <td className='text-center fs-8 text-muted align-middle'>{ri + 1}</td>
+                                    <td className='align-middle'>
+                                        <span className='badge badge-light-primary fs-9'>{meta?.label}</span>
+                                        <div className='fs-9 text-muted'>{meta?.nameTh}</div>
+                                    </td>
+                                    <td className='align-middle fs-8'>{blank(100)}</td>
+                                    <td className='align-middle'><RowDetailCell row={row} /></td>
+                                    <td className='text-center align-middle'><RowPerSetCell row={row} /></td>
+                                    <td className='text-center align-middle fs-8'>{blank(40)}</td>
+                                    <td className='text-center align-middle'><RowTotalCell row={row} /></td>
+                                    <td className='text-center align-middle'><RowUnitCell row={row} /></td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
-);
+    );
+};
 const KeyValueSectionPreview: React.FC<{ section: KeyValueSection }> = ({ section }) => (
     <div>
         <div className='fw-bold fs-6 mb-3 border-bottom pb-2'>{section.title}</div>

@@ -31,7 +31,6 @@ interface SalesItem {
     num_qc_work_order : number;
     num_qc_successed_work_order : number;
     produce: boolean;
-    test: boolean;
     work_order: { work_order_id: number; work_order_code: string } | null;
     status: 'PENDING' | 'INPROGRESS' | 'COMPLETED';
     is_completable: boolean;
@@ -348,7 +347,7 @@ const SalesOrderView: React.FC = () => {
                                     <th className="min-w-100px text-end">ราคาต้นทุน</th>
                                     <th className="min-w-100px text-end">ราคา/หน่วย</th>
                                     <th className="min-w-200px text-center">ความคืบหน้าการผลิต</th>
-                                    <th className="min-w-120px text-center">สถานะ</th>
+                                    <th className="min-w-250px text-center">สถานะ</th>
                                     <th className="min-w-150px text-center pe-4 rounded-end">การดำเนินการ</th>
                                 </tr>
                             </thead>
@@ -426,12 +425,17 @@ const SalesOrderView: React.FC = () => {
                                                         </div>
                                                         ))}
 
-                                                        
+                                                        <div className="d-flex align-items-center gap-1">
+                                                        <span className={qcBadgeClass}>
+                                                            <i className={`bi ${qcIcon} me-1`}></i>
+                                                            {noOrders ? 'ไม่มีใบสั่งเทส' : `ใบสั่งเทส ${num_qc_successed_work_order}/${num_qc_work_order}`}
+                                                        </span>
+                                                        </div>
                                                     </div>
                                                     );
                                                 })()}
                                             </td>
-                                            <td className="text-center">
+                                            <td className="text-center pe-4">
                                                 {(() => {
                                                     const statusLabel = item.status === 'COMPLETED' ? 'เสร็จสิ้น'
                                                         : item.status === 'INPROGRESS' ? 'กำลังผลิต'
@@ -444,13 +448,13 @@ const SalesOrderView: React.FC = () => {
                                                             <span className={`badge ${statusClass}`}>{statusLabel}</span>
                                                             {item.is_completable && (
                                                                 <button
-                                                                    className="btn btn-sm btn-success py-1 px-3"
+                                                                    className="btn btn-sm btn-success py-1 px-3 text-nowrap"
                                                                     disabled={completingId === item.sales_item_id}
                                                                     onClick={(e) => handleComplete(e, item.sales_item_id)}
                                                                 >
                                                                     {completingId === item.sales_item_id
                                                                         ? <span className="spinner-border spinner-border-sm" />
-                                                                        : 'ทำเครื่องหมายเสร็จ'}
+                                                                        : 'รายการพร้อมทำการปิดงาน'}
                                                                 </button>
                                                             )}
                                                         </div>
@@ -470,7 +474,7 @@ const SalesOrderView: React.FC = () => {
                                                             <i className="bi bi-gear me-1"></i>สร้างใบสั่งผลิต
                                                         </button>
                                                     )}
-                                                    {item.test && item.num_qc_work_order === 0 && (
+                                                    {item.num_qc_work_order === 0 && (
                                                         <button
                                                             className="btn btn-sm btn-light-warning py-1 px-3"
                                                             onClick={(e) => {
