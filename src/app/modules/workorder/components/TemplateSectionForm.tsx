@@ -73,19 +73,9 @@ const CHAIN_SCHEMA: ItemTypeSchema = {
             { key: 'size', prefix: 'ขนาด', postfix: 'mm' },
             { key: 'grade', prefix: 'เกรด' },
         ],
-        pairs: [
-            {
-                key: 'actual_weight',
-                label: 'น้ำหนักที่ใช้จริง',
-                subFields: [
-                    { key: 'weight', postfix: 'กก./เส้น' },
-                    { key: 'count', postfix: 'เส้น/ชุด' },
-                ],
-            },
-        ],
     },
     per_set: {
-        fields: [{ key: 'kilograms', postfix: 'กก.' }],
+        fields: [{ key: 'kilograms', prefix: 'น้ำหนัก', postfix: 'กก./ชุด' }],
         arrays: [
             {
                 key: 'produced_lengths',
@@ -99,11 +89,11 @@ const CHAIN_SCHEMA: ItemTypeSchema = {
     },
     total: {
         fields: [
-            { key: 'meters', },
-            { key: 'kilograms', },
+            { key: 'meters', prefix: 'ยาว', postfix: 'ม.' },
+            { key: 'kilograms', prefix: 'หนัก', postfix: 'กก.' },
         ],
     },
-    unitText: 'เมตร / กิโลกรัม',
+    unitText: 'ม. / กก.',
 };
 
 const FERRULE_SCHEMA: ItemTypeSchema = {
