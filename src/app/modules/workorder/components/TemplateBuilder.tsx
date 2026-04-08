@@ -482,7 +482,8 @@ const ImageSelectSectionEditor: React.FC<{
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (e) => {
-            updateOpt(idx, { imageUrl: e.target?.result as string });
+            const base64 = e.target?.result as string;
+            updateOpt(idx, { imageUrl: base64, imageBase64: base64 });
         };
         reader.readAsDataURL(file);
     };
@@ -531,7 +532,7 @@ const ImageSelectSectionEditor: React.FC<{
                         </label>
                         {opt.imageUrl && (
                             <button className='btn btn-sm btn-light-danger'
-                                onClick={() => updateOpt(idx, { imageUrl: '' })}>
+                                onClick={() => updateOpt(idx, { imageUrl: '', imageBase64: undefined })}>
                                 <i className='bi bi-trash me-1'></i>ลบรูป
                             </button>
                         )}

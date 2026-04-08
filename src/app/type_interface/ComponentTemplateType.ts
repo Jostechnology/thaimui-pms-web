@@ -134,7 +134,8 @@ export interface CheckboxGroupSection {
 export interface ImageOption {
     key: string;
     label: string;
-    imageUrl?: string;
+    imageUrl?: string;      // display URL: presigned URL (from server) or base64 preview (new upload)
+    imageBase64?: string;   // only set when user uploads a new file; sent to backend for processing
 }
 
 export interface ImageSelectSection {
