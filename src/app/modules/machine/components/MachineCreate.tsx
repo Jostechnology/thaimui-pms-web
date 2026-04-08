@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Content } from '../../../../_metronic/layout/components/content';
 import { createMachine } from '../../../services/machineService';
+import { getAllMachineTypes } from '../../../services/machineTypeService';
+import type { MachineTypeItem } from '../../../type_interface/PhaseTemplateType';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 
@@ -25,8 +27,16 @@ const MachineCreate: React.FC = () => {
         manufacturer: '',
         purchase_date: '',
         status: 'IDLE',
-        machine_description: ''
+        machine_description: '',
+        machine_type_id: '' as string | number,
     });
+    const [machineTypes, setMachineTypes] = useState<MachineTypeItem[]>([]);
+
+    useEffect(() => {
+        getAllMachineTypes().then(res => {
+            if (res.success && res.data) setMachineTypes(res.data);
+        });
+    }, []);
 
     // ─── Validation State (แสดง error ใต้ช่องแบบ inline) ─────────
     const [errors, setErrors] = useState<FormErrors>({});
@@ -262,7 +272,7 @@ const MachineCreate: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="row">
+                                <div className="row mb-6">
                                     <div className="col-md-6 fv-row mb-6 mb-md-0">
                                         <label className="fs-6 fw-semibold mb-2">ผู้ผลิต / ยี่ห้อ</label>
                                         <input
@@ -285,6 +295,25 @@ const MachineCreate: React.FC = () => {
                                             onChange={handleChange}
                                             onBlur={handleBlur}
                                         />
+                                    </div>
+                                </div>
+
+                                <div className="row">
+                                    <div className="col-md-6 fv-row">
+                                        <label className="fs-6 fw-semibold mb-2">ประเภทเครื่องจักร</label>
+                                        <select
+                                            className="form-select form-select-solid"
+                                            name="machine_type_id"
+                                            value={formData.machine_type_id}
+                                            onChange={handleChange}
+                                        >
+                                            <option value="">— ไม่ระบุ —</option>
+                                            {machineTypes.map(mt => (
+                                                <option key={mt.machine_type_id} value={mt.machine_type_id}>
+                                                    {mt.type_name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -390,7 +419,7 @@ const MachineCreate: React.FC = () => {
                                     className="btn btn-light btn-active-light-danger"
                                     onClick={async () => {
                                         // ถ้ากรอกข้อมูลไปแล้ว → ถาม confirm ก่อนออก
-                                        const hasData = Object.values(formData).some(v => v.trim() !== '' && v !== 'IDLE');
+                                        const hasData = Object.values(formData).some(v => String(v).trim() !== '' && String(v) !== 'IDLE');
                                         if (hasData) {
                                             const result = await Swal.fire({
                                                 title: 'ย้อนกลับ?',

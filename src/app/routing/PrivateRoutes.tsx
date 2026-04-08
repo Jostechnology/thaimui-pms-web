@@ -14,6 +14,7 @@ const WorkorderDashboard = lazy(() => import("../modules/workorder/components/Wo
 const QualityControlPage = lazy(() => import("../modules/quality_control/QualityControlPage"));
 const SalesOrderPage = lazy(() => import("../modules/sales_order/SalesOrderPage"));
 const TrackingPage = lazy(() => import("../modules/Tracking/trackingPage"));
+const PhaseTemplatePage = lazy(() => import("../modules/phase_template/PhaseTemplatePage"));
 const PrivateRoutes = () => {
   return (
     <Routes>

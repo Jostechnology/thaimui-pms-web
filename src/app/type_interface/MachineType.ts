@@ -9,6 +9,12 @@ export type Machine = {
     purchase_date: string | null;
     status: string; // เช่น 'IDLE', 'RUNNING', 'DOWN'
     is_active: boolean;
+    machine_type_id: number | null;
+    machine_type: {
+        machine_type_id: number;
+        type_name: string;
+        type_description: string | null;
+    } | null;
     created_by: string;
     created_date: string;
     updated_by: string;

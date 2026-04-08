@@ -154,6 +154,13 @@ export const subRoutesConfig: SubRouteType[] = [
         permission: []
     },
     {
+        module_code: "PHASE_TEMPLATE",
+        main_module_code: "WORKORDERS",
+        path: "/workorder/phase_template",
+        title: "",
+        permission: []
+    },
+    {
         module_code: "EMPLOYEE_SAL",
         main_module_code: "EMPLOYEE",
         path: "/employee/employee_salary_history",
@@ -241,6 +248,14 @@ export const subRoutesConfig: SubRouteType[] = [
         module_code: "MACHINE_DASHBOARD",
         main_module_code: "MACHINE",
         path: "/machine/machine_dashboard",
+        title: "",
+        permission: []
+    }
+    ,
+    {
+        module_code: "MACHINE_TYPE_LIST",
+        main_module_code: "MACHINE",
+        path: "/machine/machine_type_list",
         title: "",
         permission: []
     }
