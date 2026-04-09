@@ -16,6 +16,7 @@ const MachineDetail: React.FC = () => {
         purchase_date: '',
         status: 'IDLE',
         machine_description: '',
+        machine_type_name: '',
         created_by: '',
         created_date: '',
         updated_by: '',
@@ -47,6 +48,7 @@ const MachineDetail: React.FC = () => {
                     purchase_date: formattedDate,
                     status: data.status || 'IDLE',
                     machine_description: data.machine_description || '',
+                    machine_type_name: data.machine_type?.type_name || '',
                     created_by: data.created_by || '',
                     created_date: data.created_date || '',
                     updated_by: data.updated_by || '',
@@ -143,6 +145,19 @@ const MachineDetail: React.FC = () => {
                                         {machine.purchase_date
                                             ? new Date(machine.purchase_date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
                                             : '— (ไม่ระบุ)'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="row mt-6">
+                                <div className="col-md-6">
+                                    <label className="fs-6 fw-semibold mb-2 text-muted">ประเภทเครื่องจักร</label>
+                                    <div className="form-control form-control-solid">
+                                        {machine.machine_type_name ? (
+                                            <span className="badge badge-light-info fw-semibold">{machine.machine_type_name}</span>
+                                        ) : (
+                                            '— (ไม่ระบุ)'
+                                        )}
                                     </div>
                                 </div>
                             </div>
