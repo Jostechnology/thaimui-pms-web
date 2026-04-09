@@ -1,26 +1,7 @@
 import type { Employee } from './EmployeeType';
+import type { Machine } from './MachineType';
 import { SalesItem } from './SalesItemType';
 
-
-export interface WorkPhaseBreak {
-    break_id: number;
-    work_phase_id: number;
-    break_start: string;
-    break_end: string | null;
-    break_type: BreakTypeEnum;
-}
-
-export interface WorkPhase {
-    work_phase_id: number;
-    work_run_id: number;
-    phase_name: string;
-    phase_status: WorkPhaseStatusEnum;
-    start_date: string | null;
-    end_date: string | null;
-    created_date: string;
-    employee_list: Employee[];
-    breaks: WorkPhaseBreak[];
-}
 
 // Lightweight WorkRun — returned inside get_work_order_by_id
 export interface WorkRun {
@@ -29,12 +10,40 @@ export interface WorkRun {
     quantity: number;
     status: string;
     lot_number: string | null;
-    current_phase_id: number | null;
     completion_remark: string | null;
     created_date: string | null;
     defect_qty: number | null;
     usable_qty: number | null;
     wms_pick_reference: string | null;
+    start_date: string | null;
+    end_date: string | null;
+}
+
+export interface WorkRunAssignment {
+    work_run_assignment_id: number;
+    work_run_id: number;
+    employee_id: number;
+    from_time: string;
+    to_time: string | null;
+    employee: Employee;
+}
+
+export interface WorkRunMachineEntry {
+    work_run_machine_id: number;
+    work_run_id: number;
+    machine_id: number;
+    from_time: string;
+    to_time: string | null;
+    machine: Machine;
+}
+
+export interface WorkRunBreak {
+    break_id: number;
+    work_run_id: number;
+    break_start: string;
+    break_end: string | null;
+    break_type: string;
+    remark: string | null;
 }
 
 export interface ReworkSource {
@@ -45,12 +54,12 @@ export interface ReworkSource {
     created_date: string;
 }
 
-// Full WorkRun detail — returned from GET /api/work_run/:id
+// Full WorkRun display — returned from GET /api/work_run/:id (WorkRunDisplaySchema)
 export interface WorkRunDetail extends WorkRun {
-    current_phase: WorkPhase | null;
-    work_phases: WorkPhase[];
-    test_results: any[];
-    rework_sources: ReworkSource[];
+    assignments: WorkRunAssignment[];
+    machines: WorkRunMachineEntry[];
+    breaks: WorkRunBreak[];
+    picking_requests: any[];
 }
 
 export interface SalesItemTestResult {
@@ -193,5 +202,39 @@ export interface PhaseDetailData {
     total_time_spent_seconds: number;
     total_labor_cost: number;
     employee_breakdown: EmployeeBreakdown[];
+    breaks: BreakData[];
+}
+
+export interface WorkRunEmployeeBreakdown {
+    employee_id: number;
+    employee_first_name: string;
+    employee_last_name: string;
+    status: string;
+    salary_at_run: number;
+    hourly_rate: number;
+    from_time: string | null;
+    to_time: string | null;
+    time_spent_seconds: number;
+    net_cost: number;
+}
+
+export interface WorkRunMachineBreakdown {
+    machine_id: number;
+    machine_name: string | null;
+    from_time: string | null;
+    to_time: string | null;
+    time_spent_seconds: number;
+}
+
+export interface WorkRunCostDetailData {
+    work_run_id: number;
+    lot_number: string | null;
+    status: string;
+    start_date: string | null;
+    end_date: string | null;
+    total_work_seconds: number;
+    total_labor_cost: number;
+    employee_breakdown: WorkRunEmployeeBreakdown[];
+    machine_breakdown: WorkRunMachineBreakdown[];
     breaks: BreakData[];
 }

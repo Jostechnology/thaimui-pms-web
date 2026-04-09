@@ -13,8 +13,7 @@ interface WorkRun {
     completion_remark: string | null;
     created_date: string | null;
     wms_pick_reference: string | null;
-    current_phase_id: number | null;
-    lot_number : string
+    lot_number: string
 }
 
 interface WorkOrder {
