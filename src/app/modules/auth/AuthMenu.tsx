@@ -201,7 +201,7 @@ export const subRoutesConfig: SubRouteType[] = [
         path: "/workorder/phase_template",
         title: "Phase Template",
         permission: [],
-        display: false
+        display: true
     },
     {
         module_code: "EMPLOYEE_SAL",
@@ -300,6 +300,14 @@ export const subRoutesConfig: SubRouteType[] = [
         display : true
     },
     {
+        module_code: "MACHINE_TYPE_LIST",
+        main_module_code: "MACHINE",
+        path: "/machine/machine_type_list",
+        title: "ประเภทเครื่องจักร",
+        permission: [],
+        display: true
+    },
+    {
         module_code: "MACHINE_DASHBOARD",
         main_module_code: "MACHINE",
         path: "/machine/machine_dashboard",
@@ -322,14 +330,5 @@ export const subRoutesConfig: SubRouteType[] = [
         title: "",
         permission: [],
         display : false
-    }
-    ,
-    {
-        module_code: "MACHINE_TYPE_LIST",
-        main_module_code: "MACHINE",
-        path: "/machine/machine_type_list",
-        title: "ประเภทเครื่องจักร",
-        permission: [],
-        display: true
     }
 ]
