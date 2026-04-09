@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Content } from '../../../../_metronic/layout/components/content';
 import { getMachineById, updateMachine, deleteMachine } from '../../../services/machineService.ts';
+import { getAllMachineTypes } from '../../../services/machineTypeService';
+import type { MachineTypeItem } from '../../../type_interface/MachineType';
 import { useNavigate, useParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 
@@ -26,8 +28,10 @@ const MachineUpdate: React.FC = () => {
         manufacturer: '',
         purchase_date: '',
         status: 'IDLE',
-        machine_description: ''
+        machine_description: '',
+        machine_type_id: '' as string | number,
     });
+    const [machineTypes, setMachineTypes] = useState<MachineTypeItem[]>([]);
 
     const [errors, setErrors] = useState<FormErrors>({});
     const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -40,6 +44,10 @@ const MachineUpdate: React.FC = () => {
     ];
 
     useEffect(() => {
+        getAllMachineTypes().then(res => {
+            if (res.success && res.data) setMachineTypes(res.data);
+        });
+
         const fetchDetail = async () => {
             if (!id) return;
             setIsLoading(true);
@@ -56,7 +64,8 @@ const MachineUpdate: React.FC = () => {
                     manufacturer: machine.manufacturer || '',
                     purchase_date: formattedDate,
                     status: machine.status || 'IDLE',
-                    machine_description: machine.machine_description || ''
+                    machine_description: machine.machine_description || '',
+                    machine_type_id: machine.machine_type_id || '',
                 });
             } else {
                 Swal.fire({
@@ -260,7 +269,7 @@ const MachineUpdate: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="row">
+                                <div className="row mb-6">
                                     <div className="col-md-6 fv-row mb-6 mb-md-0">
                                         <label className="fs-6 fw-semibold mb-2">ผู้ผลิต / ยี่ห้อ</label>
                                         <input
@@ -283,6 +292,25 @@ const MachineUpdate: React.FC = () => {
                                             onChange={handleChange}
                                             onBlur={handleBlur}
                                         />
+                                    </div>
+                                </div>
+
+                                <div className="row">
+                                    <div className="col-md-6 fv-row">
+                                        <label className="fs-6 fw-semibold mb-2">ประเภทเครื่องจักร</label>
+                                        <select
+                                            className="form-select form-select-solid"
+                                            name="machine_type_id"
+                                            value={formData.machine_type_id}
+                                            onChange={handleChange}
+                                        >
+                                            <option value="">— ไม่ระบุ —</option>
+                                            {machineTypes.map(mt => (
+                                                <option key={mt.machine_type_id} value={mt.machine_type_id}>
+                                                    {mt.type_name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             </div>

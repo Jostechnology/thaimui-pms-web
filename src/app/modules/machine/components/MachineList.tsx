@@ -176,6 +176,7 @@ const MachineList: React.FC = () => {
                             <thead>
                                 <tr className="text-start text-muted fw-bolder fs-7 text-uppercase gs-0">
                                     <th className="min-w-200px">Machine Info</th>
+                                    <th className="min-w-100px">ประเภท</th>
                                     <th className="min-w-150px">Manufacturer</th>
                                     <th className="min-w-125px">Purchase Date</th>
                                     <th className="min-w-125px">Status</th>
@@ -187,7 +188,7 @@ const MachineList: React.FC = () => {
                             <tbody className="text-gray-600 fw-bold">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={5} className="text-center py-10">
+                                        <td colSpan={6} className="text-center py-10">
                                             <div className="spinner-border text-primary" role="status">
                                                 <span className="visually-hidden">Loading...</span>
                                             </div>
@@ -195,7 +196,7 @@ const MachineList: React.FC = () => {
                                     </tr>
                                 ) : machines.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="text-center text-gray-500 py-10 fs-5">
+                                        <td colSpan={6} className="text-center text-gray-500 py-10 fs-5">
                                             No machines found.
                                         </td>
                                     </tr>
@@ -219,7 +220,18 @@ const MachineList: React.FC = () => {
                                                     </div>
                                                 </td>
 
-                                                {/* คอลัมน์ที่ 2: ผู้ผลิต */}
+                                                {/* คอลัมน์ที่ 2: ประเภท */}
+                                                <td>
+                                                    {machine.machine_type ? (
+                                                        <span className="badge badge-light-info fw-semibold">
+                                                            {machine.machine_type.type_name}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-muted">—</span>
+                                                    )}
+                                                </td>
+
+                                                {/* คอลัมน์ที่ 3: ผู้ผลิต */}
                                                 <td>{machine.manufacturer || '-'}</td>
 
                                                 {/* คอลัมน์ที่ 3: วันที่ซื้อ */}
