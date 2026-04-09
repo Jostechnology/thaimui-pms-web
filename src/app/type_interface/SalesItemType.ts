@@ -6,6 +6,7 @@ export type SalesItem = {
     item_code: string;
     item_num: number;
     item_name: string;
+    item_group: string;
     item_description: string;
     cost_price: number;
     unit_price: number;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import TestResultSection from "./TestResultSection";
 import {
 	QCWorkOrderData,
@@ -16,6 +16,7 @@ import { Material } from "../../../type_interface/MaterialType";
 import { createQCWorkOrder, updateQCWorkOrder, getQCWorkOrderById } from "../../../services/qcWorkOrderService";
 import Swal from "sweetalert2";
 import { generateQCWorkOrderPDF } from "../../../utils/generateQCWorkOrderPDF";
+import { formatIntegerInput } from "../../../utils/input_format_utils";
 
 type PageMode = "create" | "view" | "edit";
 
@@ -23,6 +24,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 	const { qc_workorder_id } = useParams<{ qc_workorder_id: string }>();
 	const location = useLocation();
 	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
 
 	const [mode, setMode] = useState<PageMode>("create");
 	const [loading, setLoading] = useState(false);
@@ -56,6 +58,39 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 			loadQCWorkOrder(qc_workorder_id);
 		}
 	}, [qc_workorder_id, mode]);
+
+	// Pre-fill from URL params (when navigating from SalesOrderView)
+	useEffect(() => {
+		if (mode !== "create") return;
+		const docEntryParam = searchParams.get('doc_entry');
+		const salesItemIdParam = searchParams.get('sales_item_id');
+		if (!docEntryParam) return;
+		const docEntry = Number(docEntryParam);
+		(async () => {
+			try {
+				const res = await getSalesOrderService(docEntry);
+				if (res && res.data) {
+					const data = res.data;
+					setIsFirstLoad(true);
+					setSalesOrders([data]);
+					setSalesItems(data.items || []);
+					setMaterialList(data.material_list || []);
+					setFormData((prev: any) => ({
+						...prev,
+						docEntry: data.doc_entry,
+						docNum: data.doc_num,
+						customerCode: data.card_code,
+						customerName: data.card_name,
+						salesCode: data.slp_code,
+						salesName: data.slp_name,
+						teamCode: data.group_code,
+						teamName: data.group_name,
+						...(salesItemIdParam ? { salesItemId: Number(salesItemIdParam) } : {}),
+					}));
+				}
+			} catch { /* ignore */ }
+		})();
+	}, [mode]);
 
 	const loadQCWorkOrder = async (id: string) => {
 		setLoading(true);
@@ -501,11 +536,13 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 									<label className="form-label">จำนวน (Qty)</label>
 									{!isReadOnly ? (
 										<input
-											type="number"
-											min={1}
+											type="text"
 											className="form-control"
-											value={formData.quantity}
-											onChange={(e) => handleInputChange("quantity", Math.max(1, parseInt(e.target.value) || 1))}
+											value={String(formData.quantity)}
+											onChange={(e) => {
+												const s = formatIntegerInput(e.target.value);
+												handleInputChange("quantity", Math.max(1, s === '' ? 1 : Number(s)));
+											}}
 										/>
 									) : (
 										<input type="text" className="form-control" value={formData.quantity ?? 1} disabled />

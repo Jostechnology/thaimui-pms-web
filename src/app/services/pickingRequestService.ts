@@ -15,7 +15,7 @@ export const getPickingRequestList = async (
     if (status) params.append("status", status);
     if (request_type) params.append("request_type", request_type);
     try {
-        const response = await front_api("GET", `/picking_request/list?${params.toString()}`, {}, {wrapData : false, headers : getHeaders()});
+        const response = await front_api("GET", `/picking_request/list?${params.toString()}`, {}, { wrapData: false });
         if (!response) return { success: false };
         return await response.json();
     } catch {
@@ -28,14 +28,6 @@ interface APIResponse {
     message?: string;
     data?: any;
 }
-
-const getHeaders = () => {
-    const token = localStorage.getItem('tk-jos');
-    return {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-    };
-};
 
 const handleResponse = async (response: Response | false | undefined): Promise<APIResponse> => {
     if (!response) {
@@ -57,7 +49,7 @@ export const createWorkRunPickingRequest = async (
             "POST",
             `/work_run/${workRunId}/picking_request`,
             payload,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch {
@@ -74,7 +66,7 @@ export const createTestResultPickingRequest = async (
             "POST",
             `/test_result/${testResultId}/picking_request`,
             payload,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch {
@@ -91,7 +83,7 @@ export const updatePickingRequestStatus = async (
             "PATCH",
             `/picking_request/${pickingRequestId}/status`,
             payload,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch {

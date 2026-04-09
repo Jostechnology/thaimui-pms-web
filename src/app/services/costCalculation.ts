@@ -6,14 +6,6 @@ interface APIResponse {
     data?: any;
 }
 
-const getHeaders = () => {
-    const token = localStorage.getItem('tk-jos');
-    return {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-    };
-};
-
 const handleResponse = async (response: Response | false | undefined): Promise<APIResponse> => {
     if (!response) {
         return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
@@ -49,7 +41,7 @@ export const getOperationCostMonthly = async (
             "GET",
             `/get_operation_cost_monthly?${params.toString()}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -66,7 +58,7 @@ export const getOperationCostMonthlyById = async (
             "GET",
             `/get_operation_cost_monthly/${operationCostMonthlyId}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -92,7 +84,7 @@ export const createOperationCostMonthly = async (payload: {
             "POST",
             "/create_operation_cost_monthly",
             payload,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -121,7 +113,7 @@ export const updateOperationCostMonthly = async (
             "PUT",
             `/update_operation_cost_monthly/${operationCostMonthlyId}`,
             payload,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -138,7 +130,7 @@ export const deleteOperationCostMonthly = async (
             "DELETE",
             `/delete_operation_cost_monthly/${operationCostMonthlyId}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {

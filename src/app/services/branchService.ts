@@ -1,23 +1,12 @@
 import { front_api } from "./apiConfig";
 
-const getHeaders = () => {
-    const token = localStorage.getItem('tk-jos');
-    return {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-    };
-};
-
 export const getBranchList = async () => {
     try {
         const response = await front_api(
-            "GET", 
+            "GET",
             "/get_all_branchs",
             {},
-            {
-                wrapData: false,
-                headers: {}
-            }
+            { wrapData: false }
         );
         if (!response) return { success: false, data: [] };
         return await response.json();
@@ -32,10 +21,7 @@ export const createBranch = async (data: { branch_code: string; branch_name: str
             "POST",
             "/create_branch",
             data,
-            {
-                wrapData: false,
-                headers: {}
-            }
+            { wrapData: false }
         );
         if (!response) return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
         return await response.json();
@@ -50,7 +36,7 @@ export const updateBranch = async (branchId: number, data: { branch_code: string
             "PUT",
             `/update_branch/${branchId}`,
             data,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         if (!response) return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
         return await response.json();
@@ -59,14 +45,14 @@ export const updateBranch = async (branchId: number, data: { branch_code: string
     }
 };
 
-export const deleteBranch = async (branchId: number,currentStatus: boolean) => {
+export const deleteBranch = async (branchId: number, currentStatus: boolean) => {
     try {
         const newStatus = !currentStatus;
         const response = await front_api(
             "PUT",
             `/delete_branch/${branchId}`,
-            {is_active: newStatus},
-            { wrapData: false, headers: getHeaders() }
+            { is_active: newStatus },
+            { wrapData: false }
         );
         if (!response) return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
         return await response.json();
@@ -81,7 +67,7 @@ export const assignBranchToUser = async (username: string, branchIds: number[]) 
             "POST",
             "/assign_branch_to_user",
             { username, branch_ids: branchIds },
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         if (!response) return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
         return await response.json();

@@ -6,14 +6,6 @@ interface APIResponse {
     data?: any;
 }
 
-const getHeaders = () => {
-    const token = localStorage.getItem('tk-jos');
-    return {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-    };
-};
-
 const handleResponse = async (response: Response | false | undefined): Promise<APIResponse> => {
     if (!response) {
         return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
@@ -32,7 +24,7 @@ export const createCertificate = async (data: any): Promise<APIResponse> => {
             "POST",
             "/test_certificate/create",
             data,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -57,7 +49,7 @@ export const getCertificateList = async (
             "GET",
             `/test_certificate/get_list?${params.toString()}`,
             undefined,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -72,7 +64,7 @@ export const getCertificateById = async (id: number | string): Promise<APIRespon
             "GET",
             `/test_certificate/get/${id}`,
             undefined,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -88,7 +80,7 @@ export const updateCertificate = async (id: number | string, data: any): Promise
             "PUT",
             `/test_certificate/update/${id}`,
             data,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {

@@ -6,14 +6,6 @@ interface APIResponse {
     data?: any;
 }
 
-const getHeaders = () => {
-    const token = localStorage.getItem('tk-jos');
-    return {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-    };
-};
-
 const handleResponse = async (response: Response | false | undefined): Promise<APIResponse> => {
     if (!response) {
         return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
@@ -44,7 +36,7 @@ export const getQCWorkOrderList = async (
             "GET",
             `/get_qc_work_order_list?${params.toString()}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -60,7 +52,7 @@ export const getQCWorkOrderById = async (id: number): Promise<APIResponse> => {
             "GET",
             `/qc_work_order/${id}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -76,7 +68,7 @@ export const createQCWorkOrder = async (data: any): Promise<APIResponse> => {
             "POST",
             "/qc_work_order/create",
             data,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -92,7 +84,7 @@ export const updateQCWorkOrder = async (id: number, data: any): Promise<APIRespo
             "PUT",
             `/qc_work_order/update/${id}`,
             data,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -108,7 +100,7 @@ export const deleteQCWorkOrder = async (id: number): Promise<APIResponse> => {
             "DELETE",
             `/qc_work_order/delete/${id}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -119,9 +111,9 @@ export const deleteQCWorkOrder = async (id: number): Promise<APIResponse> => {
 export const searchQcWorkOrder = async (search: string) => {
     const response = await front_api(
         "GET",
-        `/search_qc_work_order?search=${search}`, 
+        `/search_qc_work_order?search=${search}`,
         {},
-        { wrapData: false, headers: getHeaders() }
+        { wrapData: false }
     );
-    return response; 
+    return response;
 };

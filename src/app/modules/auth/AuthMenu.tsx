@@ -1,5 +1,3 @@
-import { MdFactory } from "react-icons/md";
-
 export interface RouteType {
     module_code: string;
     path: string;
@@ -10,6 +8,7 @@ export interface RouteType {
 
 export interface SubRouteType extends RouteType {
     main_module_code: string;
+    display : boolean
 }
 
 export interface MainRouteType extends RouteType {
@@ -21,58 +20,88 @@ export interface MainRouteType extends RouteType {
 
 export const mainRoutesConfig: MainRouteType[] = [
     {
+        module_code: "SALE_ORDER",
+        path: "/sales_order",
+        title: "ใบสั่งขาย",
+        fontIcon: "bi-cart",
+        icon: "bi bi-cart",
+        subMenu: [],
+        permission: [],
+    },
+    {
         module_code: "WORKORDERS",
         path: "/workorder",
-        title: "",
+        title: "ใบสั่งผลิต",
         fontIcon: "bi-wrench-adjustable-circle",
         icon: "bi bi-wrench-adjustable-circle",
         subMenu: [],
-        permission: []
-    },
-    {
-        module_code: "SETTING",
-        path: "/setting",
-        title: "",
-        fontIcon: "bi-gear",
-        icon: "bi bi-gear",
-        subMenu: [],
-        permission: []
-    },
-    {
-        module_code: "EMPLOYEE",
-        path: "/employee",
-        title: "",
-        fontIcon: "bi-people",
-        icon: "bi bi-people",
-        subMenu: [],
-        permission: []
+        permission: [],
     },
     {
         module_code: "QC",
         path: "/quality_control",
-        title: "",
+        title: "การเทส",
         fontIcon: "bi-search",
         icon: "bi bi-search",
         subMenu: [],
-        permission: []
-    },{
+        permission: [],
+    },
+    {
+        module_code: "EMPLOYEE",
+        path: "/employee",
+        title: "พนักงาน",
+        fontIcon: "bi-people",
+        icon: "bi bi-people",
+        subMenu: [],
+        permission: [],
+    },
+    {
+        module_code: "DOCUMENTS",
+        path: "/document",
+        title: "รายการเอกสาร",
+        fontIcon: "bi-archive",
+        icon: "bi bi-archive",
+        subMenu: [],
+        permission: [],
+    },
+    {
         module_code: "CAL_COST",
         path: "/cost_calculation",
-        title: "",
+        title: "คำนวณต้นทุน",
         fontIcon: "bi-layers",
         icon: "bi bi-calculator",
         subMenu: [],
-        permission: []
+        permission: [],
     },
     {
-        module_code: "SALE_ORDER",
-        path: "/sales_order",
-        title: "",
-        fontIcon: "bi-cart",
-        icon: "bi bi-cart",
+        module_code: "MACHINE",
+        path: "/machine",
+        title: "เครื่องจักร",
+        fontIcon: "bi-gear-wide-connected",
+        icon: "wrench",
+        customIcon: "/media/icons/machine.svg",
         subMenu: [],
-        permission: []
+        permission: [],
     },
+    {
+        module_code: "PM_MACHINE",
+        path: "/pm_machine",
+        title: "ซ่อมเครื่องจักร",
+        fontIcon: "bi-hammer",
+        icon: "bi bi-hammer",
+        subMenu: [],
+        permission: [],
+    },
+    {
+        module_code: "SETTING",
+        path: "/setting",
+        title: "ตั้งค่า",
+        fontIcon: "bi-gear",
+        icon: "bi bi-gear",
+        subMenu: [],
+        permission: [],
+    },
+    
     // {
     //     module_code: "TRACKING",
     //     path: "/tracking",
@@ -80,36 +109,9 @@ export const mainRoutesConfig: MainRouteType[] = [
     //     fontIcon: "bi-graph-up",
     //     icon: "bi bi-graph-up",
     //     subMenu: [],
-    //     permission: []
+    //     permission: [],
+    //     display : true
     // },
-    {
-        module_code: "PM_MACHINE",
-        path: "/pm_machine",
-        title: "",
-        fontIcon: "bi-hammer",
-        icon: "bi bi-hammer",
-        subMenu: [],
-        permission: []
-    },
-    {
-        module_code: "MACHINE",
-        path: "/machine",
-        title: "",
-        fontIcon: "bi-gear-wide-connected",
-        icon: "wrench",
-        customIcon: "/media/icons/machine.svg",
-        subMenu: [],
-        permission: []
-    },
-    {
-        module_code: "DOCUMENTS",
-        path: "/document",
-        title: "",
-        fontIcon: "bi-archive",
-        icon: "bi bi-archive",
-        subMenu: [],
-        permission: []
-    }
 ]
 
 export const subRoutesConfig: SubRouteType[] = [
@@ -117,168 +119,200 @@ export const subRoutesConfig: SubRouteType[] = [
         module_code: "EMPLOYEE_LIST",
         main_module_code: "EMPLOYEE",
         path: "/employee/employee_list",
-        title: "",
-        permission: []
+        title: "รายชื่อพนักงาน",
+        permission: [],
+        display : true
     },
     {
         module_code: "ROLE_MANAGEMENT",
         main_module_code: "SETTING",
         path: "/setting/role_management",
-        title: "",
-        permission: []
+        title: "จัดการสิทธิ์ผู้ใช้งาน",
+        permission: [],
+        display : true
     },
     {
         module_code: "MODULE_MANAGEMENT",
         main_module_code: "SETTING",
         path: "/setting/module_management",
-        title: "",
-        permission: []
+        title: "จัดการโมดูล",
+        permission: [],
+        display : true
     },
     {
         module_code: "USER_MANAGEMENT",
         main_module_code: "SETTING",
         path: "/setting/user_management",
-        title: "",
-        permission: []
+        title: "จัดการผู้ใช้",
+        permission: [],
+        display : true
     },
     {
         module_code: "DOCUMENT_CODE",
         main_module_code: "SETTING",
         path: "/setting/document_code",
-        title: "",
-        permission: []
+        title: "จัดการเลขที่เอกสาร",
+        permission: [],
+        display : true
     },
     {
         module_code: "BRANCH_MANAGEMENT",
         main_module_code: "SETTING",
         path: "/setting/branch_management",
-        title: "",
-        permission: []
+        title: "จัดการสาขา",
+        permission: [],
+        display : true
     },
     {
         module_code: "BRANCH_LIST",
         main_module_code: "SETTING",
         path: "/setting/branch_list",
-        title: "",
-        permission: []
+        title: "รายชื่อสาขา",
+        permission: [],
+        display : true
     },
     {
         module_code: "DASHBOARD",
         main_module_code: "WORKORDERS",
         path: "/workorder/workorders_dashboard",
-        title: "",
-        permission: []
+        title: "ภาพรวมใบสั่งผลิต",
+        permission: [],
+        display : true
     },
     {
         module_code: "WORKORDERS_LIST",
         main_module_code: "WORKORDERS",
         path: "/workorder/workorders_list",
-        title: "",
-        permission: []
+        title: "รายการใบสั่งผลิต",
+        permission: [],
+        display : true
     },
     {
         module_code: "WORKORDERS_TEMPLATE",
         main_module_code: "WORKORDERS",
         path: "/workorder/workorders_template",
-        title: "",
-        permission: []
+        title: "แบบเอกสารใบสั่งผลิต",
+        permission: [],
+        display : true
     },
     {
         module_code: "EMPLOYEE_SAL",
         main_module_code: "EMPLOYEE",
         path: "/employee/employee_salary_history",
-        title: "",
-        permission: []
+        title: "เงินเดือนพนักงาน",
+        permission: [],
+        display : true
     },
     {
         module_code: "QC_WORKORDERS",
         main_module_code: "QC",
         path: "/quality_control/qc_workorders_list",
-        title: "",
-        permission: []
+        title: "รายการใบสั่งเทส",
+        permission: [],
+        display : true
     },
     {
         module_code: "QC_TEST_CERT",
         main_module_code: "QC",
         path: "/quality_control/qc_test_cert_list",
-        title: "",
-        permission:[]
+        title: "ใบรับรอง",
+        permission: [],
+        display : true
     },
     {
         module_code: "CAL_COST_MONTHLY",
         main_module_code: "CAL_COST",
         path: "/cost_calculation/monthly_operation",
-        title: "",
-        permission: []
+        title: "คำนวณต้นทุนรายเดือน",
+        permission: [],
+        display : true
     },
     {
         module_code: "SALE_ORD_LIST",
         main_module_code: "SALE_ORDER",
         path: "/sales_order/list",
-        title: "",
-        permission: []
+        title: "รายการใบสั่งขาย",
+        permission: [],
+        display : true
     },
     {
         module_code: "SALE_ORD_DASHBOARD",
         main_module_code: "SALE_ORDER",
         path: "/sales_order/dashboard",
-        title: "",
-        permission: []
+        title: "ภาพรวมใบสั่งขาย",
+        permission: [],
+        display : true
     },
     // {
     //     module_code: "TEST_TRACKING",
     //     main_module_code: "TRACKING",
     //     path: "/tracking/test_tracking",
     //     title: "",
-    //     permission: []
+    //     permission: [],
+//display : true
     // },
     // {
     //     module_code: "PRODUCTION_TRACKING",
     //     main_module_code: "TRACKING",
     //     path: "/tracking/production_tracking",
     //     title: "",
-    //     permission: []
+    //     permission: [],
+    //        display : true
     // },
     {
         module_code: "PM_ITEM",
         main_module_code: "PM_MACHINE",
         path: "/pm_machine/item",
-        title: "",
-        permission: []
+        title: "รายการซ่อมเครื่องจักร",
+        permission: [],
+        display : true
     },
     {
         module_code: "PM_DASHBOARD",
         main_module_code: "PM_MACHINE",
         path: "/pm_machine/dashboard",
-        title: "",
-        permission: []
+        title: "ภาพรวมการซ่อมเครื่องจักร",
+        permission: [],
+        display : true
     },
     {
         module_code: "MACHINE_LIST",
         main_module_code: "MACHINE",
         path: "/machine/machine_list",
-        title: "",
-        permission: []
+        title: "รายการเครื่องจักร",
+        permission: [],
+        display : true
     },
     {
         module_code: "MACHINE_CREATE",
         main_module_code: "MACHINE",
         path: "/machine/machine_create",
-        title: "",
-        permission: []
+        title: "เพิ่มข้อมูลเครื่องจักน",
+        permission: [],
+        display : true
     },
     {
         module_code: "MACHINE_DASHBOARD",
         main_module_code: "MACHINE",
         path: "/machine/machine_dashboard",
-        title: "",
-        permission: []
+        title: "ภาพรวมเครื่องจักร",
+        permission: [],
+        display : true
     },
     {
         module_code: "PICKING_REQUEST",
         main_module_code: "DOCUMENTS",
         path: "/documents/picking_request",
+        title: "คำขอเบิก",
+        permission: [],
+        display : true
+    },
+    {
+        module_code: "UNASSIGNED_SO",
+        main_module_code: "SALE_ORDER",
+        path: "",
         title: "",
-        permission: []
+        permission: [],
+        display : false
     }
 ]

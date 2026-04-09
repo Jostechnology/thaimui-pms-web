@@ -1,8 +1,8 @@
 import { Form } from "react-bootstrap";
 import { getModuleList } from "../../services/settingServices";
 import { useEffect, useState } from "react";
-import { 
-    Module, AddRoleModalProps, ModuleRequest, SubModule, PermissionResponse
+import {
+    Module, AddRoleModalProps, ModuleRequest, SubModule
 } from "../../type_interface/SettingType";
 import React from "react";
 
@@ -31,12 +31,12 @@ const AddEditRoleModal = (props: AddRoleModalProps) => {
                     let data = result.data as Module[];
                     setModuleList(data);
                     let checkAllArr: boolean[] = [];
-                    let initPermissionState = data.map((dataItem: Module, index) => {
+                    let initPermissionState = data.map((dataItem: Module) => {
                         checkAllArr.push(false);
                         return [
-                                ...dataItem.sub_modules.map((sub: SubModule, sub_index) => {
+                                ...dataItem.sub_modules.map((sub: SubModule) => {
                                     if (isEdit) {
-                                        return [...selectedPermissionList[index][sub_index]];
+                                        return [...(selectedPermissionList[sub.module_code] ?? [])];
                                     } else {
                                         return [];
                                     }
@@ -82,7 +82,7 @@ const AddEditRoleModal = (props: AddRoleModalProps) => {
         let checkAllArr = [...checkAllState];
         if (e.target.checked) {
             newArr[main_index] = newArr[main_index].map((subItem, sub_index) => {
-                return [...moduleList[main_index].sub_modules[sub_index].permission] as any;
+                return [...moduleList[main_index].sub_modules[sub_index].permission] as string[];
             });
             checkAllArr[main_index] = true;
         } else {
@@ -236,43 +236,22 @@ const AddEditRoleModal = (props: AddRoleModalProps) => {
                                                                         <tr key={sub_index}>
                                                                             <td style={{ fontSize: "18px", paddingLeft: "10px" }}>{sub.module_name}</td>
                                                                             {
-                                                                                typeof sub.permission[0] === 'string' ?
-                                                                                sub.permission.sort().reverse().map((per, p_index) => {
+                                                                                (sub.permission as string[]).sort().reverse().map((per, p_index) => {
                                                                                     return (
-                                                                                        <td key={`${per as string}-${p_index}`}>
+                                                                                        <td key={`${per}-${p_index}`}>
                                                                                             <div style={{ display: "flex", alignItems: "flex-end" }}>
                                                                                                 <input
                                                                                                     id={`check-${main_index}-sub-${sub_index}-${per}`}
                                                                                                     type="checkbox"
-                                                                                                    onChange={() => handleAddRemoveSelectPermission(main_index, sub_index, per as string)}
-                                                                                                    checked={permissionList[main_index][sub_index].includes(per as string)}
+                                                                                                    onChange={() => handleAddRemoveSelectPermission(main_index, sub_index, per)}
+                                                                                                    checked={permissionList[main_index][sub_index].includes(per)}
                                                                                                     style={{ height: "30px", width: "20px", marginRight: "10px" }}
                                                                                                     disabled={isWatch}
                                                                                                 />
-                                                                                                <label htmlFor={`check-${main_index}-sub-${sub_index}-${per}`} style={{ fontSize: "16px" }}>{per as string}</label>
+                                                                                                <label htmlFor={`check-${main_index}-sub-${sub_index}-${per}`} style={{ fontSize: "16px" }}>{per}</label>
                                                                                             </div>
                                                                                         </td>
                                                                                     );
-                                                                                })
-                                                                                :
-                                                                                sub.permission.sort((a: any, b: any) => b.method.localeCompare(a.method))
-                                                                                    .map((per, p_index) => {
-                                                                                        per = per as PermissionResponse;
-                                                                                        return (
-                                                                                            <td key={`${per.method}-${p_index}`}>
-                                                                                                <div style={{ display: "flex", alignItems: "flex-end" }}>
-                                                                                                    <input
-                                                                                                        id={`check-${main_index}-sub-${sub_index}-${per.method}`}
-                                                                                                        type="checkbox"
-                                                                                                        onChange={() => handleAddRemoveSelectPermission(main_index, sub_index, per.method)}
-                                                                                                        checked={permissionList[main_index][sub_index].includes(per.method)}
-                                                                                                        style={{ height: "30px", width: "20px", marginRight: "10px" }}
-                                                                                                        disabled={isWatch}
-                                                                                                    />
-                                                                                                    <label htmlFor={`check-${main_index}-sub-${sub_index}-${per.method}`} style={{ fontSize: "16px" }}>{per.method}</label>
-                                                                                                </div>
-                                                                                            </td>
-                                                                                        );
                                                                                 })
                                                                             }
                                                                         </tr>

@@ -1,7 +1,7 @@
 import { front_api } from "./apiConfig";
-import type { 
-    Machine, 
-    MachineListResponse 
+import type {
+    Machine,
+    MachineListResponse
 } from "../type_interface/MachineType";
 
 export interface APIResponse<T = any> {
@@ -11,16 +11,12 @@ export interface APIResponse<T = any> {
 }
 
 const getHeaders = () => {
-    const token = localStorage.getItem('tk-jos');
-    const activeBranchId = localStorage.getItem('activeBranchId'); //------------------branch id
+    const activeBranchId = localStorage.getItem('activeBranchId');
     return {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "X-Branch-ID": activeBranchId || ''  //------------------branch id
+        "X-Branch-ID": activeBranchId || ''
     };
 };
 
-// อัปเกรด handleResponse ให้รองรับ Generics เช่นกัน
 const handleResponse = async <T = any>(response: Response | false | undefined): Promise<APIResponse<T>> => {
     if (!response) {
         return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
@@ -33,7 +29,6 @@ const handleResponse = async <T = any>(response: Response | false | undefined): 
 };
 
 
-// เส้น List บังคับเลยว่า data ที่ได้ต้องเป็นโครงสร้างของ MachineListResponse
 export const getMachineList = async (
     page: number = 1,
     per_page: number = 10,
@@ -63,7 +58,6 @@ export const getMachineList = async (
     }
 };
 
-// เส้น By ID บังคับเลยว่า data ที่ได้ต้องเป็นโครงสร้างของ Machine ชิ้นเดียว
 export const getMachineById = async (id: number | string): Promise<APIResponse<Machine>> => {
     try {
         const response = await front_api(
@@ -87,14 +81,13 @@ export const createMachine = async (data: any): Promise<APIResponse<Machine>> =>
             data,
             { wrapData: false, headers: getHeaders() }
         );
-        return await handleResponse<Machine>(response); 
+        return await handleResponse<Machine>(response);
     } catch (error) {
         console.error("createMachine Error:", error);
         return { success: false, message: "เกิดข้อผิดพลาดในการสร้างข้อมูลเครื่องจักร" };
     }
 };
 
-// Update Machine
 export const updateMachine = async (id: number | string, data: any): Promise<APIResponse<Machine>> => {
     try {
         const response = await front_api(
@@ -110,11 +103,10 @@ export const updateMachine = async (id: number | string, data: any): Promise<API
     }
 };
 
-// Delete Machine
 export const deleteMachine = async (id: number | string): Promise<APIResponse> => {
     try {
         const response = await front_api(
-            "DELETE", 
+            "DELETE",
             `/delete_machine/${id}`,
             {},
             { wrapData: false, headers: getHeaders() }

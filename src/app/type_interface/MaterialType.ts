@@ -4,6 +4,7 @@ export type Material = {
     item_code : string
     item_description : string
     item_name : string
+    item_group : string
     original_num : number
     remaining_num : number
     material_list_id : number

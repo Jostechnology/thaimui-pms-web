@@ -93,7 +93,10 @@ const MaterialStockSummary: React.FC<Props> = ({ salesItemId, externalData }) =>
                                 return (
                                     <tr key={item.material_list_id}>
                                         <td className="text-muted fs-7">{item.item_code}</td>
-                                        <td className="fw-semibold text-gray-800">{item.item_name}</td>
+                                        <td className="fw-semibold text-gray-800">
+                                            {item.item_name}
+                                            {item.item_group && <span className="badge badge-light-info ms-2 fs-8">{item.item_group}</span>}
+                                        </td>
                                         <td className="text-center fw-bold">{item.total_quantity}</td>
                                         <td className="text-center text-primary">{item.used_in_production}</td>
                                         <td className="text-center text-info">{item.used_in_testing}</td>

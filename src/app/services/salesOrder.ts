@@ -9,6 +9,8 @@ export interface SalesOrderSummary {
     slp_name: string;
     bpl_code: string;
     bpl_name: string;
+    branch_code: string | null;
+    branch_name: string | null;
     group_code: string;
     group_name: string;
     created_date: string;
@@ -18,6 +20,8 @@ export interface SalesOrderSummary {
     qc_count: number;
     qc_passed: number;
     qc_failed: number;
+    produce_total: number;
+    produce_has_workorder: number;
     status: 'INPROGRESS' | 'COMPLETED';
 }
 
@@ -27,8 +31,6 @@ export const getSalesOrderList = async (
     search: string = ""
 ) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-
         const params = new URLSearchParams({
             page: page.toString(),
             per_page: per_page.toString(),
@@ -36,18 +38,11 @@ export const getSalesOrderList = async (
 
         if (search) params.append("search", search);
 
-        const headers = {
-            "Authorization": `Bearer ${token}`
-        };
-
         const response = await front_api(
             "GET",
             `/sales_order/get_all?${params.toString()}`,
             {},
-            {
-                wrapData: false,
-                headers: headers
-            }
+            { wrapData: false }
         );
 
         if (!response) return false;
@@ -67,16 +62,11 @@ export const getSalesOrderList = async (
 
 export const completeSalesItem = async (sales_item_id: number) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-
         const response = await front_api(
             "POST",
             `/sales_item/${sales_item_id}/complete`,
             {},
-            {
-                wrapData: false,
-                headers: { "Authorization": `Bearer ${token}` }
-            }
+            { wrapData: false }
         );
 
         if (!response) return false;
@@ -89,22 +79,32 @@ export const completeSalesItem = async (sales_item_id: number) => {
     }
 }
 
+export const assignBranchToSalesOrder = async (doc_entry: number, branch_id: number) => {
+    try {
+        const response = await front_api(
+            "POST",
+            `/sales_order/${doc_entry}/pms_assign_branch`,
+            { branch_id },
+            { wrapData: false }
+        );
+
+        if (!response) return false;
+
+        const result = await response.json();
+        return response.ok ? { ...result, success: true } : { ...result, success: false };
+    } catch (error) {
+        console.error("assignBranchToSalesOrder Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+}
+
 export const getSalesOrderById = async (doc_entry: number) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-
-        const headers = {
-            "Authorization": `Bearer ${token}`
-        };
-
         const response = await front_api(
             "GET",
             `/sales_order/get_by_doc_entry/${doc_entry}`,
             {},
-            {
-                wrapData: false,
-                headers: headers
-            }
+            { wrapData: false }
         );
 
         if (!response) return false;

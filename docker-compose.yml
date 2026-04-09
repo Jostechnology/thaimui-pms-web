@@ -9,4 +9,5 @@ services:
     environment:
       - VITE_FRONT_API=${VITE_FRONT_API}
       - VITE_GOOGLE_API=${VITE_GOOGLE_API}
+      - VITE_DOCUMENT_GENERATOR_URL=${VITE_DOCUMENT_GENERATOR_URL}
     command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

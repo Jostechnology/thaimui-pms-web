@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate, useParams } from "react-router-dom";
-import { getSalesOrderById, completeSalesItem } from '../../../services/salesOrder';
+import { getSalesOrderById, completeSalesItem, assignBranchToSalesOrder } from '../../../services/salesOrder';
 import { getMaterialStockSummary } from '../../../services/materialStockService';
+import { getBranchList } from '../../../services/branchService';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
+import { useMasterData } from '../../../context/MasterDataContext';
+import { getUserAction } from '../../../helpers/pageAccess';
 import type { MaterialStockSummary } from '../../../type_interface/MaterialStockType';
 import MaterialUsageDetailModal from '../../Tracking/components/MaterialUsageDetailModal';
 import SalesItemTrackingModal from '../../quality_control/components/SalesItemTrackingModal';
@@ -22,12 +25,13 @@ interface SalesItem {
     cost_price: number;
     producing_qty: number;
     produced_qty: number;
-    available_for_test_qty: number;
     unavailable_for_test_qty: number;
     passed_qty: number;
     failed_qty: number;
     num_qc_work_order : number;
     num_qc_successed_work_order : number;
+    produce: boolean;
+    work_order: { work_order_id: number; work_order_code: string } | null;
     status: 'PENDING' | 'INPROGRESS' | 'COMPLETED';
     is_completable: boolean;
 }
@@ -54,6 +58,8 @@ interface SalesOrder {
     slp_name: string;
     bpl_code: string;
     bpl_name: string;
+    branch_code: string;
+    branch_name: string;
     group_code: string;
     group_name: string;
     created_date: string;
@@ -62,11 +68,19 @@ interface SalesOrder {
     material_list: Material[];
 }
 
+interface Branch {
+    branch_id: number;
+    branch_code: string;
+    branch_name: string;
+}
+
 const SalesOrderView: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
+    const { masterData } = useMasterData();
+    const allowedActions = getUserAction(masterData.actionList, "SALE_ORDER", "UNASSIGNED_SO");
 
     const [salesOrder, setSalesOrder] = useState<SalesOrder | null>(null);
     const [dataLoading, setDataLoading] = useState(true);
@@ -78,17 +92,26 @@ const SalesOrderView: React.FC = () => {
     const [showTrackingModal, setShowTrackingModal] = useState(false);
     const [selectedSalesItemId, setSelectedSalesItemId] = useState<number | null>(null);
     const [completingId, setCompletingId] = useState<number | null>(null);
+    const [materialSalesItemFilter, setMaterialSalesItemFilter] = useState<number | 'all'>('all');
+    const [branches, setBranches] = useState<Branch[]>([]);
+    const [assigningBranch, setAssigningBranch] = useState(false);
 
     const fetchData = async () => {
         setLoading();
         setDataLoading(true);
         try {
-            const result = await getSalesOrderById(Number(id));
+            const [result, branchResult] = await Promise.all([
+                getSalesOrderById(Number(id)),
+                getBranchList(),
+            ]);
             if (result && result.success && result.data) {
                 setSalesOrder(result.data);
             } else {
                 alertMessage("ไม่สามารถดึงข้อมูลใบสั่งขายได้");
                 navigate('/sales_order/list');
+            }
+            if (branchResult && branchResult.success) {
+                setBranches(branchResult.data || []);
             }
         } catch (error) {
             console.error(error);
@@ -96,6 +119,24 @@ const SalesOrderView: React.FC = () => {
         } finally {
             setUnLoading();
             setDataLoading(false);
+        }
+    };
+
+    const handleAssignBranch = async (branchId: number) => {
+        if (!salesOrder) return;
+        setAssigningBranch(true);
+        try {
+            const result = await assignBranchToSalesOrder(salesOrder.doc_entry, branchId);
+            if (result && result.success) {
+                await fetchData();
+            } else {
+                alertMessage((result as any)?.message || "ไม่สามารถกำหนดสาขาผลิตได้");
+            }
+        } catch (error) {
+            console.error(error);
+            alertMessage("เกิดข้อผิดพลาด");
+        } finally {
+            setAssigningBranch(false);
         }
     };
 
@@ -242,6 +283,38 @@ const SalesOrderView: React.FC = () => {
                                     {salesOrder.bpl_name}
                                 </div>
                             </div>
+                            <div className="row mb-4">
+                                <div className="col-sm-4 text-muted fw-bolder">สาขาผลิต:</div>
+                                <div className="col-sm-8">
+                                    {allowedActions.edit ? (
+                                        <div className="d-flex align-items-center gap-2">
+                                            <select
+                                                className="form-select form-select-sm"
+                                                value={branches.find(b => b.branch_code === salesOrder.branch_code)?.branch_id ?? ''}
+                                                disabled={assigningBranch}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    if (val) handleAssignBranch(Number(val));
+                                                }}
+                                            >
+                                                <option value="">-- เลือกสาขาผลิต --</option>
+                                                {branches.map(b => (
+                                                    <option key={b.branch_id} value={b.branch_id}>
+                                                        {b.branch_name} ({b.branch_code})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {assigningBranch && <span className="spinner-border spinner-border-sm text-primary" />}
+                                        </div>
+                                    ) : (
+                                        <div className="fw-bold">
+                                            <i className="bi bi-building me-2 text-muted"></i>
+                                            {salesOrder.branch_name ? salesOrder.branch_name : <span className="badge badge-light-warning">ยังไม่ระบุสาขาผลิต</span>}
+                                            {salesOrder.branch_code && <span className="badge badge-light-info ms-2">{salesOrder.branch_code}</span>}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                             <div className="row">
                                 <div className="col-sm-4 text-muted fw-bolder">วันที่สร้าง:</div>
                                 <div className="col-sm-8 fw-bold">{formatDateTime(salesOrder.created_date)}</div>
@@ -275,7 +348,8 @@ const SalesOrderView: React.FC = () => {
                                     <th className="min-w-100px text-end">ราคาต้นทุน</th>
                                     <th className="min-w-100px text-end">ราคา/หน่วย</th>
                                     <th className="min-w-200px text-center">ความคืบหน้าการผลิต</th>
-                                    <th className="min-w-120px text-center pe-4 rounded-end">สถานะ</th>
+                                    <th className="min-w-250px text-center">สถานะ</th>
+                                    <th className="min-w-150px text-center pe-4 rounded-end">การดำเนินการ</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -294,7 +368,10 @@ const SalesOrderView: React.FC = () => {
                                             </td>
                                             <td>
                                                 <div className="d-flex flex-column">
-                                                    <span className="text-gray-800 fw-bolder fs-6">{item.item_name}</span>
+                                                    <span className="text-gray-800 fw-bolder fs-6">
+                                                        {item.item_name}
+                                                        {item.item_group && <span className="badge badge-light-info ms-2 fs-8">{item.item_group}</span>}
+                                                    </span>
                                                     <span className="text-muted fw-bold d-block fs-7">{item.item_description || '-'}</span>
                                                 </div>
                                             </td>
@@ -311,10 +388,8 @@ const SalesOrderView: React.FC = () => {
                                                 {(() => {
                                                     const passed = item.passed_qty ?? 0;
                                                     const failed = item.failed_qty ?? 0;
-                                                    const unavailable = item.unavailable_for_test_qty ?? 0;
                                                     const num_qc_work_order = item.num_qc_work_order ?? 0;
                                                     const num_qc_successed_work_order = item.num_qc_successed_work_order ?? 0;
-                                                    const testing = Math.max(0, unavailable - passed - failed);
 
                                                     const noOrders = num_qc_work_order === 0;
                                                     const qcComplete = !noOrders && num_qc_successed_work_order === num_qc_work_order;
@@ -337,9 +412,9 @@ const SalesOrderView: React.FC = () => {
                                                         : 'bi-x-circle-fill';
 
                                                     const stats = [
-                                                    { label: 'กำลังผลิต', value: item.producing_qty ?? 0, icon: 'bi-gear-fill', color: 'text-warning' },
+                                                    // { label: 'กำลังผลิต', value: item.producing_qty ?? 0, icon: 'bi-gear-fill', color: 'text-warning' },
                                                     { label: 'ผลิตแล้ว', value: item.produced_qty ?? 0, icon: 'bi-check2-circle', color: 'text-primary' },
-                                                    { label: 'กำลังเทส', value: testing, icon: 'bi-hourglass-split', color: 'text-info' },
+                                                    // { label: 'กำลังเทส', value: testing, icon: 'bi-hourglass-split', color: 'text-info' },
                                                     { label: 'ผ่าน', value: passed, icon: 'bi-patch-check-fill', color: 'text-success' },
                                                     { label: 'ไม่ผ่าน', value: failed, icon: 'bi-x-circle-fill', color: 'text-danger' },
                                                     ];
@@ -377,24 +452,50 @@ const SalesOrderView: React.FC = () => {
                                                             <span className={`badge ${statusClass}`}>{statusLabel}</span>
                                                             {item.is_completable && (
                                                                 <button
-                                                                    className="btn btn-sm btn-success py-1 px-3"
+                                                                    className="btn btn-sm btn-success py-1 px-3 text-nowrap"
                                                                     disabled={completingId === item.sales_item_id}
                                                                     onClick={(e) => handleComplete(e, item.sales_item_id)}
                                                                 >
                                                                     {completingId === item.sales_item_id
                                                                         ? <span className="spinner-border spinner-border-sm" />
-                                                                        : 'ทำเครื่องหมายเสร็จ'}
+                                                                        : 'รายการพร้อมทำการปิดงาน'}
                                                                 </button>
                                                             )}
                                                         </div>
                                                     );
                                                 })()}
                                             </td>
+                                            <td className="text-center pe-4">
+                                                <div className="d-flex flex-column align-items-center gap-2">
+                                                    {item.produce && !item.work_order && (
+                                                        <button
+                                                            className="btn btn-sm btn-light-primary py-1 px-3"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                navigate(`/workorder/workorders_create?doc_entry=${item.doc_entry}&sales_item_id=${item.sales_item_id}`);
+                                                            }}
+                                                        >
+                                                            <i className="bi bi-gear me-1"></i>สร้างใบสั่งผลิต
+                                                        </button>
+                                                    )}
+                                                    {item.num_qc_work_order === 0 && (
+                                                        <button
+                                                            className="btn btn-sm btn-light-warning py-1 px-3"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                navigate(`/quality_control/qc_workorders_list/create?doc_entry=${item.doc_entry}&sales_item_id=${item.sales_item_id}`);
+                                                            }}
+                                                        >
+                                                            <i className="bi bi-clipboard2-check me-1"></i>สร้างใบสั่ง QC
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={8} className="text-center py-6 text-muted fs-6">ไม่พบรายการสินค้า</td>
+                                        <td colSpan={9} className="text-center py-6 text-muted fs-6">ไม่พบรายการสินค้า</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -412,7 +513,20 @@ const SalesOrderView: React.FC = () => {
                                 <i className="bi bi-tools fs-2 me-2 text-warning"></i> รายการวัตถุดิบ ({salesOrder.material_list.length})
                             </span>
                         </h3>
-                        <div className="card-toolbar">
+                        <div className="card-toolbar d-flex align-items-center gap-3">
+                            <select
+                                className="form-select form-select-sm"
+                                style={{ minWidth: 240 }}
+                                value={materialSalesItemFilter}
+                                onChange={e => setMaterialSalesItemFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                            >
+                                <option value="all">ทุกสินค้า</option>
+                                {salesOrder.items.map(it => (
+                                    <option key={it.sales_item_id} value={it.sales_item_id}>
+                                        {it.item_code} - {it.item_name}
+                                    </option>
+                                ))}
+                            </select>
                             <span className="text-muted fs-7">
                                 <i className="bi bi-hand-index me-1"></i>คลิกที่รายการเพื่อดูรายละเอียดการใช้งาน
                             </span>
@@ -462,6 +576,7 @@ const SalesOrderView: React.FC = () => {
                                 <thead>
                                     <tr className="fw-bolder text-muted bg-light">
                                         <th className="ps-4 min-w-60px rounded-start">จำนวน</th>
+                                        <th className="min-w-120px">รหัสสินค้า</th>
                                         <th className="min-w-100px">รหัสวัตถุดิบ</th>
                                         <th className="min-w-200px">ชื่อวัตถุดิบ</th>
                                         <th className="min-w-100px text-end">ราคาต้นทุน</th>
@@ -470,7 +585,10 @@ const SalesOrderView: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {salesOrder.material_list.map((mat, index) => {
+                                    {salesOrder.material_list
+                                        .filter(mat => materialSalesItemFilter === 'all' || mat.sales_item_id === materialSalesItemFilter)
+                                        .map((mat, index) => {
+                                        const parentItem = salesOrder.items.find(it => it.sales_item_id === mat.sales_item_id);
                                         const stock = stockMap[mat.material_list_id];
                                         const usedPct = stock && stock.total_quantity > 0
                                             ? Math.min(100, ((stock.used_in_production + stock.used_in_testing) / stock.total_quantity) * 100)
@@ -488,10 +606,19 @@ const SalesOrderView: React.FC = () => {
                                                 style={{ cursor: 'pointer' }}
                                             >
                                                 <td className="ps-4 text-gray-800 fw-bolder fs-6">{mat.original_num ?? '-'}</td>
+                                                <td>
+                                                    <span className="text-gray-700 fw-bold d-block fs-7">{parentItem?.item_code || '-'}</span>
+                                                    {parentItem?.item_name && (
+                                                        <span className="text-muted fs-8">{parentItem.item_name}</span>
+                                                    )}
+                                                </td>
                                                 <td className="text-gray-800 fw-bold">{mat.item_code}</td>
                                                 <td>
                                                     <div className="d-flex flex-column">
-                                                        <span className="text-gray-800 fw-bolder fs-6">{mat.item_name}</span>
+                                                        <span className="text-gray-800 fw-bolder fs-6">
+                                                            {mat.item_name}
+                                                            {mat.item_group && <span className="badge badge-light-info ms-2 fs-8">{mat.item_group}</span>}
+                                                        </span>
                                                         {mat.item_description && (
                                                             <span className="text-muted fs-7">{mat.item_description}</span>
                                                         )}

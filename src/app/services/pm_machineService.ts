@@ -7,8 +7,6 @@ export const getpmMachineList = async (
     status: string = ""
 ) => {
     try {
-        const token = localStorage.getItem('tk-jos');
-
         const params = new URLSearchParams({
             page: page.toString(),
             per_page: per_page.toString(),
@@ -17,18 +15,11 @@ export const getpmMachineList = async (
         if (search) params.append("search", search);
         if (status) params.append("status", status);
 
-        const headers = {
-            "Authorization": `Bearer ${token}`
-        };
-
         const response = await front_api(
             "GET",
             `/get_pm_machine?${params.toString()}`,
             {},
-            {
-                wrapData: false,
-                headers: headers
-            }
+            { wrapData: false }
         );
 
         if (!response) return false;
@@ -48,12 +39,11 @@ export const getpmMachineList = async (
 
 export const createpmMachine = async (data: any) => {
     try {
-        const token = localStorage.getItem('tk-jos');
         const response = await front_api(
             "POST",
             "/create_pm_machine",
             data,
-            {  wrapData: false, headers: { "Authorization": `Bearer ${token}` } }
+            { wrapData: false }
         );
         if (!response) return { success: false, message: "No response from server" };
         const result = await response.json();
@@ -70,7 +60,6 @@ export const createpmMachine = async (data: any) => {
 
 export const getMachineList = async (search: string = "") => {
     try {
-        const token = localStorage.getItem('tk-jos');
         const params = new URLSearchParams({
             page: "1",
             per_page: "999",
@@ -78,15 +67,11 @@ export const getMachineList = async (search: string = "") => {
         });
         if (search) params.append("search", search);
 
-        const headers = {
-            "Authorization": `Bearer ${token}`
-        };
-
         const response = await front_api(
             "GET",
             `/get_machine_list?${params.toString()}`,
             {},
-            { wrapData: false, headers }
+            { wrapData: false }
         );
 
         if (!response) return { success: false, items: [] };

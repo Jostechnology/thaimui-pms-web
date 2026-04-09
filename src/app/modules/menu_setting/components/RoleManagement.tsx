@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { KTIcon } from "../../../../_metronic/helpers";
 import { useState, useEffect } from "react";
 import {
-    RoleToList, CreateRoleForm, ModuleRequest, SubModule,
-    Module, PermissionResponse
+    RoleToList, CreateRoleForm, ModuleRequest
 } from "../../../type_interface/SettingType";
 import { createRole, getRoleList, getRolePermission, editRole } from "../../../services/settingServices";
 import AddEditRoleModal from "../../../modals/setting_modal/AddEditRoleModal";
@@ -32,7 +31,7 @@ const RoleManagement = () => {
         module_list: []
     };
     const [formData, setFormData] = useState<CreateRoleForm>({ ...formState });
-    const [permissionList, setPermissionList] = useState<string[][][]>([]);
+    const [permissionList, setPermissionList] = useState<Record<string, string[]>>({});
 
     const fetchAllRole = async () => {
         try {
@@ -78,21 +77,19 @@ const RoleManagement = () => {
         setLoading();
         try {
             setIsEdit(true);
-            let result = await fetchRolePermission(role.role_id) as Module[];
+            let result = await fetchRolePermission(role.role_id) as string[];
             if (!result) return;
 
-            let moduleList: any = [
-                ...result.map(item => {
-                    return [
-                        ...item.sub_modules.map((sub: SubModule) => {
-                            return sub.permission.map((permission: any) => {
-                                let per = permission as PermissionResponse;
-                                if (per.check) return per.method;
-                            });
-                        })
-                    ];
-                })
-            ];
+            // Build map: { MODULE_CODE: ['view', 'edit', ...] }
+            const permMap: Record<string, string[]> = {};
+            for (const entry of result) {
+                const dotIdx = entry.lastIndexOf('.');
+                if (dotIdx === -1) continue;
+                const code = entry.substring(0, dotIdx);
+                const method = entry.substring(dotIdx + 1);
+                if (!permMap[code]) permMap[code] = [];
+                permMap[code].push(method);
+            }
 
             let selectedData: CreateRoleForm = {
                 role_id: role.role_id,
@@ -102,7 +99,7 @@ const RoleManagement = () => {
                 module_list: []
             };
             setIsWatch(isWatch);
-            setPermissionList(moduleList);
+            setPermissionList(permMap);
             setFormData({ ...selectedData });
             setIsModalShow(true);
         } catch (e) {

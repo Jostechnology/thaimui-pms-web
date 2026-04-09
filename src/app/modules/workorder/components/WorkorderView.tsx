@@ -378,10 +378,10 @@ const WorkorderView: React.FC = () => {
                         </h1>
                     </div>
                     <p className="text-muted fs-6 ms-11">
-                        {workOrder.sales_item
-                            ? `สินค้า: ${workOrder.sales_item.item_name} • ${workOrder.sales_item.item_description}`
-                            : `ใบสั่งผลิต: ${workOrder.work_order_code}`
-                        }
+                        {workOrder.sales_item ? `สินค้า: ${workOrder.sales_item.item_name}${workOrder.sales_item.item_group ? ` [${workOrder.sales_item.item_group}]` : ''} • ${workOrder.sales_item.item_description ?? "ไม่มีรายละเอียด"}` : "ไม่พบข้อมูลสินค้า"}
+                    </p>
+                    <p className="text-muted fs-6 ms-11">
+                        {`ใบสั่งผลิต: ${workOrder.work_order_code}`}
                     </p>
                 </div>
                 <div className="d-flex gap-3 mt-3 mt-md-0">
@@ -798,6 +798,10 @@ const WorkorderView: React.FC = () => {
                                         <span className="wo-item-value fw-bold">{workOrder.sales_item.item_name}</span>
                                     </div>
                                     <div className="wo-item-row">
+                                        <span className="wo-item-label">หมวดหมู่</span>
+                                        <span className="wo-item-value">{workOrder.sales_item.item_group || '-'}</span>
+                                    </div>
+                                    <div className="wo-item-row">
                                         <span className="wo-item-label">รายละเอียด</span>
                                         <span className="wo-item-value">{workOrder.sales_item.item_description}</span>
                                     </div>
@@ -870,7 +874,10 @@ const WorkorderView: React.FC = () => {
                                                     {comp.material_usages.map(usage => (
                                                         <div key={usage.usage_id} className="d-flex align-items-center justify-content-between px-3 py-2 rounded" style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}>
                                                             <div className="d-flex flex-column">
-                                                                <span className="fw-semibold text-gray-700 fs-7">{usage.material_list?.item_name || '-'}</span>
+                                                                <span className="fw-semibold text-gray-700 fs-7">
+                                                                    {usage.material_list?.item_name || '-'}
+                                                                    {usage.material_list?.item_group && <span className="badge badge-light-info ms-2 fs-8">{usage.material_list.item_group}</span>}
+                                                                </span>
                                                                 <span className="text-muted fs-8">{usage.material_list?.item_code || '-'}</span>
                                                             </div>
                                                             <div className="d-flex align-items-center gap-3">

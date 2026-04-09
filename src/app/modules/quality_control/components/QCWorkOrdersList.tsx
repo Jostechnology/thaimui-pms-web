@@ -16,6 +16,7 @@ import SalesItemTrackingModal from './SalesItemTrackingModal';
 interface SalesItem {
     sales_item_id: number;
     item_name: string;
+    item_group: string;
     item_code: string;
     item_description: string;
     item_num: number;
@@ -329,7 +330,7 @@ const QCWorkOrdersList: React.FC = () => {
                                             <td>
                                                 {item.sales_item ? (
                                                     <>
-                                                        <span className='text-gray-900 fw-bold d-block'>{item.sales_item.item_name} <span className='text-muted fs-7'>{item.sales_item.item_code}</span></span>
+                                                        <span className='text-gray-900 fw-bold d-block'>{item.sales_item.item_name} <span className='text-muted fs-7'>{item.sales_item.item_code}</span>{item.sales_item.item_group && <span className="badge badge-light-info ms-2 fs-8">{item.sales_item.item_group}</span>}</span>
                                                         <span className='text-muted fs-7'>ใบสั่งขาย {item.sales_item.doc_num}</span>
                                                     </>
                                                 ) : (

@@ -24,6 +24,7 @@ interface WorkorderData {
     quantity: number;
     sales_item: {
         item_name: string;
+        item_group: string;
         item_description: string;
     } | null;
     status: string;
@@ -324,6 +325,7 @@ const WorkorderList: React.FC = () => {
                                             <td className='text-start'>
                                                     <span className='text-gray-800 fw-bold text-hover-primary fs-6'>
                                                         {item.sales_item?.item_name || 'N/A'}
+                                                        {item.sales_item?.item_group && <span className="badge badge-light-info ms-2 fs-8">{item.sales_item.item_group}</span>}
                                                     </span>
                                             </td>
 

@@ -6,14 +6,6 @@ interface APIResponse {
     data?: any;
 }
 
-const getHeaders = () => {
-    const token = localStorage.getItem('tk-jos');
-    return {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-    };
-};
-
 const handleResponse = async (response: Response | false | undefined): Promise<APIResponse> => {
     if (!response) return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
     const result = await response.json().catch(() => ({}));
@@ -28,7 +20,7 @@ export const createTestResult = async (qcWorkOrderId: number, data: any): Promis
             "POST",
             `/qc_work_order/${qcWorkOrderId}/test_result/create`,
             data,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -43,7 +35,7 @@ export const getTestResultsByQCWorkOrder = async (qcWorkOrderId: number): Promis
             "GET",
             `/qc_work_order/${qcWorkOrderId}/test_result/list`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -58,7 +50,7 @@ export const getTestResultsBySalesOrder = async (docEntry: number): Promise<APIR
             "GET",
             `/sales_order/${docEntry}/test_result/list`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -73,7 +65,7 @@ export const getTestResultById = async (testResultId: number): Promise<APIRespon
             "GET",
             `/test_result/${testResultId}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -88,7 +80,7 @@ export const finalizeTestResult = async (testResultId: number, data: any): Promi
             "PUT",
             `/test_result/${testResultId}/finalize`,
             data,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -103,7 +95,7 @@ export const updateTestResult = async (testResultId: number, data: any): Promise
             "PUT",
             `/test_result/${testResultId}/update`,
             data,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {
@@ -118,7 +110,7 @@ export const deleteTestResult = async (testResultId: number): Promise<APIRespons
             "DELETE",
             `/test_result/${testResultId}/delete`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (error) {

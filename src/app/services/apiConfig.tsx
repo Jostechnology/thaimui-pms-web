@@ -1,6 +1,6 @@
 import EnvConfig from "../environments/envConfig";
 import axios from "axios";
-import { getTokenFromLocal, getTokenRefresh, giveAccessDenied } from "../helpers/appHelpers";
+import { getSignaturePermTree, getTokenFromLocal, getTokenRefresh, giveAccessDenied } from "../helpers/appHelpers";
 import { authTokenDedicated, isTokenExpired } from "../helpers/authenticationHelpers";
 import { refresh } from "./dedicated_auth";
 
@@ -51,6 +51,13 @@ export const front_api = async (
 		}
 		const { wrapData = true, headers = {}, name = "data" } = options;
 
+		const defaultHeaders = {
+			Authorization: `Bearer ${getTokenFromLocal() || ""}`,
+			"X-Permission-Token" : getSignaturePermTree() || ""
+		}
+
+		const publicPaths = ["/login", "/register", "/select-branch", "/verify_token"];
+
 		let body: any;
 
 		if (method === "GET") {
@@ -62,7 +69,6 @@ export const front_api = async (
 					token: getTokenFromLocal(),
 				});
 			} else {
-				const publicPaths = ["/login", "/register", "/select-branch", "/verify_token"];
 				body = JSON.stringify({
 					...data,
 					...(!publicPaths.includes(path) ? { token: getTokenFromLocal() } : {}),
@@ -74,6 +80,7 @@ export const front_api = async (
 			method: method,
 			headers: {
 				"Content-Type": "application/json",
+				...defaultHeaders,
 				...headers,
 			},
 			body: body,

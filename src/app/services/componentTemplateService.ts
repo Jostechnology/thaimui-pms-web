@@ -7,14 +7,6 @@ interface APIResponse {
     pagination?: any;
 }
 
-const getHeaders = () => {
-    const token = localStorage.getItem('tk-jos');
-    return {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-    };
-};
-
 const handleResponse = async (response: Response | false | undefined): Promise<APIResponse> => {
     if (!response) {
         return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
@@ -45,7 +37,7 @@ export const getComponentTemplates = async (
             "GET",
             `/component_templates?${params.toString()}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -59,7 +51,7 @@ export const getComponentTemplateById = async (templateId: number): Promise<APIR
             "GET",
             `/component_templates/${templateId}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -76,7 +68,7 @@ export const createComponentTemplate = async (payload: {
             "POST",
             "/component_templates",
             payload,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -93,7 +85,7 @@ export const updateComponentTemplate = async (
             "PUT",
             `/component_templates/${templateId}`,
             payload,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -107,7 +99,7 @@ export const getItemComponentSections = async (itemComponentId: number): Promise
             "GET",
             `/item_component/${itemComponentId}/sections`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -124,7 +116,7 @@ export const saveItemComponentSections = async (
             "POST",
             `/item_component/${itemComponentId}/sections`,
             payload,
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -140,7 +132,7 @@ export const saveItemComponentSectionsBatch = async (
             "POST",
             `/item_component/sections/batch`,
             payload,
-            { wrapData: true, headers: getHeaders() }
+            { wrapData: true }
         );
         return await handleResponse(response);
     } catch (e) {
@@ -154,7 +146,7 @@ export const deleteComponentTemplate = async (templateId: number): Promise<APIRe
             "DELETE",
             `/component_templates/${templateId}`,
             {},
-            { wrapData: false, headers: getHeaders() }
+            { wrapData: false }
         );
         return await handleResponse(response);
     } catch (e) {
