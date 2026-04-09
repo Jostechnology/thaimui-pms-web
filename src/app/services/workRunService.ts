@@ -119,3 +119,75 @@ export const completeWorkRun = async (
         return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
     }
 };
+
+export const startWorkRun = async (workRunId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api("POST", `/work_run/${workRunId}/start`, {}, { wrapData: false });
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
+export const pauseWorkRun = async (workRunId: number, payload: { break_type: string }): Promise<APIResponse> => {
+    try {
+        const response = await front_api("POST", `/work_run/${workRunId}/pause`, payload, { wrapData: false });
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
+export const resumeWorkRun = async (workRunId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api("POST", `/work_run/${workRunId}/resume`, {}, { wrapData: false });
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
+export const assignEmployee = async (workRunId: number, employeeId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api("POST", `/work_run/${workRunId}/assign_employee`, { employee_id: employeeId }, { wrapData: false });
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
+export const unassignEmployee = async (workRunId: number, employeeId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api("POST", `/work_run/${workRunId}/unassign_employee`, { employee_id: employeeId }, { wrapData: false });
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
+export const assignMachine = async (workRunId: number, machineId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api("POST", `/work_run/${workRunId}/assign_machine`, { machine_id: machineId }, { wrapData: false });
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
+export const unassignMachine = async (workRunId: number, machineId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api("POST", `/work_run/${workRunId}/unassign_machine`, { machine_id: machineId }, { wrapData: false });
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
+export const getWorkRunDetail = async (workRunId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api("GET", `/work_run/${workRunId}/detail`, {}, { wrapData: false });
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};

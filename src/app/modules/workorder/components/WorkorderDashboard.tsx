@@ -149,25 +149,9 @@ const WorkorderDashboard: React.FC = () => {
     }, [workOrders]);
 
     const employeeWorkload: EmployeeWorkload[] = useMemo(() => {
-        const map = new Map<number, EmployeeWorkload>();
-        workOrders.forEach(wo => {
-            const isCompleted = (wo.status as WorkOrderStatusEnum) === WorkOrderStatusEnum.COMPLETED;
-            wo.current_phase?.employee_list?.forEach(emp => {
-                const existing = map.get(emp.employee_id);
-                if (existing) {
-                    if (isCompleted) existing.COMPLETED_tasks++;
-                    else existing.active_tasks++;
-                } else {
-                    map.set(emp.employee_id, {
-                        employee_id: emp.employee_id,
-                        employee_name: `${emp.employee_first_name} ${emp.employee_last_name}`,
-                        active_tasks: isCompleted ? 0 : 1,
-                        COMPLETED_tasks: isCompleted ? 1 : 0,
-                    });
-                }
-            });
-        });
-        return Array.from(map.values()).sort((a, b) => b.active_tasks - a.active_tasks);
+        // Employee workload is no longer derivable from the work order list (assignments are on work runs).
+        // Return empty — the chart will show a "no data" state.
+        return [];
     }, [workOrders]);
 
     const pieData = useMemo(() => {
@@ -478,8 +462,7 @@ const WorkorderDashboard: React.FC = () => {
                                     <th className='min-w-120px'>รหัสใบสั่งผลิต</th>
                                     <th className='min-w-150px'>สินค้า</th>
                                     <th className='min-w-130px text-center'>สถานะ</th>
-                                    <th className='min-w-150px'>ขั้นตอนปัจจุบัน</th>
-                                    <th className='min-w-150px'>ผู้รับผิดชอบ</th>
+                                    <th className='min-w-150px text-center'>Work Run</th>
                                     <th className='min-w-120px text-center'>วันที่สร้าง</th>
                                     <th className='text-end min-w-80px'>จัดการ</th>
                                 </tr>
@@ -488,7 +471,7 @@ const WorkorderDashboard: React.FC = () => {
                                 {recentOrders.length > 0 ? recentOrders.map((wo) => {
                                     const statusKey = wo.status as WorkOrderStatusEnum;
                                     const config = STATUS_CONFIG[statusKey] || { color: '#A1A5B7', badgeClass: 'badge-light-secondary', label: wo.status };
-                                    const employees = wo.current_phase?.employee_list || [];
+                                    const activeRuns = wo.work_runs?.filter(r => r.status === 'INPROGRESS' || r.status === 'PAUSED') ?? [];
 
                                     return (
                                         <tr key={wo.work_order_id} style={{ transition: 'background 0.15s' }}>
@@ -511,41 +494,18 @@ const WorkorderDashboard: React.FC = () => {
                                                     {config.label}
                                                 </span>
                                             </td>
-                                            <td>
-                                                <div className='d-flex flex-column'>
-                                                    <span className='text-gray-800 fw-bold fs-7'>
-                                                        {wo.current_phase?.phase_name || '-'}
+                                            <td className='text-center'>
+                                                {activeRuns.length > 0 ? (
+                                                    <span className='badge badge-light-warning fw-bold'>
+                                                        {activeRuns.length} กำลังดำเนินการ
                                                     </span>
-                                                    {wo.current_phase && (
-                                                        <span className='text-muted fs-8'>
-                                                            {wo.current_phase.phase_status}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div className='d-flex align-items-center'>
-                                                    {employees.length > 0 ? (
-                                                        <div className='symbol-group symbol-hover'>
-                                                            {employees.slice(0, 3).map((emp) => (
-                                                                <div key={emp.employee_id} className='symbol symbol-30px' title={`${emp.employee_first_name} ${emp.employee_last_name}`}>
-                                                                    <span className='symbol-label bg-light-primary text-primary fw-bold fs-8'>
-                                                                        {emp.employee_first_name?.charAt(0) || '?'}
-                                                                    </span>
-                                                                </div>
-                                                            ))}
-                                                            {employees.length > 3 && (
-                                                                <div className='symbol symbol-30px'>
-                                                                    <span className='symbol-label bg-light-dark text-gray-600 fw-bold fs-8'>
-                                                                        +{employees.length - 3}
-                                                                    </span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <span className='text-muted fs-8'>ยังไม่ได้มอบหมาย</span>
-                                                    )}
-                                                </div>
+                                                ) : wo.work_runs?.length > 0 ? (
+                                                    <span className='badge badge-light-secondary fw-bold'>
+                                                        {wo.work_runs.length} runs
+                                                    </span>
+                                                ) : (
+                                                    <span className='text-muted fs-8'>-</span>
+                                                )}
                                             </td>
                                             <td className='text-center'>
                                                 <span className='text-gray-700 fw-semibold'>
@@ -569,7 +529,7 @@ const WorkorderDashboard: React.FC = () => {
                                     );
                                 }) : (
                                     <tr>
-                                        <td colSpan={7} className='text-center py-15'>
+                                        <td colSpan={6} className='text-center py-15'>
                                             <i className='bi bi-inbox fs-3x text-gray-300 mb-4 d-block'></i>
                                             <span className='text-muted'>ไม่พบข้อมูลใบสั่งผลิต</span>
                                         </td>

@@ -15,7 +15,6 @@ interface WorkRunSummary {
     work_run_id: number;
     status: string;
     quantity: number;
-    current_phase_id: number | null;
 }
 
 interface WorkorderData {

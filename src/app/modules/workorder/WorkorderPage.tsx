@@ -24,6 +24,7 @@ const WorkorderPage = () => {
             <Route path="workorders_detail/:id" element={<WorkorderDetail />} />
             <Route path="workorders_view/:id" element={<WorkorderView />} />
             <Route path="workorders_phase_detail/:phaseId" element={<WorkPhaseDetail />} />
+            <Route path="work_run_cost/:workRunId" element={<WorkPhaseDetail />} />
             <Route path="work_run/:workRunId" element={<WorkRunDetail />} />
             <Route path="workorders_template" element={<TemplateManagement />} />
             <Route path="template_builder" element={<TemplateBuilder />} />
