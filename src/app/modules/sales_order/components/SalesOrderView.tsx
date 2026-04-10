@@ -42,7 +42,7 @@ interface Material {
     item_code: string;
     item_name: string;
     item_description: string;
-    original_num: number;
+    quantity: number;
     remaining_num: number;
     cost_price: number;
     unit_price: number;
@@ -605,7 +605,7 @@ const SalesOrderView: React.FC = () => {
                                                 className="cursor-pointer"
                                                 style={{ cursor: 'pointer' }}
                                             >
-                                                <td className="ps-4 text-gray-800 fw-bolder fs-6">{mat.original_num ?? '-'}</td>
+                                                <td className="ps-4 text-gray-800 fw-bolder fs-6">{mat.quantity ?? '-'}</td>
                                                 <td>
                                                     <span className="text-gray-700 fw-bold d-block fs-7">{parentItem?.item_code || '-'}</span>
                                                     {parentItem?.item_name && (
@@ -627,7 +627,7 @@ const SalesOrderView: React.FC = () => {
                                                 <td className="text-end fw-bold">฿{(mat.cost_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                                                 <td className="text-end fw-bold">฿{(mat.unit_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                                                 <td className="text-center fw-bold pe-4">
-                                                    เหลือ {mat.remaining_num} <span className='text-success tw-bold'>จาก {mat.original_num}</span>
+                                                    เหลือ {mat.remaining_num} <span className='text-success tw-bold'>จาก {mat.quantity}</span>
                                                 </td>
                                             </tr>
                                         );

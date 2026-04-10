@@ -42,7 +42,7 @@ export interface MaterialStockSummary {
     item_name: string;
     item_group: string;
     item_description: string;
-    /** จำนวนทั้งหมดที่มี (จาก t_material_list.original_num) */
+    /** จำนวนทั้งหมดที่มี (จาก t_material_list.quantity) */
     total_quantity: number;
     /** จำนวนที่ใช้ไปในการผลิต (SUM จาก t_component_material_usage) */
     used_in_production: number;

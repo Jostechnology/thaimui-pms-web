@@ -9,7 +9,7 @@ export type SalesItem = {
     item_group: string;
     item_description: string;
     unit_name: string;
-    unit_code: string;
+    unit_id: number;
     cost_price: number;
     unit_price: number;
     doc_num: number;
