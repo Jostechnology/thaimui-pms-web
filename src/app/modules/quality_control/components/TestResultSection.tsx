@@ -135,6 +135,7 @@ const TestResultSection: React.FC<Props> = ({
     const pickingAvailableItems = qcItems.map((item) => ({
         item_code: item.code,
         item_name: item.description,
+        unit_name: item.unit_name,
     }));
 
     useEffect(() => {

@@ -298,7 +298,7 @@ const WorkRunDetail: React.FC = () => {
                         const ml = usage.material_list;
                         if (ml && ml.item_code && !seen.has(ml.item_code)) {
                             seen.add(ml.item_code);
-                            items.push({ item_code: ml.item_code, item_name: ml.item_name });
+                            items.push({ item_code: ml.item_code, item_name: ml.item_name, unit_name: ml.unit_name });
                         }
                     });
                 });

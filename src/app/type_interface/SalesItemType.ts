@@ -4,10 +4,12 @@ export type SalesItem = {
     sales_item_id: number;
     status: string;
     item_code: string;
-    item_num: number;
+    quantity: number;
     item_name: string;
     item_group: string;
     item_description: string;
+    unit_name: string;
+    unit_code: string;
     cost_price: number;
     unit_price: number;
     doc_num: number;

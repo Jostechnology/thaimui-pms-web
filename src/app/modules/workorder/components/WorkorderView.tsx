@@ -1101,7 +1101,7 @@ const WorkorderView: React.FC = () => {
                                     </div>
                                     <div className="wo-item-row">
                                         <span className="wo-item-label">จำนวนทั้งหมด</span>
-                                        <span className="wo-item-value fw-bold">{workOrder.sales_item.item_num}</span>
+                                        <span className="wo-item-value fw-bold">{workOrder.sales_item.quantity}</span>
                                     </div>
                                     <div className="separator separator-dashed my-4"></div>
                                     <div className="wo-cost-summary mt-5">

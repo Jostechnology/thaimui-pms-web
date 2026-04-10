@@ -19,7 +19,7 @@ interface SalesItem {
     item_group: string;
     item_code: string;
     item_description: string;
-    item_num: number;
+    quantity: number;
     doc_num: number;
     doc_entry: number;
     produced_qty: number;

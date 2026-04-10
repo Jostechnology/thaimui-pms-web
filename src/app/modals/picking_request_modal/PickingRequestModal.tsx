@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Modal } from "react-bootstrap";
 import Swal from "sweetalert2";
 import type { PickingAvailableItem, PickingRequestPayload } from "../../type_interface/PickingRequestType";
-import { validatePositiveNumber, validateRequired } from "../../utils/validate_utils";
+import { validatePositiveNumber } from "../../utils/validate_utils";
 
 interface PickingItemForm {
     item_code: string;
@@ -32,7 +32,7 @@ const PickingRequestModal: React.FC<Props> = ({
     const [selectedItems, setSelectedItems] = useState<Record<string, PickingItemForm>>({});
     const [remark, setRemark] = useState("");
     const [saving, setSaving] = useState(false);
-    const [itemErrors, setItemErrors] = useState<Record<string, { quantity?: string; unit?: string }>>({});
+    const [itemErrors, setItemErrors] = useState<Record<string, { quantity?: string }>>({});
 
     useEffect(() => {
         if (show) {
@@ -57,7 +57,7 @@ const PickingRequestModal: React.FC<Props> = ({
                     item_code: item.item_code,
                     item_name: item.item_name,
                     quantity: 1,
-                    unit: item.unit ?? "",
+                    unit: item.unit_name ?? "",
                     remark: "",
                 },
             };
@@ -78,14 +78,11 @@ const PickingRequestModal: React.FC<Props> = ({
             return;
         }
 
-        const newItemErrors: Record<string, { quantity?: string; unit?: string }> = {};
+        const newItemErrors: Record<string, { quantity?: string }> = {};
         for (const it of items) {
             const qtyErr = validatePositiveNumber(it.quantity, 'จำนวน');
-            const unitErr = validateRequired(it.unit.trim(), 'หน่วย');
-            if (qtyErr || unitErr) {
-                newItemErrors[it.item_code] = {};
-                if (qtyErr) newItemErrors[it.item_code].quantity = qtyErr;
-                if (unitErr) newItemErrors[it.item_code].unit = unitErr;
+            if (qtyErr) {
+                newItemErrors[it.item_code] = { quantity: qtyErr };
             }
         }
         if (Object.keys(newItemErrors).length > 0) {
@@ -195,31 +192,9 @@ const PickingRequestModal: React.FC<Props> = ({
                                                         )}
                                                     </td>
                                                     <td className="text-center">
-                                                        {checked ? (
-                                                            <>
-                                                                <input
-                                                                    type="text"
-                                                                    className={`form-control form-control-sm text-center ${itemErrors[item.item_code]?.unit ? "is-invalid" : ""}`}
-                                                                    placeholder="pcs"
-                                                                    value={form.unit}
-                                                                    onChange={(e) => {
-                                                                        updateItemField(item.item_code, "unit", e.target.value);
-                                                                        if (itemErrors[item.item_code]?.unit) {
-                                                                            setItemErrors(prev => {
-                                                                                const next = { ...prev };
-                                                                                if (next[item.item_code]) delete next[item.item_code].unit;
-                                                                                return next;
-                                                                            });
-                                                                        }
-                                                                    }}
-                                                                />
-                                                                {itemErrors[item.item_code]?.unit && (
-                                                                    <div className="invalid-feedback">{itemErrors[item.item_code].unit}</div>
-                                                                )}
-                                                            </>
-                                                        ) : (
-                                                            <span className="text-muted">—</span>
-                                                        )}
+                                                        <span className={item.unit_name ? "text-gray-800" : "text-muted"}>
+                                                            {item.unit_name || '—'}
+                                                        </span>
                                                     </td>
                                                     <td>
                                                         {checked ? (

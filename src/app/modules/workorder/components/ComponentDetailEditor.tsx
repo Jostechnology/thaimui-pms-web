@@ -219,7 +219,7 @@ const ComponentDetailEditor: React.FC = () => {
                                         workOrderDocNum={workOrder?.doc_num}
                                         salesItemName={workOrder?.sales_item?.item_name}
                                         salesItemCode={workOrder?.sales_item?.item_code}
-                                        salesItemNum={workOrder?.sales_item?.item_num}
+                                        salesItemNum={workOrder?.sales_item?.quantity}
                                         componentName={component?.component_name}
                                         materialUsages={component?.material_usages}
                                     />

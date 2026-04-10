@@ -29,7 +29,7 @@ export interface PickingRequest {
 export interface PickingAvailableItem {
     item_code: string;
     item_name: string;
-    unit?: string;
+    unit_name?: string;
 }
 
 export interface PickingRequestItem {

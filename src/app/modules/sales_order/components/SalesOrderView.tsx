@@ -15,7 +15,7 @@ import SalesItemTrackingModal from '../../quality_control/components/SalesItemTr
 interface SalesItem {
     sales_item_id: number;
     item_code: string;
-    item_num: number;
+    quantity: number;
     item_name: string;
     item_description: string;
     doc_num: number;
@@ -376,7 +376,7 @@ const SalesOrderView: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="text-center">
-                                                <span className="text-gray-800 fw-bolder d-block fs-6">{item.item_num || '-'}</span>
+                                                <span className="text-gray-800 fw-bolder d-block fs-6">{item.quantity || '-'}</span>
                                             </td>
                                             <td className="text-end">
                                                 <span className="text-gray-800 fw-bolder d-block fs-6">฿{(item.cost_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>

@@ -52,7 +52,7 @@ interface SalesItemTrackingData {
     item_code: string;
     item_name: string;
     item_group: string;
-    item_num: number;
+    quantity: number;
     item_description: string | null;
     doc_num: number;
     doc_entry: number;
