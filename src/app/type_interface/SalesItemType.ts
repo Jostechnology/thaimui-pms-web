@@ -20,4 +20,11 @@ export type SalesItem = {
     produced_qty: number;
     queued_for_test_qty: number;
     tested_qty: number;
+    passed_qty : number;
+    failed_qty : number;
+    num_qc_work_order : number;
+    num_qc_successed_work_order : number
+    is_completable : boolean
+    produce : boolean
+    test : boolean
 };

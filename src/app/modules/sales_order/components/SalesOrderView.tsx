@@ -11,68 +11,10 @@ import { getUserAction } from '../../../helpers/pageAccess';
 import type { MaterialStockSummary } from '../../../type_interface/MaterialStockType';
 import MaterialUsageDetailModal from '../../Tracking/components/MaterialUsageDetailModal';
 import SalesItemTrackingModal from '../../quality_control/components/SalesItemTrackingModal';
-
-interface SalesItem {
-    sales_item_id: number;
-    item_code: string;
-    quantity: number;
-    item_name: string;
-    item_description: string;
-    doc_num: number;
-    doc_entry: number;
-    work_order_id: number;
-    unit_price: number;
-    cost_price: number;
-    producing_qty: number;
-    produced_qty: number;
-    unavailable_for_test_qty: number;
-    passed_qty: number;
-    failed_qty: number;
-    num_qc_work_order : number;
-    num_qc_successed_work_order : number;
-    produce: boolean;
-    work_order: { work_order_id: number; work_order_code: string } | null;
-    status: 'PENDING' | 'INPROGRESS' | 'COMPLETED';
-    is_completable: boolean;
-}
-
-interface Material {
-    material_list_id: number;
-    sales_item_id: number;
-    item_code: string;
-    item_name: string;
-    item_description: string;
-    quantity: number;
-    remaining_num: number;
-    cost_price: number;
-    unit_price: number;
-}
-
-interface SalesOrder {
-    sales_order_id: number;
-    doc_entry: number;
-    doc_num: number;
-    card_code: string;
-    card_name: string;
-    slp_code: string;
-    slp_name: string;
-    bpl_code: string;
-    bpl_name: string;
-    branch_code: string;
-    branch_name: string;
-    group_code: string;
-    group_name: string;
-    created_date: string;
-    status: 'INPROGRESS' | 'COMPLETED';
-    items: SalesItem[];
-    material_list: Material[];
-}
-
-interface Branch {
-    branch_id: number;
-    branch_code: string;
-    branch_name: string;
-}
+import { SalesItem } from '../../../type_interface/SalesItemType';
+import { Material } from '../../../type_interface/MaterialType';
+import { Branch } from '../../../type_interface/BranchType';
+import { SalesOrderDetail } from '../../../type_interface/SalesOrderType';
 
 const SalesOrderView: React.FC = () => {
     const navigate = useNavigate();
@@ -82,7 +24,7 @@ const SalesOrderView: React.FC = () => {
     const { masterData } = useMasterData();
     const allowedActions = getUserAction(masterData.actionList, "SALE_ORDER", "UNASSIGNED_SO");
 
-    const [salesOrder, setSalesOrder] = useState<SalesOrder | null>(null);
+    const [salesOrder, setSalesOrder] = useState<SalesOrderDetail | null>(null);
     const [dataLoading, setDataLoading] = useState(true);
     const [stockMap, setStockMap] = useState<Record<number, MaterialStockSummary>>({});
     const [stockLoading, setStockLoading] = useState(false);
@@ -291,7 +233,7 @@ const SalesOrderView: React.FC = () => {
                                             <select
                                                 className="form-select form-select-sm"
                                                 value={branches.find(b => b.branch_code === salesOrder.branch_code)?.branch_id ?? ''}
-                                                disabled={assigningBranch}
+                                                disabled= {true} //{assigningBranch}
                                                 onChange={e => {
                                                     const val = e.target.value;
                                                     if (val) handleAssignBranch(Number(val));

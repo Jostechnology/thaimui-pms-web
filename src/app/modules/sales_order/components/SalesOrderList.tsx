@@ -239,10 +239,10 @@ const SalesOrderList: React.FC = () => {
                                                                     />
                                                                 )}
                                                             </div>
-                                                            {/* <span className={`badge ${so.test_has_qcworkorder >= so.test_total ? 'badge-light-success' : 'badge-light-warning'} fs-9 w-100 text-start`}>
+                                                            <span className={`badge ${so.test_has_qcworkorder >= so.test_total ? 'badge-light-success' : 'badge-light-warning'} fs-9 w-100 text-start`}>
                                                                 <i className={`bi ${so.test_has_qcworkorder >= so.test_total ? 'bi-check-circle' : 'bi-exclamation-circle'} me-1`}></i>
                                                                 ใบสั่งเทส {so.test_has_qcworkorder}/{so.test_total} รายการ
-                                                            </span> */}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </td>

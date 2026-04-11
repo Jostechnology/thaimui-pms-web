@@ -6,6 +6,7 @@ export type SalesOrderSearch = {
 }
 
 export type SalesOrderDetail = {
+    sales_order_id: number;
     doc_entry: number;
     doc_num: number;
     card_code: string;
@@ -14,8 +15,12 @@ export type SalesOrderDetail = {
     slp_name: string;
     bpl_code: string;
     bpl_name: string;
+    branch_code: string;
+    branch_name: string;
     group_code: string;
     group_name: string;
+    status: 'INPROGRESS' | 'COMPLETED';
     items: SalesItem[];
     material_list: any[];
+    created_date: string;
 }

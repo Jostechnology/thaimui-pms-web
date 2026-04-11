@@ -1,6 +1,8 @@
 import { front_api } from "./apiConfig";
 
 export interface SalesOrderSummary {
+    test_total: number;
+    test_has_qcworkorder: number;
     doc_entry: number;
     doc_num: number;
     card_code: string;
@@ -22,6 +24,7 @@ export interface SalesOrderSummary {
     qc_failed: number;
     produce_total: number;
     produce_has_workorder: number;
+    item_group : string
     status: 'INPROGRESS' | 'COMPLETED';
 }
 
