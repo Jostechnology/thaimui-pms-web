@@ -1,15 +1,17 @@
-import { Routes, Route, Outlet } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import PickingRequestList from "./picking_request/PickingRequestList";
+import PickingRequestCreate from "./picking_request/PickingRequestCreate";
 
 
-const EmployeePage = () => {
+const DocumentsPage = () => {
 
     return (
         <Routes>
             <Route path="picking_request" element={<PickingRequestList />} />
+            <Route path="picking_request/create" element={<PickingRequestCreate />} />
         </Routes>
     );
 
 }
 
-export default EmployeePage
+export default DocumentsPage

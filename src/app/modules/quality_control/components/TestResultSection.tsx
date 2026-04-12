@@ -7,9 +7,7 @@ import {
     deleteTestResult,
 } from "../../../services/testResultService";
 import { getWorkRunsBySalesItem } from "../../../services/workRunService";
-import { createTestResultPickingRequest } from "../../../services/pickingRequestService";
 import type { QCWorkOrderItem } from "../../../type_interface/QCWorkOrderType";
-import PickingRequestModal from "../../../modals/picking_request_modal/PickingRequestModal";
 import { formatIntegerInput, toDecimalInput } from "../../../utils/input_format_utils";
 
 interface WorkRunOption {
@@ -109,7 +107,6 @@ const TestResultSection: React.FC<Props> = ({
     salesItemDescription = "",
     salesItemId,
     testResultsPre,
-    qcItems = [],
 }) => {
     const [testResults, setTestResults] = useState<any[]>(testResultsPre);
     const [loading, setLoading] = useState(false);
@@ -130,13 +127,6 @@ const TestResultSection: React.FC<Props> = ({
     const [finalizeSaving, setFinalizeSaving] = useState(false);
 
     const [expandedId, setExpandedId] = useState<number | null>(null);
-    const [pickingTestResultId, setPickingTestResultId] = useState<number | null>(null);
-
-    const pickingAvailableItems = qcItems.map((item) => ({
-        item_code: item.code,
-        item_name: item.description,
-        unit_name: item.unit_name,
-    }));
 
     useEffect(() => {
         reloadResults();
@@ -452,7 +442,7 @@ const TestResultSection: React.FC<Props> = ({
                                 const isFinalizing = finalizingId === tr.test_result_id;
                                 const isExpanded = expandedId === tr.test_result_id;
                                 const workRunSources: any[] = tr.work_run_sources ?? [];
-                                const pickingRequests: any[] = tr.picking_requests ?? [];
+                                const pickingItemSources: any[] = tr.picking_item_sources ?? [];
 
                                 return (
                                     <div key={tr.test_result_id} className={`border rounded overflow-hidden ${isInProgress ? 'border-warning' : ''}`}>
@@ -497,15 +487,6 @@ const TestResultSection: React.FC<Props> = ({
                                                 )}
                                             </div>
                                             <div className="d-flex align-items-center gap-2">
-                                                {isInProgress && (
-                                                    <button
-                                                        className="btn btn-sm btn-light-primary fw-bold"
-                                                        title="สร้าง Picking Request"
-                                                        onClick={(e) => { e.stopPropagation(); setPickingTestResultId(tr.test_result_id); }}
-                                                    >
-                                                        <i className="bi bi-box-seam me-1"></i>Picking Request
-                                                    </button>
-                                                )}
                                                 {isInProgress && !isFinalizing && (
                                                     <button
                                                         className="btn btn-sm btn-warning fw-bold"
@@ -537,13 +518,13 @@ const TestResultSection: React.FC<Props> = ({
                                             </div>
                                         </div>
 
-                                        {/* ── INPROGRESS body: Work Run Sources + Picking Requests ── */}
-                                        {isInProgress && (workRunSources.length > 0 || pickingRequests.length > 0) && (
+                                        {/* ── INPROGRESS body: Work Run Sources + Picking Items ── */}
+                                        {isInProgress && (workRunSources.length > 0 || pickingItemSources.length > 0) && (
                                             <div className="px-6 py-4 border-top bg-white">
                                                 <div className="row g-4">
                                                     {/* Work Run Sources */}
                                                     {workRunSources.length > 0 && (
-                                                        <div className={pickingRequests.length > 0 ? "col-md-6" : "col-12"}>
+                                                        <div className={pickingItemSources.length > 0 ? "col-md-6" : "col-12"}>
                                                             <div className="fs-8 fw-bold text-muted text-uppercase mb-2">
                                                                 <i className="bi bi-diagram-3 me-1"></i>Work Run ที่นำมาทดสอบ
                                                             </div>
@@ -567,25 +548,24 @@ const TestResultSection: React.FC<Props> = ({
                                                         </div>
                                                     )}
 
-                                                    {/* Picking Requests */}
-                                                    {pickingRequests.length > 0 && (
+                                                    {/* Picking Item Sources (auto-allocated) */}
+                                                    {pickingItemSources.length > 0 && (
                                                         <div className={workRunSources.length > 0 ? "col-md-6" : "col-12"}>
                                                             <div className="fs-8 fw-bold text-muted text-uppercase mb-2">
-                                                                <i className="bi bi-box-seam me-1"></i>คำขอเบิก
+                                                                <i className="bi bi-box-seam me-1"></i>สินค้าที่เบิกมา
                                                             </div>
                                                             <div className="d-flex flex-column gap-2">
-                                                                {pickingRequests.map((pr: any) => {
-                                                                    const prBadge = pr.status === "SUCCESS" ? "badge-light-success" : pr.status === "SENT" ? "badge-light-primary" : pr.status === "FAILED" ? "badge-light-danger" : "badge-light-warning";
-                                                                    const prLabel = pr.status === "SUCCESS" ? "สำเร็จ" : pr.status === "SENT" ? "ส่งแล้ว" : pr.status === "FAILED" ? "ล้มเหลว" : "รอดำเนินการ";
+                                                                {pickingItemSources.map((src: any) => {
+                                                                    const pri = src.picking_request_item ?? {};
                                                                     return (
-                                                                        <div key={pr.picking_request_id} className="d-flex align-items-center justify-content-between border rounded px-3 py-2">
+                                                                        <div key={src.id} className="d-flex align-items-center justify-content-between border rounded px-3 py-2">
                                                                             <div className="d-flex align-items-center gap-3">
-                                                                                <span className="fw-bold text-gray-800 fs-7">#{pr.picking_request_code ?? pr.picking_request_id}</span>
-                                                                                <span className={`badge ${prBadge} fs-8`}>{prLabel}</span>
+                                                                                <span className="fw-bold text-gray-800 fs-7">{pri.item_code ?? '-'}</span>
+                                                                                <span className="text-muted fs-8">{pri.item_name ?? '-'}</span>
                                                                             </div>
-                                                                            {pr.wms_reference && (
-                                                                                <span className="text-muted fs-8 fw-semibold">{pr.wms_reference}</span>
-                                                                            )}
+                                                                            <span className="text-muted fs-8">
+                                                                                นำมา <span className="fw-bold text-gray-700">{src.qty_consumed}</span>
+                                                                            </span>
                                                                         </div>
                                                                     );
                                                                 })}
@@ -787,11 +767,11 @@ const TestResultSection: React.FC<Props> = ({
                                                     {tr.remark && <span><span className="fw-bold">หมายเหตุ: </span>{tr.remark}</span>}
                                                 </div>
 
-                                                {/* Work Run Sources + Picking Requests (completed) */}
-                                                {(workRunSources.length > 0 || pickingRequests.length > 0) && (
+                                                {/* Work Run Sources + Picking Item Sources (completed) */}
+                                                {(workRunSources.length > 0 || pickingItemSources.length > 0) && (
                                                     <div className="row g-4 mb-5">
                                                         {workRunSources.length > 0 && (
-                                                            <div className={pickingRequests.length > 0 ? "col-md-6" : "col-12"}>
+                                                            <div className={pickingItemSources.length > 0 ? "col-md-6" : "col-12"}>
                                                                 <div className="fs-8 fw-bold text-muted text-uppercase mb-2">
                                                                     <i className="bi bi-diagram-3 me-1"></i>Work Run ที่นำมาทดสอบ
                                                                 </div>
@@ -814,24 +794,23 @@ const TestResultSection: React.FC<Props> = ({
                                                                 </div>
                                                             </div>
                                                         )}
-                                                        {pickingRequests.length > 0 && (
+                                                        {pickingItemSources.length > 0 && (
                                                             <div className={workRunSources.length > 0 ? "col-md-6" : "col-12"}>
                                                                 <div className="fs-8 fw-bold text-muted text-uppercase mb-2">
-                                                                    <i className="bi bi-box-seam me-1"></i>คำขอเบิก
+                                                                    <i className="bi bi-box-seam me-1"></i>สินค้าที่เบิกมา
                                                                 </div>
                                                                 <div className="d-flex flex-column gap-2">
-                                                                    {pickingRequests.map((pr: any) => {
-                                                                        const prBadge = pr.status === "SUCCESS" ? "badge-light-success" : pr.status === "SENT" ? "badge-light-primary" : pr.status === "FAILED" ? "badge-light-danger" : "badge-light-warning";
-                                                                        const prLabel = pr.status === "SUCCESS" ? "สำเร็จ" : pr.status === "SENT" ? "ส่งแล้ว" : pr.status === "FAILED" ? "ล้มเหลว" : "รอดำเนินการ";
+                                                                    {pickingItemSources.map((src: any) => {
+                                                                        const pri = src.picking_request_item ?? {};
                                                                         return (
-                                                                            <div key={pr.picking_request_id} className="d-flex align-items-center justify-content-between border rounded px-3 py-2">
+                                                                            <div key={src.id} className="d-flex align-items-center justify-content-between border rounded px-3 py-2">
                                                                                 <div className="d-flex align-items-center gap-3">
-                                                                                    <span className="fw-bold text-gray-800 fs-7">#{pr.picking_request_code ?? pr.picking_request_id}</span>
-                                                                                    <span className={`badge ${prBadge} fs-8`}>{prLabel}</span>
+                                                                                    <span className="fw-bold text-gray-800 fs-7">{pri.item_code ?? '-'}</span>
+                                                                                    <span className="text-muted fs-8">{pri.item_name ?? '-'}</span>
                                                                                 </div>
-                                                                                {pr.wms_reference && (
-                                                                                    <span className="text-muted fs-8 fw-semibold">{pr.wms_reference}</span>
-                                                                                )}
+                                                                                <span className="text-muted fs-8">
+                                                                                    นำมา <span className="fw-bold text-gray-700">{src.qty_consumed}</span>
+                                                                                </span>
                                                                             </div>
                                                                         );
                                                                     })}
@@ -879,14 +858,6 @@ const TestResultSection: React.FC<Props> = ({
                     )}
                 </div>
             </div>
-        <PickingRequestModal
-            show={pickingTestResultId !== null}
-            onHide={() => setPickingTestResultId(null)}
-            onSuccess={() => {}}
-            availableItems={pickingAvailableItems}
-            onSubmit={(payload) => createTestResultPickingRequest(pickingTestResultId!, payload)}
-            title={`Picking Request — Test Result #${pickingTestResultId}`}
-        />
         </div>
     );
 };

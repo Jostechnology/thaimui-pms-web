@@ -1,28 +1,6 @@
 import { front_api } from "./apiConfig";
 import type { PickingRequestPayload, PickingRequestStatusPayload } from "../type_interface/PickingRequestType";
 
-export const getPickingRequestList = async (
-    page: number,
-    per_page: number,
-    search?: string,
-    status?: string,
-    request_type?: string
-): Promise<any> => {
-    const params = new URLSearchParams();
-    params.append("page", page.toString());
-    params.append("per_page", per_page.toString());
-    if (search) params.append("search", search);
-    if (status) params.append("status", status);
-    if (request_type) params.append("request_type", request_type);
-    try {
-        const response = await front_api("GET", `/picking_request/list?${params.toString()}`, {}, { wrapData: false });
-        if (!response) return { success: false };
-        return await response.json();
-    } catch {
-        return { success: false };
-    }
-};
-
 interface APIResponse {
     success: boolean;
     message?: string;
@@ -40,14 +18,36 @@ const handleResponse = async (response: Response | false | undefined): Promise<A
     return { success: false, message: result.error || "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์" };
 };
 
-export const createWorkRunPickingRequest = async (
-    workRunId: number,
+export const getPickingRequestList = async (
+    page: number,
+    per_page: number,
+    search?: string,
+    status?: string,
+    doc_entry?: number
+): Promise<any> => {
+    const params = new URLSearchParams();
+    params.append("page", page.toString());
+    params.append("per_page", per_page.toString());
+    if (search) params.append("search", search);
+    if (status) params.append("status", status);
+    if (doc_entry) params.append("doc_entry", doc_entry.toString());
+    try {
+        const response = await front_api("GET", `/picking_request/list?${params.toString()}`, {}, { wrapData: false });
+        if (!response) return { success: false };
+        return await response.json();
+    } catch {
+        return { success: false };
+    }
+};
+
+export const createSalesOrderPickingRequest = async (
+    docEntry: number,
     payload: PickingRequestPayload
 ): Promise<APIResponse> => {
     try {
         const response = await front_api(
             "POST",
-            `/work_run/${workRunId}/picking_request`,
+            `/sales_order/${docEntry}/picking_request`,
             payload,
             { wrapData: false }
         );
@@ -57,20 +57,17 @@ export const createWorkRunPickingRequest = async (
     }
 };
 
-export const createTestResultPickingRequest = async (
-    testResultId: number,
-    payload: PickingRequestPayload
-): Promise<APIResponse> => {
+export const getPickingRequestsByDocEntry = async (docEntry: number): Promise<APIResponse> => {
     try {
         const response = await front_api(
-            "POST",
-            `/test_result/${testResultId}/picking_request`,
-            payload,
+            "GET",
+            `/sales_order/${docEntry}/picking_request`,
+            {},
             { wrapData: false }
         );
         return await handleResponse(response);
     } catch {
-        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+        return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูล" };
     }
 };
 

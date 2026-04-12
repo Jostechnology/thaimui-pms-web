@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Content } from '../../../../_metronic/layout/components/content';
 import { Modal } from 'react-bootstrap';
 import Swal from 'sweetalert2';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import { useTableParams } from '../../../hooks/useTableParams';
@@ -30,16 +30,6 @@ const STATUS_BADGE: Record<string, string> = {
     FAILED: 'badge-light-danger',
 };
 
-const TYPE_LABEL: Record<string, string> = {
-    WORK_RUN: 'Work Run',
-    TEST_RESULT: 'Test Result',
-};
-
-const TYPE_BADGE: Record<string, string> = {
-    WORK_RUN: 'badge-light-info',
-    TEST_RESULT: 'badge-light-secondary',
-};
-
 interface UpdateStatusForm {
     status: string;
     wms_reference: string;
@@ -48,6 +38,7 @@ interface UpdateStatusForm {
 
 const PickingRequestList: React.FC = () => {
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
 
@@ -61,7 +52,6 @@ const PickingRequestList: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'));
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get('pageConfig') || '10'));
     const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
-    const [typeFilter, setTypeFilter] = useState(searchParams.get('request_type') || '');
 
     const [expandedId, setExpandedId] = useState<number | null>(null);
 
@@ -71,19 +61,18 @@ const PickingRequestList: React.FC = () => {
     const [updateSaving, setUpdateSaving] = useState(false);
 
     // Reset to page 1 when filters/keyword change
-    const prevRef = useRef({ keyword, statusFilter, typeFilter, pageConfig });
+    const prevRef = useRef({ keyword, statusFilter, pageConfig });
     useEffect(() => {
         const prev = prevRef.current;
         if (
             prev.keyword !== keyword ||
             prev.statusFilter !== statusFilter ||
-            prev.typeFilter !== typeFilter ||
             prev.pageConfig !== pageConfig
         ) {
             setCurrentPage(1);
-            prevRef.current = { keyword, statusFilter, typeFilter, pageConfig };
+            prevRef.current = { keyword, statusFilter, pageConfig };
         }
-    }, [keyword, statusFilter, typeFilter, pageConfig]);
+    }, [keyword, statusFilter, pageConfig]);
 
     useTableParams({
         currentPage,
@@ -99,7 +88,7 @@ const PickingRequestList: React.FC = () => {
         setDataLoading(true);
         setLoading();
         try {
-            const result = await getPickingRequestList(currentPage, pageConfig, keyword || undefined, statusFilter || undefined, typeFilter || undefined);
+            const result = await getPickingRequestList(currentPage, pageConfig, keyword || undefined, statusFilter || undefined);
             if (result && result.success) {
                 setItems(result.data?.items ?? []);
                 setTotalPages(result.pagination?.pages ?? 0);
@@ -119,7 +108,7 @@ const PickingRequestList: React.FC = () => {
 
     useEffect(() => {
         fetchList();
-    }, [currentPage, keyword, pageConfig, statusFilter, typeFilter]);
+    }, [currentPage, keyword, pageConfig, statusFilter]);
 
     const pendingCount = items.filter((i) => i.status === 'PENDING').length;
     const sentCount = items.filter((i) => i.status === 'SENT').length;
@@ -172,6 +161,12 @@ const PickingRequestList: React.FC = () => {
                     <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>คำขอเบิก</h1>
                     <span className='text-muted fw-semibold fs-6'>ติดตามและจัดการคำขอเบิกวัสดุทั้งหมดในระบบ</span>
                 </div>
+                <button
+                    className='btn btn-primary fw-bold'
+                    onClick={() => navigate('/documents/picking_request/create')}
+                >
+                    <i className='bi bi-plus-lg me-2'></i>สร้างคำขอเบิก
+                </button>
             </div>
 
             {/* KPI Cards */}
@@ -223,15 +218,6 @@ const PickingRequestList: React.FC = () => {
                     <div className='card-toolbar d-flex align-items-center gap-3'>
                         <select
                             className='form-select form-select-solid w-160px'
-                            value={typeFilter}
-                            onChange={(e) => setTypeFilter(e.target.value)}
-                        >
-                            <option value=''>ประเภททั้งหมด</option>
-                            <option value='WORK_RUN'>Work Run</option>
-                            <option value='TEST_RESULT'>Test Result</option>
-                        </select>
-                        <select
-                            className='form-select form-select-solid w-160px'
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
                         >
@@ -250,8 +236,7 @@ const PickingRequestList: React.FC = () => {
                                 <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
                                     <th className='w-30px'></th>
                                     <th className='min-w-80px'>ID</th>
-                                    <th className='min-w-120px'>ประเภท</th>
-                                    <th className='min-w-100px'>แหล่งที่มา</th>
+                                    <th className='min-w-100px'>ใบสั่งขาย (SO)</th>
                                     <th className='min-w-80px text-center'>รายการ</th>
                                     <th className='min-w-150px'>WMS Reference</th>
                                     <th className='min-w-120px'>สร้างโดย</th>
@@ -263,7 +248,7 @@ const PickingRequestList: React.FC = () => {
                             <tbody className='text-gray-600 fw-semibold'>
                                 {dataLoading ? (
                                     <tr>
-                                        <td colSpan={10} className='text-center p-20'>
+                                        <td colSpan={9} className='text-center p-20'>
                                             <span className='spinner-border spinner-border-sm align-middle me-3'></span>
                                             <span className='text-gray-500'>กำลังดึงข้อมูล...</span>
                                         </td>
@@ -285,15 +270,8 @@ const PickingRequestList: React.FC = () => {
                                                         </button>
                                                     </td>
                                                     <td className='fw-bold text-gray-800'>{item.picking_request_code || `#${item.picking_request_id}`}</td>
-                                                    <td>
-                                                        <span className={`badge ${TYPE_BADGE[item.request_type]} fw-bold`}>
-                                                            {TYPE_LABEL[item.request_type] ?? item.request_type}
-                                                        </span>
-                                                    </td>
                                                     <td className='text-gray-700 fw-bold'>
-                                                        {item.request_type === 'WORK_RUN'
-                                                            ? (item.lot_number || `Work Run #${item.work_run_id ?? '-'}`)
-                                                            : (item.test_result_code || `Test Result #${item.test_result_id ?? '-'}`)}
+                                                        {item.doc_entry ? `SO #${item.doc_entry}` : <span className='text-muted'>-</span>}
                                                     </td>
                                                     <td className='text-center'>
                                                         <span className='badge badge-light-secondary fw-bold'>
@@ -328,7 +306,7 @@ const PickingRequestList: React.FC = () => {
                                                 {/* Expanded items sub-table */}
                                                 {isExpanded && (
                                                     <tr>
-                                                        <td colSpan={10} className='p-0'>
+                                                        <td colSpan={9} className='p-0'>
                                                             <div className='bg-light-secondary px-10 py-5'>
                                                                 {item.remark && (
                                                                     <div className='mb-4 text-gray-700 fw-semibold fs-7'>
@@ -367,7 +345,7 @@ const PickingRequestList: React.FC = () => {
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan={10} className='text-center p-20'>
+                                        <td colSpan={9} className='text-center p-20'>
                                             <div className='d-flex flex-column flex-center'>
                                                 <i className='bi bi-box-seam fs-3x text-gray-300 mb-4'></i>
                                                 <span className='text-gray-500'>ไม่พบข้อมูล Picking Request</span>

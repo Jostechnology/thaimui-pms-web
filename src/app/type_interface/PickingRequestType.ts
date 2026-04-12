@@ -1,6 +1,9 @@
 export interface PickingRequestListItem {
     picking_request_item_id: number;
     picking_request_id: number;
+    sales_item_id: number | null;
+    material_list_id: number | null;
+    order_line_num: number | null;
     item_code: string;
     item_name: string;
     quantity: number;
@@ -11,11 +14,7 @@ export interface PickingRequestListItem {
 export interface PickingRequest {
     picking_request_id: number;
     picking_request_code: string | null;
-    request_type: "WORK_RUN" | "TEST_RESULT";
-    work_run_id: number | null;
-    work_run_lot_number: string | null;
-    test_result_id: number | null;
-    test_result_code: string | null;
+    doc_entry: number | null;
     status: "PENDING" | "SENT" | "SUCCESS" | "FAILED";
     wms_reference: string | null;
     remark: string | null;
@@ -26,23 +25,20 @@ export interface PickingRequest {
     items: PickingRequestListItem[];
 }
 
-export interface PickingAvailableItem {
-    item_code: string;
-    item_name: string;
-    unit_name?: string;
-}
-
-export interface PickingRequestItem {
+export interface PickingRequestItemPayload {
     item_code: string;
     item_name: string;
     quantity: number;
     unit: string;
     remark?: string;
+    order_line_num?: number;
+    sales_item_id?: number;
+    material_list_id?: number;
 }
 
 export interface PickingRequestPayload {
     remark?: string;
-    items: PickingRequestItem[];
+    items: PickingRequestItemPayload[];
 }
 
 export interface PickingRequestStatusPayload {
