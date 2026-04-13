@@ -31,9 +31,9 @@ export interface PickingRequestItemPayload {
     quantity: number;
     unit: string;
     remark?: string;
-    order_line_num?: number;
-    sales_item_id?: number;
-    material_list_id?: number;
+    order_line_num: number;
+    sales_item_id: number;
+    material_list_id: number;
 }
 
 export interface PickingRequestPayload {

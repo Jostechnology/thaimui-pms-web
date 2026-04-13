@@ -116,6 +116,7 @@ const PickingRequestCreate: React.FC = () => {
                             unit: ml.unit_name ?? '',
                             type: 'material',
                             material_list_id: ml.material_list_id,
+                            order_line_num: ml.order_line_num,
                         });
                     }
                 }
@@ -144,7 +145,6 @@ const PickingRequestCreate: React.FC = () => {
         const opt = pickableOptions.find((o) => o.value === value);
         setRows((prev) => prev.map((r) => {
             if (r.key !== key) return r;
-            // Auto-fill qty from option if currently empty
             const newQty = !r.quantity && opt ? '1' : r.quantity;
             return { ...r, selectedValue: value, quantity: newQty };
         }));
