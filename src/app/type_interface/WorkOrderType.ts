@@ -59,7 +59,6 @@ export interface WorkRunDetail extends WorkRun {
     assignments: WorkRunAssignment[];
     machines: WorkRunMachineEntry[];
     breaks: WorkRunBreak[];
-    picking_requests: any[];
 }
 
 export interface SalesItemTestResult {
