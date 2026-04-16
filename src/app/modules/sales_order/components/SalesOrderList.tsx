@@ -144,8 +144,8 @@ const SalesOrderList: React.FC = () => {
                                         salesOrders.map((so: SalesOrderSummary) => (
                                             <tr key={so.doc_entry}>
                                                 <td>
-                                                    <span className='text-gray-800 fw-bold fs-6'>{so.doc_num}</span>
-                                                    <span className='text-muted fw-semibold d-block fs-8'>ID: {so.doc_entry}</span>
+                                                    <span className='text-gray-800 fw-bold fs-6'>หมายเลขใบสั่งขาย {so.doc_num}</span>
+                                                    <span className='text-muted fw-semibold d-block fs-8'>Internal Number (doc_entry): {so.doc_entry}</span>
                                                 </td>
                                                 <td>
                                                     <span className='text-gray-800 fw-bold text-hover-primary fs-6'>{so.card_name}</span>

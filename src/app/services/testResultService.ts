@@ -104,6 +104,36 @@ export const updateTestResult = async (testResultId: number, data: any): Promise
     }
 };
 
+export const createTestResultRequiredItems = async (testResultId: number, items: any[]): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "POST",
+            `/test_result/${testResultId}/required_items`,
+            items,
+            { wrapData: true }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("createTestResultRequiredItems Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการบันทึกรายการวัตถุดิบ" };
+    }
+};
+
+export const startTestResult = async (testResultId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "POST",
+            `/test_result/${testResultId}/start`,
+            {},
+            { wrapData: false }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("startTestResult Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการเริ่มทดสอบ" };
+    }
+};
+
 export const deleteTestResult = async (testResultId: number): Promise<APIResponse> => {
     try {
         const response = await front_api(

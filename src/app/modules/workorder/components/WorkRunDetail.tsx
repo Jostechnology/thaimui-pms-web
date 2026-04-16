@@ -15,12 +15,25 @@ import {
     unassignEmployee,
     assignMachine,
     unassignMachine,
+    createWorkRunRequiredItems,
+    updateWorkRunRequiredItem,
+    deleteWorkRunRequiredItem,
+    getWorkRunMaterialOfWorkOrder,
 } from '../../../services/workRunService';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
-import type { WorkRunDetail as WorkRunDetailType } from '../../../type_interface/WorkOrderType';
+import type { WorkRunDetail as WorkRunDetailType, WorkRunRequiredItem } from '../../../type_interface/WorkOrderType';
 import type { Machine } from '../../../type_interface/MachineType';
 import { formatIntegerInput } from '../../../utils/input_format_utils';
+import { validateRequired, validatePositiveNumber } from '../../../utils/validate_utils';
+
+interface MaterialListItem {
+    material_list_id: number;
+    item_code: string;
+    item_name: string;
+    quantity: number;
+    unit_name: string;
+}
 
 interface Employee {
     citizen_id: string;
@@ -52,6 +65,20 @@ const WorkRunDetail: React.FC = () => {
     // Complete modal
     const [showCompleteModal, setShowCompleteModal] = useState(false);
     const [completeForm, setCompleteForm] = useState({ completion_remark: '', defect_qty: 0, usable_qty: 0 });
+    const [materialActuals, setMaterialActuals] = useState<Record<number, string>>({});
+
+    // Required item modal
+    const [showRequiredItemModal, setShowRequiredItemModal] = useState(false);
+    const [editingRequiredItem, setEditingRequiredItem] = useState<WorkRunRequiredItem | null>(null);
+    // Add mode — staged list
+    const [stagedItems, setStagedItems] = useState<{ material: MaterialListItem; quantity: string }[]>([]);
+    const [currentPicker, setCurrentPicker] = useState({ material_list_id: 0, quantity: '' });
+    const [pickerErrors, setPickerErrors] = useState<Record<string, string>>({});
+    // Edit mode
+    const [editQty, setEditQty] = useState('');
+    const [editQtyError, setEditQtyError] = useState('');
+    const [materialList, setMaterialList] = useState<MaterialListItem[]>([]);
+    const [materialLoading, setMaterialLoading] = useState(false);
 
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
@@ -114,6 +141,16 @@ const WorkRunDetail: React.FC = () => {
         }
     }, [showAssignMachineModal]);
 
+    // Fetch material list when required item modal opens in add mode
+    useEffect(() => {
+        if (showRequiredItemModal && !editingRequiredItem && materialList.length === 0) {
+            setMaterialLoading(true);
+            getWorkRunMaterialOfWorkOrder(Number(workRunId)).then(res => {
+                setMaterialList(res?.success && Array.isArray(res.data) ? res.data : []);
+            }).catch(() => setMaterialList([])).finally(() => setMaterialLoading(false));
+        }
+    }, [showRequiredItemModal]);
+
     const filteredEmployees = React.useMemo(() => {
         if (!empSearch) return allEmployees;
         const q = empSearch.toLowerCase();
@@ -131,7 +168,9 @@ const WorkRunDetail: React.FC = () => {
 
     // Active assignments (to_time === null means currently assigned)
     const activeAssignments = workRun?.assignments?.filter(a => a.to_time === null) ?? [];
+    const pastAssignments = workRun?.assignments?.filter(a => a.to_time !== null) ?? [];
     const activeMachines = workRun?.machines?.filter(m => m.to_time === null) ?? [];
+    const pastMachines = workRun?.machines?.filter(m => m.to_time !== null) ?? [];
 
     const status = normalizeKey(workRun?.status);
     const isCompleted = status === 'COMPLETED';
@@ -256,14 +295,112 @@ const WorkRunDetail: React.FC = () => {
         finally { setUnLoading(); }
     };
 
+    // --- Required Items ---
+    const openAddRequiredItem = () => {
+        setEditingRequiredItem(null);
+        setStagedItems([]);
+        setCurrentPicker({ material_list_id: 0, quantity: '' });
+        setPickerErrors({});
+        setShowRequiredItemModal(true);
+    };
+
+    const openEditRequiredItem = (item: WorkRunRequiredItem) => {
+        setEditingRequiredItem(item);
+        setEditQty(String(item.quantity));
+        setEditQtyError('');
+        setShowRequiredItemModal(true);
+    };
+
+    const closeRequiredItemModal = () => {
+        setShowRequiredItemModal(false);
+        setEditingRequiredItem(null);
+        setStagedItems([]);
+        setCurrentPicker({ material_list_id: 0, quantity: '' });
+        setPickerErrors({});
+        setEditQtyError('');
+    };
+
+    // Add current picker row to staged list
+    const handleAddToStaged = () => {
+        const newErrors: Record<string, string> = {};
+        if (currentPicker.material_list_id === 0) newErrors.material_list_id = 'กรุณาเลือกวัตถุดิบ';
+        const qtyErr = validateRequired(currentPicker.quantity, 'จำนวน') ?? validatePositiveNumber(currentPicker.quantity, 'จำนวน');
+        if (qtyErr) newErrors.quantity = qtyErr;
+        if (Object.keys(newErrors).length > 0) { setPickerErrors(newErrors); return; }
+
+        const selected = materialList.find(m => m.material_list_id === currentPicker.material_list_id)!;
+        const alreadyStaged = stagedItems.some(s => s.material.material_list_id === selected.material_list_id);
+        if (alreadyStaged) { setPickerErrors({ material_list_id: 'วัตถุดิบนี้อยู่ในรายการแล้ว' }); return; }
+
+        setStagedItems(prev => [...prev, { material: selected, quantity: currentPicker.quantity }]);
+        setCurrentPicker({ material_list_id: 0, quantity: '' });
+        setPickerErrors({});
+    };
+
+    const handleSaveRequiredItem = async () => {
+        if (editingRequiredItem) {
+            const qtyErr = validateRequired(editQty, 'จำนวน') ?? validatePositiveNumber(editQty, 'จำนวน');
+            if (qtyErr) { setEditQtyError(qtyErr); return; }
+            setLoading();
+            try {
+                const res = await updateWorkRunRequiredItem(editingRequiredItem.id, { quantity: Number(editQty) });
+                if (res?.success) { closeRequiredItemModal(); fetchWorkRun(); }
+                else Swal.fire('เกิดข้อผิดพลาด', res?.message || 'ไม่สามารถบันทึกข้อมูลได้', 'error');
+            } catch { Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อ API ได้', 'error'); }
+            finally { setUnLoading(); }
+        } else {
+            if (stagedItems.length === 0) return;
+            setLoading();
+            try {
+                const payload = stagedItems.map(s => ({
+                    item_code: s.material.item_code,
+                    item_name: s.material.item_name,
+                    quantity: Number(s.quantity),
+                    unit: s.material.unit_name,
+                    material_list_id: s.material.material_list_id,
+                }));
+                const res = await createWorkRunRequiredItems(Number(workRunId), payload);
+                if (res?.success) { closeRequiredItemModal(); fetchWorkRun(); }
+                else Swal.fire('เกิดข้อผิดพลาด', res?.message || 'ไม่สามารถบันทึกข้อมูลได้', 'error');
+            } catch { Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อ API ได้', 'error'); }
+            finally { setUnLoading(); }
+        }
+    };
+
+    const handleDeleteRequiredItem = async (item: WorkRunRequiredItem) => {
+        const confirm = await Swal.fire({
+            title: `ลบ "${item.item_name}"?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'ลบ',
+            cancelButtonText: 'ยกเลิก',
+            confirmButtonColor: '#d33',
+        });
+        if (!confirm.isConfirmed) return;
+        setLoading();
+        try {
+            const res = await deleteWorkRunRequiredItem(item.id);
+            if (res?.success) {
+                fetchWorkRun();
+            } else {
+                Swal.fire('เกิดข้อผิดพลาด', res?.message || 'ไม่สามารถลบข้อมูลได้', 'error');
+            }
+        } catch { Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อ API ได้', 'error'); }
+        finally { setUnLoading(); }
+    };
+
     // --- Complete Work Run ---
     const handleCompleteWorkRun = async () => {
         setLoading();
         try {
+            const material_actuals = Object.entries(materialActuals)
+                .filter(([, v]) => v !== '')
+                .map(([id, qty]) => ({ work_run_required_item_id: Number(id), qty_used: Number(qty) }));
             const result = await completeWorkRun(Number(workRunId), {
                 completion_remark: completeForm.completion_remark || undefined,
                 defect_qty: completeForm.defect_qty,
                 usable_qty: completeForm.usable_qty,
+                ...(material_actuals.length > 0 ? { material_actuals } : {}),
             });
             if (result?.success) {
                 setShowCompleteModal(false);
@@ -319,6 +456,9 @@ const WorkRunDetail: React.FC = () => {
                         <button
                             className='btn btn-sm btn-success fw-bold px-6'
                             onClick={() => {
+                                const actuals: Record<number, string> = {};
+                                (workRun?.required_items ?? []).forEach(item => { actuals[item.id] = ''; });
+                                setMaterialActuals(actuals);
                                 setCompleteForm({ completion_remark: '', defect_qty: 0, usable_qty: workRun?.quantity || 0 });
                                 setShowCompleteModal(true);
                             }}
@@ -401,6 +541,36 @@ const WorkRunDetail: React.FC = () => {
                             ))}
                         </div>
                     )}
+                    {pastAssignments.length > 0 && (
+                        <div className='mt-6'>
+                            <span className='text-muted fs-8 fw-bold d-block mb-3'>ประวัติการมอบหมาย</span>
+                            <div className='table-responsive'>
+                                <table className='table table-row-dashed align-middle gs-0 gy-2'>
+                                    <thead>
+                                        <tr className='fw-bold text-muted text-uppercase fs-8'>
+                                            <th>พนักงาน</th>
+                                            <th>เวลาเริ่ม</th>
+                                            <th>เวลาสิ้นสุด</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {pastAssignments.map(a => (
+                                            <tr key={a.work_run_assignment_id}>
+                                                <td>
+                                                    <span className='fw-semibold text-gray-700 fs-7'>
+                                                        {a.employee?.employee_first_name} {a.employee?.employee_last_name}
+                                                    </span>
+                                                    <span className='text-muted fs-8 ms-2'>ID: {a.employee_id}</span>
+                                                </td>
+                                                <td><span className='text-gray-600 fs-8'>{a.from_time ? new Date(a.from_time).toLocaleString('th-TH') : '-'}</span></td>
+                                                <td><span className='text-gray-600 fs-8'>{a.to_time ? new Date(a.to_time).toLocaleString('th-TH') : '-'}</span></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -446,8 +616,231 @@ const WorkRunDetail: React.FC = () => {
                             ))}
                         </div>
                     )}
+                    {pastMachines.length > 0 && (
+                        <div className='mt-6'>
+                            <span className='text-muted fs-8 fw-bold d-block mb-3'>ประวัติการใช้งานเครื่องจักร</span>
+                            <div className='table-responsive'>
+                                <table className='table table-row-dashed align-middle gs-0 gy-2'>
+                                    <thead>
+                                        <tr className='fw-bold text-muted text-uppercase fs-8'>
+                                            <th>เครื่องจักร</th>
+                                            <th>เวลาเริ่ม</th>
+                                            <th>เวลาสิ้นสุด</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {pastMachines.map(m => (
+                                            <tr key={m.work_run_machine_id}>
+                                                <td>
+                                                    <span className='fw-semibold text-gray-700 fs-7'>
+                                                        {m.machine?.machine_name ?? `Machine #${m.machine_id}`}
+                                                    </span>
+                                                    <span className='text-muted fs-8 ms-2'>{m.machine?.machine_code}</span>
+                                                </td>
+                                                <td><span className='text-gray-600 fs-8'>{m.from_time ? new Date(m.from_time).toLocaleString('th-TH') : '-'}</span></td>
+                                                <td><span className='text-gray-600 fs-8'>{m.to_time ? new Date(m.to_time).toLocaleString('th-TH') : '-'}</span></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
+
+            {/* Required Items */}
+            <div className='card shadow-sm mb-8'>
+                <div className='card-header border-0 pt-5'>
+                    <div className='card-title'>
+                        <span className='card-label fw-bold text-gray-900 fs-5'>
+                            <i className='bi bi-box-seam me-2 text-primary'></i>รายการวัตถุดิบที่ต้องใช้
+                        </span>
+                    </div>
+                    {!isCompleted && (
+                        <div className='card-toolbar'>
+                            <button className='btn btn-sm btn-light-primary fw-bold' onClick={openAddRequiredItem}>
+                                <i className='bi bi-plus-lg me-1'></i> เพิ่มรายการ
+                            </button>
+                        </div>
+                    )}
+                </div>
+                <div className='card-body pt-3'>
+                    {(!workRun?.required_items || workRun.required_items.length === 0) ? (
+                        <span className='text-muted fs-7'>ยังไม่มีรายการวัตถุดิบ</span>
+                    ) : (
+                        <div className='table-responsive'>
+                            <table className='table table-row-dashed align-middle gs-0 gy-3'>
+                                <thead>
+                                    <tr className='fw-bold text-muted text-uppercase fs-8'>
+                                        <th>รหัสสินค้า</th>
+                                        <th>ชื่อวัตถุดิบ</th>
+                                        <th>จำนวนที่ต้องใช้</th>
+                                        <th>จำนวนที่ใช้จริง</th>
+                                        <th>หน่วย</th>
+                                        {!isCompleted && <th className='text-end'>จัดการ</th>}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {workRun.required_items.map(item => (
+                                        <tr key={item.id}>
+                                            <td><span className='text-muted fw-semibold fs-7'>{item.item_code}</span></td>
+                                            <td><span className='fw-bold text-gray-800 fs-7'>{item.item_name}</span></td>
+                                            <td><span className='fw-semibold text-gray-700 fs-7'>{item.quantity}</span></td>
+                                            <td>
+                                                {item.qty_consumed_actual != null
+                                                    ? <span className='fw-semibold text-gray-700 fs-7'>{item.qty_consumed_actual}</span>
+                                                    : <span className='text-muted fs-7'>-</span>
+                                                }
+                                            </td>
+                                            <td><span className='text-muted fs-7'>{item.unit}</span></td>
+                                            {!isCompleted && (
+                                                <td className='text-end'>
+                                                    <button className='btn btn-sm btn-icon btn-light-primary me-1' onClick={() => openEditRequiredItem(item)}>
+                                                        <i className='bi bi-pencil fs-6'></i>
+                                                    </button>
+                                                    <button className='btn btn-sm btn-icon btn-light-danger' onClick={() => handleDeleteRequiredItem(item)}>
+                                                        <i className='bi bi-trash fs-6'></i>
+                                                    </button>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Required Item Add/Edit Modal */}
+            <Modal show={showRequiredItemModal} onHide={closeRequiredItemModal} centered size={editingRequiredItem ? undefined : 'lg'}>
+                <Modal.Header closeButton>
+                    <Modal.Title className='fw-bold'>{editingRequiredItem ? 'แก้ไขรายการวัตถุดิบ' : 'เพิ่มรายการวัตถุดิบ'}</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {editingRequiredItem ? (
+                        <>
+                            <div className='mb-4'>
+                                <label className='form-label fw-bold'>วัตถุดิบ</label>
+                                <div className='form-control form-control-solid bg-light text-gray-700'>
+                                    {editingRequiredItem.item_code} — {editingRequiredItem.item_name}
+                                    <span className='text-muted ms-2 fs-8'>({editingRequiredItem.unit})</span>
+                                </div>
+                            </div>
+                            <div className='mb-4'>
+                                <label className='form-label fw-bold required'>จำนวน</label>
+                                <input
+                                    type='text'
+                                    className={`form-control form-control-solid ${editQtyError ? 'is-invalid' : ''}`}
+                                    value={editQty}
+                                    onChange={e => {
+                                        setEditQty(formatIntegerInput(e.target.value));
+                                        if (editQtyError) setEditQtyError('');
+                                    }}
+                                />
+                                {editQtyError && <div className='invalid-feedback'>{editQtyError}</div>}
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            {/* Picker row */}
+                            <div className='row g-3 align-items-end mb-4'>
+                                <div className='col'>
+                                    <label className='form-label fw-bold required'>วัตถุดิบ</label>
+                                    {materialLoading ? (
+                                        <div className='form-control form-control-solid text-muted'>กำลังโหลด...</div>
+                                    ) : (
+                                        <select
+                                            className={`form-select form-select-solid ${pickerErrors.material_list_id ? 'is-invalid' : ''}`}
+                                            value={currentPicker.material_list_id}
+                                            onChange={e => {
+                                                setCurrentPicker(prev => ({ ...prev, material_list_id: Number(e.target.value) }));
+                                                if (pickerErrors.material_list_id) setPickerErrors(prev => { const n = { ...prev }; delete n.material_list_id; return n; });
+                                            }}
+                                        >
+                                            <option value={0}>-- เลือกวัตถุดิบ --</option>
+                                            {materialList.map(m => (
+                                                <option key={m.material_list_id} value={m.material_list_id}>
+                                                    {m.item_name} ({m.unit_name})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    {pickerErrors.material_list_id && <div className='invalid-feedback'>{pickerErrors.material_list_id}</div>}
+                                </div>
+                                <div className='col-auto' style={{ minWidth: 120 }}>
+                                    <label className='form-label fw-bold required'>จำนวน</label>
+                                    <input
+                                        type='text'
+                                        className={`form-control form-control-solid ${pickerErrors.quantity ? 'is-invalid' : ''}`}
+                                        placeholder='0'
+                                        value={currentPicker.quantity}
+                                        onChange={e => {
+                                            setCurrentPicker(prev => ({ ...prev, quantity: formatIntegerInput(e.target.value) }));
+                                            if (pickerErrors.quantity) setPickerErrors(prev => { const n = { ...prev }; delete n.quantity; return n; });
+                                        }}
+                                    />
+                                    {pickerErrors.quantity && <div className='invalid-feedback'>{pickerErrors.quantity}</div>}
+                                </div>
+                                <div className='col-auto'>
+                                    <button className='btn btn-light-primary fw-bold' onClick={handleAddToStaged}>
+                                        <i className='bi bi-plus-lg me-1'></i> เพิ่ม
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Staged list */}
+                            {stagedItems.length > 0 ? (
+                                <div className='table-responsive'>
+                                    <table className='table table-row-dashed align-middle gs-0 gy-2'>
+                                        <thead>
+                                            <tr className='fw-bold text-muted text-uppercase fs-8'>
+                                                <th>รหัสสินค้า</th>
+                                                <th>ชื่อวัตถุดิบ</th>
+                                                <th>จำนวน</th>
+                                                <th>หน่วย</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {stagedItems.map((s, idx) => (
+                                                <tr key={s.material.material_list_id}>
+                                                    <td><span className='text-muted fw-semibold fs-7'>{s.material.item_code}</span></td>
+                                                    <td><span className='fw-bold text-gray-800 fs-7'>{s.material.item_name}</span></td>
+                                                    <td><span className='fw-semibold text-gray-700 fs-7'>{s.quantity}</span></td>
+                                                    <td><span className='text-muted fs-7'>{s.material.unit_name}</span></td>
+                                                    <td className='text-end'>
+                                                        <i
+                                                            className='bi bi-x-circle text-danger cursor-pointer fs-5'
+                                                            onClick={() => setStagedItems(prev => prev.filter((_, i) => i !== idx))}
+                                                        ></i>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className='text-center text-muted fs-7 py-6 border border-dashed border-gray-300 rounded'>
+                                    ยังไม่มีรายการ — เลือกวัตถุดิบและกด "เพิ่ม"
+                                </div>
+                            )}
+                        </>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <button className='btn btn-light' onClick={closeRequiredItemModal}>ยกเลิก</button>
+                    <button
+                        className='btn btn-primary fw-bold'
+                        onClick={handleSaveRequiredItem}
+                        disabled={!editingRequiredItem && stagedItems.length === 0}
+                    >
+                        <i className='bi bi-check2 me-1'></i>
+                        {editingRequiredItem ? 'บันทึก' : `บันทึก (${stagedItems.length} รายการ)`}
+                    </button>
+                </Modal.Footer>
+            </Modal>
 
             {/* Assign Employee Modal */}
             <Modal show={showAssignEmpModal} onHide={() => { setShowAssignEmpModal(false); setEmpSearch(''); }} centered size="lg">
@@ -578,6 +971,48 @@ const WorkRunDetail: React.FC = () => {
                             onChange={e => setCompleteForm(prev => ({ ...prev, completion_remark: e.target.value }))}
                         />
                     </div>
+                    {(workRun?.required_items ?? []).length > 0 && (
+                        <div className='mb-4'>
+                            <label className='form-label fw-bold'>
+                                <i className='bi bi-box-seam me-2 text-primary'></i>จำนวนวัตถุดิบที่ใช้จริง
+                            </label>
+                            <div className='table-responsive'>
+                                <table className='table table-bordered align-middle fs-7 mb-0'>
+                                    <thead className='table-light'>
+                                        <tr className='fw-bold text-gray-700'>
+                                            <th>รหัสสินค้า</th>
+                                            <th>ชื่อวัตถุดิบ</th>
+                                            <th className='w-80px text-center'>หน่วย</th>
+                                            <th className='w-110px text-center'>ต้องใช้</th>
+                                            <th className='w-130px'>ใช้จริง</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(workRun?.required_items ?? []).map(item => (
+                                            <tr key={item.id}>
+                                                <td className='text-muted fw-semibold'>{item.item_code}</td>
+                                                <td className='fw-bold text-gray-800'>{item.item_name}</td>
+                                                <td className='text-center text-muted'>{item.unit}</td>
+                                                <td className='text-center fw-semibold text-gray-700'>{item.quantity}</td>
+                                                <td>
+                                                    <input
+                                                        type='text'
+                                                        className='form-control form-control-sm text-center'
+                                                        placeholder='0'
+                                                        value={materialActuals[item.id] ?? ''}
+                                                        onChange={e => {
+                                                            const s = formatIntegerInput(e.target.value);
+                                                            setMaterialActuals(prev => ({ ...prev, [item.id]: s }));
+                                                        }}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </Modal.Body>
                 <Modal.Footer>
                     <button className='btn btn-light' onClick={() => setShowCompleteModal(false)}>ยกเลิก</button>

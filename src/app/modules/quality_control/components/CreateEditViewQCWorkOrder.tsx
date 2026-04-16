@@ -26,7 +26,11 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 
-	const [mode, setMode] = useState<PageMode>("create");
+	const [mode, setMode] = useState<PageMode>(() => {
+		if (location.pathname.includes("/view")) return "view";
+		if (location.pathname.includes("/edit")) return "edit";
+		return "create";
+	});
 	const [loading, setLoading] = useState(false);
 	const [pdfLoading, setPdfLoading] = useState(false);
 
@@ -99,16 +103,20 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 			if (result.success && result.data) {
 				const raw = result.data;
 				const form = raw.qc_form || {};
-				const items = (raw.qc_items || []).map((item: any) => ({
-					id: String(item.qc_item_id),
-					code: item.item_code ?? "",
-					description: item.description ?? "",
-					wll: item.wll ?? "",
-					quantity: item.quantity ?? "",
-					serialNo: item.serial_no ?? "",
-					remark: item.item_remark ?? "",
-					material_list_id: item.material_list_id ?? undefined,
-				}));
+				const items = (raw.qc_items || []).map((item: any) => {
+					const ml = item.material_list ?? {};
+					return {
+						id: String(item.qc_item_id),
+						code: ml.item_code ?? item.item_code ?? "",
+						description: ml.item_name ?? item.description ?? "",
+						wll: item.wll ?? "",
+						quantity: item.quantity ?? "",
+						serialNo: item.serial_no ?? "",
+						remark: item.item_remark ?? "",
+						unit_name: ml.unit_name ?? "",
+						material_list_id: item.material_list_id ?? undefined,
+					};
+				});
 
 				const formDataToSet = {
 					...qcWorkData,
@@ -812,10 +820,12 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 																</span>
 															) : (
 																<Select
-																	isDisabled={materialList.length < 1 || isReadOnly}
-																	options={materialList}
+																	isDisabled={!formData.salesItemId || isReadOnly}
+																	options={materialList.filter(
+																		(m) => m.sales_item_id === formData.salesItemId
+																	)}
 																	formatOptionLabel={(option: Material) => (
-																		<div>{option.item_code}</div>
+																		<div>{option.item_name} ({option.item_code})</div>
 																	)}
 																	getOptionValue={(option) => option.item_code}
 																	value={

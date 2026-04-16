@@ -5,6 +5,8 @@ import {
     getTestResultsByQCWorkOrder,
     finalizeTestResult,
     deleteTestResult,
+    createTestResultRequiredItems,
+    startTestResult,
 } from "../../../services/testResultService";
 import { getWorkRunsBySalesItem } from "../../../services/workRunService";
 import type { QCWorkOrderItem } from "../../../type_interface/QCWorkOrderType";
@@ -23,6 +25,15 @@ interface WorkRunOption {
 interface WorkRunAllocation {
     work_run_id: number;
     qty_from_run: number;
+}
+
+interface RequiredItemStagedRow {
+    qc_item_id?: number;
+    item_code: string;
+    item_name: string;
+    required_qty: string;
+    unit: string;
+    material_list_id?: number;
 }
 
 interface Props {
@@ -89,6 +100,7 @@ const defaultFinalizeForm = (qty: number, description: string): FinalizeForm => 
 const SessionStatusBadge: React.FC<{ status: string }> = ({ status }) => {
     if (status === "COMPLETED") return <span className="badge badge-light-success fw-bold px-3 py-2">เสร็จสิ้น</span>;
     if (status === "INPROGRESS") return <span className="badge badge-light-warning fw-bold px-3 py-2"><i className="bi bi-hourglass-split me-1"></i>กำลังทดสอบ</span>;
+    if (status === "PENDING") return <span className="badge badge-light-secondary fw-bold px-3 py-2"><i className="bi bi-clock me-1"></i>รอเริ่ม</span>;
     return <span className="badge badge-light-secondary fw-bold px-3 py-2">{status}</span>;
 };
 
@@ -107,6 +119,7 @@ const TestResultSection: React.FC<Props> = ({
     salesItemDescription = "",
     salesItemId,
     testResultsPre,
+    qcItems = [],
 }) => {
     const [testResults, setTestResults] = useState<any[]>(testResultsPre);
     const [loading, setLoading] = useState(false);
@@ -120,13 +133,21 @@ const TestResultSection: React.FC<Props> = ({
 
     const [availableWorkRuns, setAvailableWorkRuns] = useState<WorkRunOption[]>([]);
     const [loadingWorkRuns, setLoadingWorkRuns] = useState(false);
+    const [claimError, setClaimError] = useState<string | null>(null);
 
     // Finalize state — keyed by test_result_id
     const [finalizingId, setFinalizingId] = useState<number | null>(null);
     const [finalizeForm, setFinalizeForm] = useState<FinalizeForm | null>(null);
     const [finalizeSaving, setFinalizeSaving] = useState(false);
+    const [finalizeActuals, setFinalizeActuals] = useState<Record<number, string>>({});
 
     const [expandedId, setExpandedId] = useState<number | null>(null);
+
+    // Required items (PENDING)
+    const [reqItemsTargetId, setReqItemsTargetId] = useState<number | null>(null);
+    const [reqItemsStaged, setReqItemsStaged] = useState<RequiredItemStagedRow[]>([]);
+    const [reqItemsSaving, setReqItemsSaving] = useState(false);
+    const [reqItemErrors, setReqItemErrors] = useState<Record<number, string>>({});
 
     useEffect(() => {
         reloadResults();
@@ -145,6 +166,7 @@ const TestResultSection: React.FC<Props> = ({
     // ─── Phase 1: Claim ───────────────────────────────────────────
     const handleOpenClaimForm = async () => {
         setClaimForm({ claimed_qty: quantity, work_runs: [], remark: "" });
+        setClaimError(null);
         setShowClaimForm(true);
 
         if (salesItemId) {
@@ -162,7 +184,101 @@ const TestResultSection: React.FC<Props> = ({
         }
     };
 
+    // ─── Required Items (PENDING) ─────────────────────────────────
+    const handleOpenRequiredItems = (tr: any) => {
+        const existingItems: RequiredItemStagedRow[] = (tr.required_items ?? []).map((it: any) => ({
+            qc_item_id: it.qc_item_id ?? undefined,
+            item_code: it.item_code ?? "",
+            item_name: it.item_name ?? "",
+            required_qty: String(it.required_qty ?? it.quantity ?? ""),
+            unit: it.unit ?? "",
+            material_list_id: it.material_list_id ?? undefined,
+        }));
+        // Pre-populate from qcItems if no existing required_items
+        const defaultRows: RequiredItemStagedRow[] = qcItems.length > 0
+            ? qcItems.map(qi => ({
+                qc_item_id: Number(qi.id),
+                item_code: qi.code,
+                item_name: qi.description,
+                required_qty: qi.quantity ?? "",
+                unit: qi.unit_name ?? "",
+                material_list_id: qi.material_list_id,
+            }))
+            : [{ item_code: "", item_name: "", required_qty: "", unit: "" }];
+        setReqItemsStaged(existingItems.length > 0 ? existingItems : defaultRows);
+        setReqItemErrors({});
+        setReqItemsTargetId(tr.test_result_id);
+    };
+
+    const updateReqItemField = (idx: number, field: keyof RequiredItemStagedRow, value: string) => {
+        setReqItemsStaged(prev => prev.map((row, i) => i === idx ? { ...row, [field]: value } : row));
+        if (reqItemErrors[idx]) setReqItemErrors(prev => { const n = { ...prev }; delete n[idx]; return n; });
+    };
+
+    const addReqItemRow = () => {
+        setReqItemsStaged(prev => [...prev, { item_code: "", item_name: "", required_qty: "", unit: "" }]);
+    };
+
+    const removeReqItemRow = (idx: number) => {
+        setReqItemsStaged(prev => prev.filter((_, i) => i !== idx));
+        setReqItemErrors(prev => {
+            const n: Record<number, string> = {};
+            Object.entries(prev).forEach(([k, v]) => { const ki = Number(k); if (ki < idx) n[ki] = v; else if (ki > idx) n[ki - 1] = v; });
+            return n;
+        });
+    };
+
+    const handleSaveRequiredItems = async () => {
+        const newErrors: Record<number, string> = {};
+        reqItemsStaged.forEach((row, i) => {
+            if (!row.qc_item_id) newErrors[i] = "กรุณาเลือกสินค้า";
+            else if (!row.required_qty || Number(row.required_qty) <= 0) newErrors[i] = "จำนวนต้องมากกว่า 0";
+        });
+        if (Object.keys(newErrors).length > 0) { setReqItemErrors(newErrors); return; }
+        if (reqItemsTargetId === null) return;
+
+        setReqItemsSaving(true);
+        try {
+            const payload = reqItemsStaged.map(row => ({
+                item_code: row.item_code.trim(),
+                item_name: row.item_name.trim(),
+                required_qty: Number(row.required_qty),
+                unit: row.unit.trim(),
+                ...(row.qc_item_id != null ? { qc_item_id: row.qc_item_id } : {}),
+                ...(row.material_list_id != null ? { material_list_id: row.material_list_id } : {}),
+            }));
+            const res = await createTestResultRequiredItems(reqItemsTargetId, payload);
+            if (res.success) {
+                setReqItemsTargetId(null);
+                reloadResults();
+            } else {
+                Swal.fire("ผิดพลาด!", res.message || "ไม่สามารถบันทึกรายการได้", "error");
+            }
+        } finally {
+            setReqItemsSaving(false);
+        }
+    };
+
+    const handleStart = async (testResultId: number) => {
+        const confirm = await Swal.fire({
+            title: "เริ่มทดสอบ?",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "เริ่มเลย",
+            cancelButtonText: "ยกเลิก",
+        });
+        if (!confirm.isConfirmed) return;
+        const res = await startTestResult(testResultId);
+        if (res.success) {
+            Swal.fire({ title: "เริ่มทดสอบแล้ว", icon: "success", timer: 1500, showConfirmButton: false });
+            reloadResults();
+        } else {
+            Swal.fire("ผิดพลาด!", res.message || "ไม่สามารถเริ่มทดสอบได้", "error");
+        }
+    };
+
     const toggleWorkRunAllocation = (workRunId: number) => {
+        setClaimError(null);
         setClaimForm((prev) => {
             const exists = prev.work_runs.find((a) => a.work_run_id === workRunId);
             if (exists) {
@@ -173,6 +289,7 @@ const TestResultSection: React.FC<Props> = ({
     };
 
     const setAllocationQty = (workRunId: number, qty: number) => {
+        setClaimError(null);
         setClaimForm((prev) => ({
             ...prev,
             work_runs: prev.work_runs.map((a) =>
@@ -186,6 +303,14 @@ const TestResultSection: React.FC<Props> = ({
             Swal.fire("แจ้งเตือน", "จำนวนต้องมากกว่า 0", "warning");
             return;
         }
+        if (claimForm.work_runs.length > 0) {
+            const totalAllocated = claimForm.work_runs.reduce((sum, a) => sum + a.qty_from_run, 0);
+            if (totalAllocated !== claimForm.claimed_qty) {
+                setClaimError(`จำนวนรวมจาก Work Run (${totalAllocated}) ต้องเท่ากับจำนวนที่ขอทดสอบ (${claimForm.claimed_qty})`);
+                return;
+            }
+        }
+        setClaimError(null);
         setClaimSaving(true);
         try {
             const payload: any = {
@@ -214,6 +339,9 @@ const TestResultSection: React.FC<Props> = ({
         setFinalizingId(tr.test_result_id);
         setFinalizeForm(defaultFinalizeForm(tr.claimed_qty ?? quantity, salesItemDescription));
         setExpandedId(null);
+        const actuals: Record<number, string> = {};
+        (tr.required_items ?? []).forEach((it: any) => { if (it.id != null) actuals[it.id] = ''; });
+        setFinalizeActuals(actuals);
     };
 
     const handleFinalizeItemChange = (idx: number, field: keyof FinalizeItemForm, value: string) => {
@@ -233,6 +361,9 @@ const TestResultSection: React.FC<Props> = ({
         if (!finalizeForm || finalizingId === null) return;
         setFinalizeSaving(true);
         try {
+            const material_actuals = Object.entries(finalizeActuals)
+                .filter(([, v]) => v !== '')
+                .map(([id, qty]) => ({ test_result_required_item_id: Number(id), qty_used: Number(qty) }));
             const payload = {
                 ...finalizeForm,
                 items: finalizeForm.items.map((it) => ({
@@ -240,6 +371,7 @@ const TestResultSection: React.FC<Props> = ({
                     wll_measured: it.wll_measured === "" ? null : parseFloat(it.wll_measured),
                     load_test_value: it.load_test_value === "" ? null : parseFloat(it.load_test_value),
                 })),
+                ...(material_actuals.length > 0 ? { material_actuals } : {}),
             };
             const res = await finalizeTestResult(finalizingId, payload);
             if (res.success) {
@@ -291,7 +423,7 @@ const TestResultSection: React.FC<Props> = ({
                     </div>
                     {!showClaimForm && (
                         <button className="btn btn-sm btn-primary fw-bold" onClick={handleOpenClaimForm}>
-                            <i className="bi bi-plus-lg me-1"></i>เริ่มทดสอบใหม่
+                            <i className="bi bi-plus-lg me-1"></i>สร้างการทดสอบ
                         </button>
                     )}
                 </div>
@@ -408,6 +540,25 @@ const TestResultSection: React.FC<Props> = ({
                                 </div>
                             )}
 
+                            {claimForm.work_runs.length > 0 && (() => {
+                                const totalAllocated = claimForm.work_runs.reduce((sum, a) => sum + a.qty_from_run, 0);
+                                const diff = claimForm.claimed_qty - totalAllocated;
+                                return (
+                                    <div className={`mb-4 px-4 py-2 rounded d-flex align-items-center gap-2 ${diff !== 0 ? "bg-light-danger text-danger" : "bg-light-success text-success"}`}>
+                                        <i className={`bi ${diff !== 0 ? "bi-exclamation-triangle" : "bi-check-circle"} fw-bold`}></i>
+                                        <span className="fw-bold fs-7">
+                                            รวมจาก Work Run: {totalAllocated} / {claimForm.claimed_qty}
+                                            {diff > 0 && ` (ขาดอยู่ ${diff})`}
+                                            {diff < 0 && ` (เกินมา ${Math.abs(diff)})`}
+                                        </span>
+                                    </div>
+                                );
+                            })()}
+                            {claimError && (
+                                <div className="alert alert-danger py-2 px-4 mb-4 fs-7">
+                                    <i className="bi bi-exclamation-circle me-2"></i>{claimError}
+                                </div>
+                            )}
                             <div className="d-flex justify-content-end gap-3">
                                 <button className="btn btn-light fw-bold" onClick={() => setShowClaimForm(false)} disabled={claimSaving}>
                                     ยกเลิก
@@ -415,7 +566,7 @@ const TestResultSection: React.FC<Props> = ({
                                 <button className="btn btn-primary fw-bold" onClick={handleClaim} disabled={claimSaving}>
                                     {claimSaving
                                         ? <><span className="spinner-border spinner-border-sm me-2" />กำลังสร้าง...</>
-                                        : <><i className="bi bi-play-fill me-2"></i>เริ่มทดสอบ</>
+                                        : <><i className="bi bi-play-fill me-2"></i>สร้างการทดสอบ</>
                                     }
                                 </button>
                             </div>
@@ -437,6 +588,7 @@ const TestResultSection: React.FC<Props> = ({
                     ) : (
                         <div className="d-flex flex-column gap-4">
                             {testResults.map((tr: any, idx: number) => {
+                                const isPending = tr.session_status === "PENDING";
                                 const isInProgress = tr.session_status === "INPROGRESS";
                                 const isCompleted = tr.session_status === "COMPLETED";
                                 const isFinalizing = finalizingId === tr.test_result_id;
@@ -448,7 +600,7 @@ const TestResultSection: React.FC<Props> = ({
                                     <div key={tr.test_result_id} className={`border rounded overflow-hidden ${isInProgress ? 'border-warning' : ''}`}>
                                         {/* Row header */}
                                         <div
-                                            className={`d-flex align-items-center justify-content-between px-5 py-3 ${isInProgress ? 'bg-light-warning' : 'bg-light'}`}
+                                            className={`d-flex align-items-center justify-content-between px-5 py-3 ${isInProgress ? 'bg-light-warning' : isPending ? 'bg-light-secondary' : 'bg-light'}`}
                                             style={{ cursor: isCompleted ? "pointer" : "default" }}
                                             onClick={() => isCompleted && setExpandedId(isExpanded ? null : tr.test_result_id)}
                                         >
@@ -487,6 +639,29 @@ const TestResultSection: React.FC<Props> = ({
                                                 )}
                                             </div>
                                             <div className="d-flex align-items-center gap-2">
+                                                {isPending && (
+                                                    <>
+                                                        <button
+                                                            className="btn btn-sm btn-light-primary fw-bold"
+                                                            onClick={(e) => { e.stopPropagation(); handleOpenRequiredItems(tr); }}
+                                                        >
+                                                            <i className="bi bi-list-check me-1"></i>รายการวัตถุดิบ
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-sm btn-primary fw-bold"
+                                                            onClick={(e) => { e.stopPropagation(); handleStart(tr.test_result_id); }}
+                                                        >
+                                                            <i className="bi bi-play-fill me-1"></i>เริ่มทดสอบ
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-icon btn-sm btn-light-danger"
+                                                            title="ยกเลิก Session"
+                                                            onClick={(e) => { e.stopPropagation(); handleDelete(tr.test_result_id); }}
+                                                        >
+                                                            <i className="bi bi-trash fs-5"></i>
+                                                        </button>
+                                                    </>
+                                                )}
                                                 {isInProgress && !isFinalizing && (
                                                     <button
                                                         className="btn btn-sm btn-warning fw-bold"
@@ -517,6 +692,134 @@ const TestResultSection: React.FC<Props> = ({
                                                 )}
                                             </div>
                                         </div>
+
+                                        {/* ── PENDING body: Required Items editor ── */}
+                                        {isPending && reqItemsTargetId === tr.test_result_id && (
+                                            <div className="px-6 py-5 border-top bg-white">
+                                                <div className="d-flex justify-content-between align-items-center mb-4">
+                                                    <h6 className="fw-bold text-gray-700 mb-0">
+                                                        <i className="bi bi-list-check me-2 text-primary"></i>รายการวัตถุดิบที่ต้องใช้
+                                                    </h6>
+                                                    <button className="btn btn-sm btn-light-primary fw-bold" onClick={addReqItemRow}>
+                                                        <i className="bi bi-plus-lg me-1"></i>เพิ่มแถว
+                                                    </button>
+                                                </div>
+                                                <div className="table-responsive mb-4">
+                                                    <table className="table table-bordered align-middle fs-7 mb-0">
+                                                        <thead className="table-light">
+                                                            <tr className="fw-bold text-gray-700">
+                                                                <th>สินค้า</th>
+                                                                <th className="w-80px">หน่วย</th>
+                                                                <th className="w-110px">จำนวนที่ต้องการ</th>
+                                                                <th className="w-50px"></th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {reqItemsStaged.map((row, i) => {
+                                                                const selectedQcItem = qcItems.find(qi => Number(qi.id) === row.qc_item_id);
+                                                                return (
+                                                                    <tr key={i} className={reqItemErrors[i] ? "table-danger" : ""}>
+                                                                        <td>
+                                                                            <select
+                                                                                className={`form-select form-select-sm ${reqItemErrors[i] ? "is-invalid" : ""}`}
+                                                                                value={row.qc_item_id ?? ""}
+                                                                                onChange={e => {
+                                                                                    const qi = qcItems.find(q => Number(q.id) === Number(e.target.value));
+                                                                                    if (qi) {
+                                                                                        setReqItemsStaged(prev => prev.map((r, idx) => idx === i ? {
+                                                                                            ...r,
+                                                                                            qc_item_id: Number(qi.id),
+                                                                                            item_code: qi.code,
+                                                                                            item_name: qi.description,
+                                                                                            unit: qi.unit_name ?? "",
+                                                                                            material_list_id: qi.material_list_id,
+                                                                                        } : r));
+                                                                                        if (reqItemErrors[i]) setReqItemErrors(prev => { const n = { ...prev }; delete n[i]; return n; });
+                                                                                    } else {
+                                                                                        setReqItemsStaged(prev => prev.map((r, idx) => idx === i ? { ...r, qc_item_id: undefined, item_code: "", item_name: "", unit: "", material_list_id: undefined } : r));
+                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                <option value="">-- เลือกสินค้า --</option>
+                                                                                {qcItems.map(qi => (
+                                                                                    <option key={qi.id} value={Number(qi.id)}>
+                                                                                        {qi.code} — {qi.description}
+                                                                                    </option>
+                                                                                ))}
+                                                                            </select>
+                                                                            {reqItemErrors[i] && <div className="invalid-feedback">{reqItemErrors[i]}</div>}
+                                                                        </td>
+                                                                        <td className="text-center text-muted fw-bold">
+                                                                            {selectedQcItem?.unit_name ?? row.unit ?? "-"}
+                                                                        </td>
+                                                                        <td>
+                                                                            <input
+                                                                                type="text"
+                                                                                className="form-control form-control-sm text-center"
+                                                                                value={row.required_qty}
+                                                                                onChange={e => updateReqItemField(i, "required_qty", formatIntegerInput(e.target.value))}
+                                                                                placeholder="0"
+                                                                            />
+                                                                        </td>
+                                                                        <td className="text-center">
+                                                                            <button
+                                                                                className="btn btn-icon btn-sm btn-light-danger"
+                                                                                onClick={() => removeReqItemRow(i)}
+                                                                                disabled={reqItemsStaged.length === 1}
+                                                                            >
+                                                                                <i className="bi bi-trash fs-6"></i>
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                <div className="d-flex justify-content-end gap-3">
+                                                    <button className="btn btn-light fw-bold" onClick={() => setReqItemsTargetId(null)} disabled={reqItemsSaving}>
+                                                        ยกเลิก
+                                                    </button>
+                                                    <button className="btn btn-primary fw-bold" onClick={handleSaveRequiredItems} disabled={reqItemsSaving}>
+                                                        {reqItemsSaving
+                                                            ? <><span className="spinner-border spinner-border-sm me-2" />กำลังบันทึก...</>
+                                                            : <><i className="bi bi-check2 me-2"></i>บันทึกรายการ ({reqItemsStaged.length})</>
+                                                        }
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* show existing required items for PENDING when editor is closed */}
+                                        {isPending && reqItemsTargetId !== tr.test_result_id && (tr.required_items ?? []).length > 0 && (
+                                            <div className="px-6 py-4 border-top bg-white">
+                                                <div className="fs-8 fw-bold text-muted text-uppercase mb-3">
+                                                    <i className="bi bi-list-check me-1"></i>รายการวัตถุดิบที่ต้องใช้
+                                                </div>
+                                                <div className="table-responsive">
+                                                    <table className="table table-bordered align-middle fs-7 mb-0">
+                                                        <thead className="table-light">
+                                                            <tr className="fw-bold text-gray-700">
+                                                                <th>รหัสสินค้า</th>
+                                                                <th>ชื่อสินค้า</th>
+                                                                <th className="w-80px text-center">หน่วย</th>
+                                                                <th className="w-110px text-center">จำนวนที่ต้องการ</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {(tr.required_items as any[]).map((it: any, i: number) => (
+                                                                <tr key={i}>
+                                                                    <td className="fw-bold text-gray-800">{it.item_code || "-"}</td>
+                                                                    <td>{it.item_name || "-"}</td>
+                                                                    <td className="text-center text-muted">{it.unit || "-"}</td>
+                                                                    <td className="text-center fw-bold text-primary">{it.required_qty ?? it.quantity ?? "-"}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* ── INPROGRESS body: Work Run Sources + Picking Items ── */}
                                         {isInProgress && (workRunSources.length > 0 || pickingItemSources.length > 0) && (
@@ -560,11 +863,13 @@ const TestResultSection: React.FC<Props> = ({
                                                                     return (
                                                                         <div key={src.id} className="d-flex align-items-center justify-content-between border rounded px-3 py-2">
                                                                             <div className="d-flex align-items-center gap-3">
+                                                                                <span className="fw-bold badge badge-info">{pri.picking_request.picking_request_code}</span>
                                                                                 <span className="fw-bold text-gray-800 fs-7">{pri.item_code ?? '-'}</span>
                                                                                 <span className="text-muted fs-8">{pri.item_name ?? '-'}</span>
+                                                                                
                                                                             </div>
                                                                             <span className="text-muted fs-8">
-                                                                                นำมา <span className="fw-bold text-gray-700">{src.qty_consumed}</span>
+                                                                                นำมา <span className="fw-bold text-gray-700">{src.qty_allocated} {src.picking_request_item.unit}</span>
                                                                             </span>
                                                                         </div>
                                                                     );
@@ -735,6 +1040,50 @@ const TestResultSection: React.FC<Props> = ({
                                                         </tbody>
                                                     </table>
                                                 </div>
+
+                                                {(tr.required_items ?? []).length > 0 && (
+                                                    <div className="mb-5">
+                                                        <h6 className="fw-bold text-gray-700 mb-3">
+                                                            <i className="bi bi-box-seam me-2 text-primary"></i>จำนวนวัตถุดิบที่ใช้จริง
+                                                        </h6>
+                                                        <div className="table-responsive">
+                                                            <table className="table table-bordered align-middle fs-7 mb-0">
+                                                                <thead className="table-light">
+                                                                    <tr className="fw-bold text-gray-700">
+                                                                        <th>รหัสสินค้า</th>
+                                                                        <th>ชื่อสินค้า</th>
+                                                                        <th className="w-80px text-center">หน่วย</th>
+                                                                        <th className="w-110px text-center">ต้องใช้</th>
+                                                                        <th className="w-130px">ใช้จริง</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {(tr.required_items as any[]).map((it: any) => (
+                                                                        <tr key={it.id ?? it.qc_item_id}>
+                                                                            <td className="text-muted fw-semibold">{it.item_code || '-'}</td>
+                                                                            <td className="fw-bold text-gray-800">{it.item_name || '-'}</td>
+                                                                            <td className="text-center text-muted">{it.unit || '-'}</td>
+                                                                            <td className="text-center fw-semibold text-gray-700">{it.required_qty ?? it.quantity ?? '-'}</td>
+                                                                            <td>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    className="form-control form-control-sm text-center"
+                                                                                    placeholder="0"
+                                                                                    value={it.id != null ? (finalizeActuals[it.id] ?? '') : ''}
+                                                                                    onChange={e => {
+                                                                                        if (it.id == null) return;
+                                                                                        const s = formatIntegerInput(e.target.value);
+                                                                                        setFinalizeActuals(prev => ({ ...prev, [it.id]: s }));
+                                                                                    }}
+                                                                                />
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 <div className="d-flex justify-content-end gap-3">
                                                     <button
