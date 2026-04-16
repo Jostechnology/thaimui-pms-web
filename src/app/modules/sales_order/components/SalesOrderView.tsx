@@ -164,7 +164,7 @@ const SalesOrderView: React.FC = () => {
                         </h1>
                     </div>
                     <p className="text-muted fs-6 ms-11">
-                        Doc Entry: {salesOrder.doc_entry}
+                        Internal Number (doc_entry): {salesOrder.doc_entry}
                     </p>
                 </div>
                 <div className="d-flex gap-3 mt-3 mt-md-0 align-items-center">
@@ -517,7 +517,6 @@ const SalesOrderView: React.FC = () => {
                             <table className="table align-middle gs-0 gy-4">
                                 <thead>
                                     <tr className="fw-bolder text-muted bg-light">
-                                        <th className="ps-4 min-w-60px rounded-start">จำนวน</th>
                                         <th className="min-w-120px">รหัสสินค้า</th>
                                         <th className="min-w-100px">รหัสวัตถุดิบ</th>
                                         <th className="min-w-200px">ชื่อวัตถุดิบ</th>
@@ -547,7 +546,6 @@ const SalesOrderView: React.FC = () => {
                                                 className="cursor-pointer"
                                                 style={{ cursor: 'pointer' }}
                                             >
-                                                <td className="ps-4 text-gray-800 fw-bolder fs-6">{mat.quantity ?? '-'}</td>
                                                 <td>
                                                     <span className="text-gray-700 fw-bold d-block fs-7">{parentItem?.item_code || '-'}</span>
                                                     {parentItem?.item_name && (

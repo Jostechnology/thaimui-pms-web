@@ -54,11 +54,25 @@ export interface ReworkSource {
     created_date: string;
 }
 
+export interface WorkRunRequiredItem {
+    id: number;
+    work_run_id: number;
+    material_list_id: number;
+    item_code: string;
+    item_name: string;
+    quantity: number;
+    unit: string;
+    qty_consumed_actual: number | null;
+    created_by: string;
+    created_date: string;
+}
+
 // Full WorkRun display — returned from GET /api/work_run/:id (WorkRunDisplaySchema)
 export interface WorkRunDetail extends WorkRun {
     assignments: WorkRunAssignment[];
     machines: WorkRunMachineEntry[];
     breaks: WorkRunBreak[];
+    required_items: WorkRunRequiredItem[];
 }
 
 export interface SalesItemTestResult {

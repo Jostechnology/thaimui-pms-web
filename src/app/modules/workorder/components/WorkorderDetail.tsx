@@ -179,7 +179,7 @@ const WorkorderDetail: React.FC = () => {
                         <i className='bi bi-arrow-left fs-3'></i>
                     </button>
                     <div className='d-flex flex-column'>
-                        <h1 className='text-gray-900 fw-bold fs-2 mb-0'>{workOrder?.doc_num || 'LOADING...'}</h1>
+                        <h1 className='text-gray-900 fw-bold fs-2 mb-0'>ใบสั่งผลิต {workOrder?.work_order_code || 'LOADING...'}</h1>
                         <div className='d-flex align-items-center gap-2 mt-1'>
                             {workOrder && (
                                 <span className={`badge ${getWorkOrderStatusBadge(workOrder.status)} fw-bold fs-8`}>

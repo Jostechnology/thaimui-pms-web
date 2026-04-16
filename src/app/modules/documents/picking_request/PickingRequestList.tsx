@@ -235,7 +235,7 @@ const PickingRequestList: React.FC = () => {
                             <thead>
                                 <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
                                     <th className='w-30px'></th>
-                                    <th className='min-w-80px'>ID</th>
+                                    <th className='min-w-80px'>หมายเลขใบขอเบิก</th>
                                     <th className='min-w-100px'>ใบสั่งขาย (SO)</th>
                                     <th className='min-w-80px text-center'>รายการ</th>
                                     <th className='min-w-150px'>WMS Reference</th>
@@ -271,7 +271,7 @@ const PickingRequestList: React.FC = () => {
                                                     </td>
                                                     <td className='fw-bold text-gray-800'>{item.picking_request_code || `#${item.picking_request_id}`}</td>
                                                     <td className='text-gray-700 fw-bold'>
-                                                        {item.doc_entry ? `SO #${item.doc_entry}` : <span className='text-muted'>-</span>}
+                                                        {item.sales_order ? `${item.sales_order.doc_num}` : <span className='text-muted'>-</span>}
                                                     </td>
                                                     <td className='text-center'>
                                                         <span className='badge badge-light-secondary fw-bold'>
@@ -290,7 +290,14 @@ const PickingRequestList: React.FC = () => {
                                                             {STATUS_LABEL[item.status] ?? item.status}
                                                         </span>
                                                     </td>
-                                                    <td className='text-end'>
+                                                    <td className='text-end d-flex justify-content-end gap-1'>
+                                                        <button
+                                                            className='btn btn-icon btn-sm btn-bg-light btn-color-primary'
+                                                            title='ดูรายละเอียด'
+                                                            onClick={() => navigate(`/documents/picking_request/${item.picking_request_id}`)}
+                                                        >
+                                                            <i className='bi bi-eye fs-5'></i>
+                                                        </button>
                                                         {nextStatuses.length > 0 && (
                                                             <button
                                                                 className='btn btn-icon btn-sm btn-bg-light btn-color-primary'

@@ -61,13 +61,28 @@ export const getQCWorkOrderById = async (id: number): Promise<APIResponse> => {
     }
 };
 
+const buildQCItemsPayload = (items: any[]) =>
+    items.map((item: any) => ({
+        item_code: item.code ?? item.item_code ?? "",
+        description: item.description ?? "",
+        wll: item.wll ?? "",
+        quantity: item.quantity ?? "",
+        serial_no: item.serialNo ?? item.serial_no ?? "",
+        item_remark: item.remark ?? item.item_remark ?? "",
+        ...(item.material_list_id != null ? { material_list_id: item.material_list_id } : {}),
+    }));
+
 // Create QC Work Order
 export const createQCWorkOrder = async (data: any): Promise<APIResponse> => {
     try {
+        const payload = {
+            ...data,
+            items: buildQCItemsPayload(data.items ?? []),
+        };
         const response = await front_api(
             "POST",
             "/qc_work_order/create",
-            data,
+            payload,
             { wrapData: false }
         );
         return await handleResponse(response);
@@ -80,10 +95,14 @@ export const createQCWorkOrder = async (data: any): Promise<APIResponse> => {
 // Update QC Work Order
 export const updateQCWorkOrder = async (id: number, data: any): Promise<APIResponse> => {
     try {
+        const payload = {
+            ...data,
+            items: buildQCItemsPayload(data.items ?? []),
+        };
         const response = await front_api(
             "PUT",
             `/qc_work_order/update/${id}`,
-            data,
+            payload,
             { wrapData: false }
         );
         return await handleResponse(response);

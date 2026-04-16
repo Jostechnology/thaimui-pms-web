@@ -241,7 +241,7 @@ const PickingRequestCreate: React.FC = () => {
                             <div className='d-flex align-items-center gap-3'>
                                 <span className='fw-bold text-gray-900 fs-6'>SO-{selectedSO.doc_num}</span>
                                 <span className='text-muted fs-7'>{selectedSO.card_name}</span>
-                                <span className='badge badge-light-success fs-8'>#{selectedSO.doc_entry}</span>
+                                <span className='badge badge-light-success fs-8'>#{selectedSO.doc_num}</span>
                                 {soDetailLoading && (
                                     <span className='spinner-border spinner-border-sm text-muted'></span>
                                 )}

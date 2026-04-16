@@ -183,9 +183,59 @@ export const unassignMachine = async (workRunId: number, machineId: number): Pro
     }
 };
 
+export interface WorkRunRequiredItemInput {
+    item_code: string;
+    item_name: string;
+    quantity: number;
+    unit: string;
+    material_list_id?: number;
+}
+
+export const createWorkRunRequiredItems = async (
+    workRunId: number,
+    items: WorkRunRequiredItemInput[]
+): Promise<APIResponse> => {
+    try {
+        const response = await front_api("POST", `/work_run/${workRunId}/required_items`, items, { wrapData: true });
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
+export const updateWorkRunRequiredItem = async (
+    id: number,
+    payload: { quantity: number }
+): Promise<APIResponse> => {
+    try {
+        const response = await front_api("PUT", `/work_run_required_item/${id}`, payload, { wrapData: false });
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
+export const deleteWorkRunRequiredItem = async (id: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api("DELETE", `/work_run_required_item/${id}`, {}, { wrapData: false });
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
 export const getWorkRunDetail = async (workRunId: number): Promise<APIResponse> => {
     try {
         const response = await front_api("GET", `/work_run/${workRunId}/detail`, {}, { wrapData: false });
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
+export const getWorkRunMaterialOfWorkOrder = async (workRunId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api("GET", `/work_run/${workRunId}/get_material_list`, {}, { wrapData: false });
         return await handleResponse(response);
     } catch (e) {
         return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };

@@ -291,7 +291,7 @@ const SalesOrderDashboard: React.FC = () => {
                             </thead>
                             <tbody className='text-gray-600 fw-semibold'>
                                 {recentOrders.length > 0 ? recentOrders.map((so) => (
-                                    <tr key={so.doc_entry} className="hover:bg-light transition-all">
+                                    <tr key={so.doc_num} className="hover:bg-light transition-all">
                                         <td><span className='text-gray-800 fw-bold fs-6'>{so.doc_num}</span></td>
                                         <td>
                                             <div className='d-flex flex-column'>
