@@ -30,6 +30,8 @@ const AddEditRoleModal = (props: AddRoleModalProps) => {
                 if (result.success) {
                     let data = result.data as Module[];
                     setModuleList(data);
+                    console.log('[DEBUG] getModuleList sub.permission sample:', data[0]?.sub_modules?.[0]?.permission);
+                    console.log('[DEBUG] selectedPermissionList:', selectedPermissionList);
                     let checkAllArr: boolean[] = [];
                     let initPermissionState = data.map((dataItem: Module) => {
                         checkAllArr.push(false);
@@ -104,7 +106,6 @@ const AddEditRoleModal = (props: AddRoleModalProps) => {
                 let sub_module = moduleList[i].sub_modules;
                 for (let j = 0; j < sub_module.length; j++) {
                     permissionList[i][j].forEach(permission => {
-                        console.log("permission: ", permission);
                         modulesToSend.push({
                             module_id: sub_module[j].module_id,
                             method: permission

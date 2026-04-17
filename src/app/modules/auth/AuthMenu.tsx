@@ -8,7 +8,8 @@ export interface RouteType {
 
 export interface SubRouteType extends RouteType {
     main_module_code: string;
-    display : boolean
+    display : boolean;
+    allBranchBlock?: boolean;
 }
 
 export interface MainRouteType extends RouteType {
@@ -297,7 +298,8 @@ export const subRoutesConfig: SubRouteType[] = [
         path: "/machine/machine_create",
         title: "เพิ่มข้อมูลเครื่องจักน",
         permission: [],
-        display : true
+        display : true,
+        allBranchBlock: true
     },
     {
         module_code: "MACHINE_TYPE_LIST",

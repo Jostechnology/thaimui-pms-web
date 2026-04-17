@@ -11,6 +11,7 @@ import { getTokenFromLocal, giveAccessDenied, getEmpId } from '../helpers/appHel
 // import { initializeNotifications } from '../libs/notificationUtil'
 import DedicatedLogin from '../modules/auth/components/DedicaatedLogin'
 import DedicatedRegister from '../modules/auth/components/DedicatedRegister';
+import BranchSelect from '../modules/auth/components/BranchSelect';
 
 
 const { BASE_URL } = import.meta.env
@@ -27,7 +28,7 @@ const AppRoutes: FC = () => {
       return;
     }
 
-    if (window.location.pathname === "/login") return; 
+    if (window.location.pathname === "/login" || window.location.pathname === "/select-branch") return;
 
     if (token) {
       // await initializeNotifications();
@@ -43,7 +44,7 @@ const AppRoutes: FC = () => {
       }
     } else {
 
-        if (window.location.pathname !== "/login" && window.location.pathname !== "/access-denied") {
+        if (window.location.pathname !== "/login" && window.location.pathname !== "/select-branch" && window.location.pathname !== "/access-denied") {
           window.location.href = "/login";
         }
     }
@@ -66,6 +67,7 @@ const AppRoutes: FC = () => {
                 <Route path={'?tk=/*' + token} element={<></>} />
                 <Route path='access-denied' element={<AccessDenied />} />
                 <Route path='login' element={<DedicatedLogin />} />
+                <Route path='select-branch' element={<BranchSelect />} />
                 <Route path='register' element={<DedicatedRegister />} />
               </>
           }

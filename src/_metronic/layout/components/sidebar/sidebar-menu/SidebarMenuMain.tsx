@@ -7,7 +7,7 @@ import {
 } from '../../../../../app/modules/auth/AuthMenu'
 import React, { useState, useEffect } from 'react'
 import { getRolePermission } from '../../../../../app/services/settingServices'
-import { getEmpId, getRoleId } from '../../../../../app/helpers/appHelpers'
+import { getEmpId, getRoleId, getIsAllBranch } from '../../../../../app/helpers/appHelpers'
 import { useMasterData } from '../../../../../app/context/MasterDataContext'
 import { useAlertModal } from '../../../../../app/context/ModalContext'
 
@@ -56,12 +56,15 @@ const SidebarMenuMain = () => {
             permMap[code].push(method);
           }
 
+          const isAllBranch = getIsAllBranch();
           const userMainRoute: MainRouteType[] = [];
           const actionList: RouteType[] = [];
 
           for (const mainRoute of mainRoutesConfig) {
             const subMenus: SubRouteType[] = subRoutesConfig
-              .filter(sub => sub.main_module_code === mainRoute.module_code && (permMap[sub.module_code]?.length ?? 0) > 0)
+              .filter(sub => sub.main_module_code === mainRoute.module_code
+                && (permMap[sub.module_code]?.length ?? 0) > 0
+                && !(isAllBranch && sub.allBranchBlock))
               .map(sub => ({ ...sub, permission: permMap[sub.module_code] }));
 
             if (subMenus.length > 0) {

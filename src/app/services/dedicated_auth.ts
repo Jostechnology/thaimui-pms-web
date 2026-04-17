@@ -1,5 +1,6 @@
 import EnvConfig from "../environments/envConfig";
 import { authTokenDedicated } from "../helpers/authenticationHelpers";
+import { saveIsAllBranch } from "../helpers/appHelpers";
 import { front_api } from "./apiConfig";
 import Swal from 'sweetalert2';
 
@@ -20,6 +21,21 @@ const selectBranch = async (branch_select_token: string, branch_id: number | str
     }
 };
 
+const selectAllBranch = async (branch_select_token: string) => {
+    try {
+        const response = await front_api(
+            "POST",
+            `/select-all-branch`,
+            { branch_select_token },
+            { wrapData: false }
+        );
+        if (!response) return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
+        return await response.json();
+    } catch (error) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการเลือกดูทุกสาขา" };
+    }
+};
+
 export const login = async (username: string, password: string) => {
     try {
         const response = await front_api("POST", `/login`, { username, password }, { wrapData: false })
@@ -29,59 +45,23 @@ export const login = async (username: string, password: string) => {
         const data = await response.json();
 
         if (data.success) {
-            const { branch_select_token, user_branches } = data;
+            const { branch_select_token, user_branches, has_all_branch_access } = data;
 
-            if (!user_branches || user_branches.length === 0) {
+            if (!user_branches || (user_branches.length === 0 && !has_all_branch_access)) {
                 return { success: false, message: "คุณยังไม่ได้รับสิทธิ์เข้าถึงสาขาใดเลย กรุณาติดต่อ Admin" };
             }
 
-            let selectedBranchId: number | string;
-            let selectedBranchName: string;
+            // Store branch data in sessionStorage for the branch select page
+            sessionStorage.setItem('branch_select_data', JSON.stringify({
+                user_branches,
+                has_all_branch_access: !!has_all_branch_access,
+            }));
 
-            if (false) {
-                selectedBranchId = user_branches[0].branch_id;
-                selectedBranchName = user_branches[0].branch_name;
-            } else {
-                const branchOptions: Record<string, string> = {};
-                user_branches.forEach((b: any) => {
-                    branchOptions[b.branch_id] = b.branch_name;
-                });
-
-                const { value } = await Swal.fire({
-                    title: 'เลือกสาขาที่ต้องการเข้าทำงาน',
-                    text: 'กรุณาเลือกสาขาเพื่อดำเนินการเข้าสู่ระบบ',
-                    icon: 'question',
-                    input: 'select',
-                    inputOptions: branchOptions,
-                    inputPlaceholder: '-- กรุณาเลือกสาขา --',
-                    showCancelButton: true,
-                    confirmButtonText: 'เข้าสู่ระบบ',
-                    cancelButtonText: 'ยกเลิก',
-                    confirmButtonColor: '#1d84f5',
-                    inputValidator: (value) => {
-                        if (!value) return 'กรุณาเลือกสาขาก่อนเข้าสู่ระบบ!';
-                    },
-                    customClass: {
-                        input: 'form-select-solid',
-                    },
-                });
-
-                if (!value) {
-                    return { success: false, message: "ยกเลิกการเข้าสู่ระบบ" };
-                }
-                selectedBranchId = value;
-                selectedBranchName = user_branches.find((b: any) => b.branch_id.toString() === value.toString())?.branch_name || '';
-            }
-
-            const selectResult = await selectBranch(branch_select_token, selectedBranchId);
-            if (!selectResult.success) {
-                return { success: false, message: selectResult.message || "เกิดข้อผิดพลาดในการตรวจสอบสาขา" };
-            }
-
-            const { access_token, refresh_token } = selectResult;
-            const authResult = authTokenDedicated(access_token, refresh_token);
-            localStorage.setItem('activeBranchName', selectedBranchName);
-            return { authResult, success: true };
+            return {
+                success: true,
+                requireBranchSelect: true,
+                branch_select_token,
+            };
 
         } else {
             return {
@@ -92,6 +72,42 @@ export const login = async (username: string, password: string) => {
     } catch (error) {
         console.error("Login Error:", error);
         return { success: false, message: "เกิดข้อผิดพลาดในการเข้าสู่ระบบ" };
+    }
+};
+
+export const handleBranchSelect = async (branchSelectToken: string, branchId: number | string, branchName: string) => {
+    try {
+        const selectResult = await selectBranch(branchSelectToken, branchId);
+        if (!selectResult.success) {
+            return { success: false, message: selectResult.message || "เกิดข้อผิดพลาดในการตรวจสอบสาขา" };
+        }
+        const { access_token, refresh_token } = selectResult;
+        const authResult = authTokenDedicated(access_token, refresh_token);
+        saveIsAllBranch(false);
+        localStorage.setItem('activeBranchName', branchName);
+        sessionStorage.removeItem('branch_select_data');
+        return { authResult, success: true };
+    } catch (error) {
+        console.error("handleBranchSelect Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการเลือกสาขา" };
+    }
+};
+
+export const handleAllBranchSelect = async (branchSelectToken: string) => {
+    try {
+        const selectResult = await selectAllBranch(branchSelectToken);
+        if (!selectResult.success) {
+            return { success: false, message: selectResult.message || "เกิดข้อผิดพลาดในการเลือกดูทุกสาขา" };
+        }
+        const { access_token, refresh_token } = selectResult;
+        const authResult = authTokenDedicated(access_token, refresh_token);
+        saveIsAllBranch(true);
+        localStorage.setItem('activeBranchName', 'ทุกสาขา');
+        sessionStorage.removeItem('branch_select_data');
+        return { authResult, success: true };
+    } catch (error) {
+        console.error("handleAllBranchSelect Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการเลือกดูทุกสาขา" };
     }
 };
 

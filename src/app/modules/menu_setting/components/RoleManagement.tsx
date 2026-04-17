@@ -55,7 +55,7 @@ const RoleManagement = () => {
 
     const fetchRolePermission = async (role_id: any) => {
         try {
-            let result = await getRolePermission(role_id);
+            let result = await getRolePermission(role_id, true);
             if (result) {
                 if (result.success) {
                     return result.data;

@@ -16,7 +16,10 @@ const DedicatedLogin: React.FC = () => {
     setIsLoading(true);
     try {
       const res = await login(username, password);
-      if (res && res.success) {
+      if (res && res.success && res.requireBranchSelect) {
+        navigate(`/select-branch?token=${encodeURIComponent(res.branch_select_token)}`);
+        return;
+      } else if (res && res.success) {
         window.location.href = '/main';
       } else {
         Swal.fire({

@@ -1,4 +1,5 @@
 import { front_api } from "./apiConfig";
+import { getIsAllBranch } from "../helpers/appHelpers";
 
 export interface SalesOrderSummary {
     test_total: number;
@@ -41,9 +42,13 @@ export const getSalesOrderList = async (
 
         if (search) params.append("search", search);
 
+        const endpoint = getIsAllBranch()
+            ? `/all_branch/sales_order/get_all`
+            : `/sales_order/get_all`;
+
         const response = await front_api(
             "GET",
-            `/sales_order/get_all?${params.toString()}`,
+            `${endpoint}?${params.toString()}`,
             {},
             { wrapData: false }
         );
@@ -103,9 +108,11 @@ export const assignBranchToSalesOrder = async (doc_entry: number, branch_id: num
 
 export const getSalesOrderById = async (doc_entry: number) => {
     try {
+        const endpoint = `/sales_order/get_by_doc_entry/${doc_entry}`;
+
         const response = await front_api(
             "GET",
-            `/sales_order/get_by_doc_entry/${doc_entry}`,
+            endpoint,
             {},
             { wrapData: false }
         );

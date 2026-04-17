@@ -70,7 +70,7 @@ export const getSortOrder = async (moduleId: any) => {
     }
 }
 
-export const getRolePermission = async (role_id: any) => {
+export const getRolePermission = async (role_id: any, other_role=false) => {
     const currentRoleId = getRoleId();
     const body: any = {
         username: role_id ? "" : getUsernameLocal()
@@ -81,8 +81,10 @@ export const getRolePermission = async (role_id: any) => {
         body.role_id = Number(currentRoleId);
     }
 
+    const endpoint = other_role ? "/get_other_role_permission" : get_role_permission
+
     // logsPath("POST", get_role_permission);
-    const response = await front_api("POST", get_role_permission, body, { wrapData: false });
+    const response = await front_api("POST", endpoint, body, { wrapData: false });
 
     if (!response) {
         console.error("Cant fetch permissions");

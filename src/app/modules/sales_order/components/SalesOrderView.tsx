@@ -8,6 +8,7 @@ import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import { useMasterData } from '../../../context/MasterDataContext';
 import { getUserAction } from '../../../helpers/pageAccess';
+import { getIsAllBranch } from '../../../helpers/appHelpers';
 import type { MaterialStockSummary } from '../../../type_interface/MaterialStockType';
 import MaterialUsageDetailModal from '../../Tracking/components/MaterialUsageDetailModal';
 import SalesItemTrackingModal from '../../quality_control/components/SalesItemTrackingModal';
@@ -23,6 +24,7 @@ const SalesOrderView: React.FC = () => {
     const { alertMessage } = useAlertModal();
     const { masterData } = useMasterData();
     const allowedActions = getUserAction(masterData.actionList, "SALE_ORDER", "UNASSIGNED_SO");
+    const isAllBranch = getIsAllBranch();
 
     const [salesOrder, setSalesOrder] = useState<SalesOrderDetail | null>(null);
     const [dataLoading, setDataLoading] = useState(true);
@@ -228,7 +230,7 @@ const SalesOrderView: React.FC = () => {
                             <div className="row mb-4">
                                 <div className="col-sm-4 text-muted fw-bolder">สาขาผลิต:</div>
                                 <div className="col-sm-8">
-                                    {allowedActions.edit ? (
+                                    {allowedActions.edit && !isAllBranch ? (
                                         <div className="d-flex align-items-center gap-2">
                                             <select
                                                 className="form-select form-select-sm"
@@ -392,7 +394,7 @@ const SalesOrderView: React.FC = () => {
                                                     return (
                                                         <div className="d-flex flex-column align-items-center gap-2">
                                                             <span className={`badge ${statusClass}`}>{statusLabel}</span>
-                                                            {item.is_completable && (
+                                                            {item.is_completable && !isAllBranch && (
                                                                 <button
                                                                     className="btn btn-sm btn-success py-1 px-3 text-nowrap"
                                                                     disabled={completingId === item.sales_item_id}

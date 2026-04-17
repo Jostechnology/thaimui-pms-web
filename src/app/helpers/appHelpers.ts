@@ -12,6 +12,7 @@ const lcRoleId = "role_id";
 const lcEmpId = "employee_id";
 const lcRoleCode = "role_code";
 const lcRoleName = "role_name";
+const lcAllBranch = "is_all_branch";
 const prem_tree_en = "permission_tree_encoded"
 const perm_sig = "permission_signature"
 
@@ -142,6 +143,14 @@ export const getEmpId = () => {
 
 export const getGroupId = () => {
     return localStorage.getItem("group_id")
+}
+
+export const saveIsAllBranch = (value: boolean) => {
+    localStorage.setItem(lcAllBranch, value ? "true" : "false");
+}
+
+export const getIsAllBranch = (): boolean => {
+    return localStorage.getItem(lcAllBranch) === "true";
 }
 
 export const deleteTokenFromLocal = () => {
