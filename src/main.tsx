@@ -5,7 +5,6 @@ import {Chart, registerables} from 'chart.js'
 import {QueryClient, QueryClientProvider} from 'react-query'
 
 // Apps
-// import {MetronicI18nProvider} from './_metronic/i18n/Metronici18n'
 import './_metronic/assets/sass/style.react.scss'
 import './_metronic/assets/fonticon/fonticon.css'
 import './_metronic/assets/keenicons/duotone/style.css'

@@ -4,6 +4,7 @@ interface APIResponse {
     success: boolean;
     message?: string;
     data?: any;
+    pagination? : any
 }
 
 const handleResponse = async (response: Response | false | undefined): Promise<APIResponse> => {
