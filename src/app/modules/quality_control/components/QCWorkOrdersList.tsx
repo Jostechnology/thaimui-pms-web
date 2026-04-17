@@ -12,6 +12,7 @@ import { getUserAction } from '../../../helpers/pageAccess';
 import { useMasterData } from '../../../context/MasterDataContext';
 import { formatThaiDate } from '../../../helpers/dataHelpers';
 import SalesItemTrackingModal from './SalesItemTrackingModal';
+import TableActionButton from '../../../custom_components/TableActionButton';
 
 interface SalesItem {
     sales_item_id: number;
@@ -34,7 +35,7 @@ interface QCWorkOrderData {
     qc_work_order_id: number;
     qc_work_order_code: string;
     sales_item_id: number;
-    qc_status: string;
+    status: string;
     qc_date: string | null;
     qc_by: string | null;
     remark: string | null;
@@ -46,7 +47,7 @@ interface QCWorkOrderData {
     sales_item: SalesItem | null;
 }
 
-const QC_STATUS_OPTIONS = [
+const status_OPTIONS = [
     { value: "", label: "ทั้งหมด" },
     { value: "PENDING", label: "รอดำเนินการ" },
     { value: "INPROGRESS", label: "กำลังดำเนินการ" },
@@ -205,7 +206,7 @@ const QCWorkOrdersList: React.FC = () => {
                             </div>
                             <div className='d-flex flex-column'>
                                 <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>
-                                    {qcWorkOrders.filter(q => q.qc_status === 'PENDING').length}
+                                    {qcWorkOrders.filter(q => q.status === 'PENDING').length}
                                 </span>
                                 <span className='text-gray-500 fw-semibold fs-6 mt-1'>รอดำเนินการ</span>
                             </div>
@@ -222,7 +223,7 @@ const QCWorkOrdersList: React.FC = () => {
                             </div>
                             <div className='d-flex flex-column'>
                                 <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>
-                                    {qcWorkOrders.filter(q => q.qc_status === 'PASSED').length}
+                                    {qcWorkOrders.filter(q => q.status === 'PASSED').length}
                                 </span>
                                 <span className='text-gray-500 fw-semibold fs-6 mt-1'>ผ่าน QC</span>
                             </div>
@@ -239,7 +240,7 @@ const QCWorkOrdersList: React.FC = () => {
                             </div>
                             <div className='d-flex flex-column'>
                                 <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>
-                                    {qcWorkOrders.filter(q => q.qc_status === 'FAILED').length}
+                                    {qcWorkOrders.filter(q => q.status === 'FAILED').length}
                                 </span>
                                 <span className='text-gray-500 fw-semibold fs-6 mt-1'>ไม่ผ่าน QC</span>
                             </div>
@@ -280,7 +281,7 @@ const QCWorkOrdersList: React.FC = () => {
                                     setCurrentPage(1);
                                 }}
                             >
-                                {QC_STATUS_OPTIONS.map((status) => (
+                                {status_OPTIONS.map((status) => (
                                     <option key={status.value} value={status.value}>{status.label}</option>
                                 ))}
                             </select>
@@ -345,50 +346,42 @@ const QCWorkOrdersList: React.FC = () => {
 
                                             <td className='text-center'>
                                                 {(() => {
-                                                    const si = item.sales_item;
-                                                    const needed = item.quantity ?? 0;
-                                                    const passed = si?.passed_qty ?? 0;
-                                                    const failed = si?.failed_qty ?? 0;
-                                                    const unavailable = si?.unavailable_for_test_qty ?? 0;
-                                                    const testing = Math.max(0, unavailable - passed - failed);
-                                                    const produced = si?.produced_qty ?? 0
+                                                    const status = item.status?.toUpperCase();
 
-                                                    if (passed >= needed) {
+                                                    if (status === 'PASSED') {
                                                         return (
                                                             <span className='badge badge-light-success fw-bold px-4 py-2'>
-                                                                <i className='bi bi-patch-check me-1'></i> PASSED
+                                                                <i className='bi bi-patch-check me-1'></i> ผ่าน QC
                                                             </span>
                                                         );
                                                     }
 
-                                                    const ready_test = produced >= needed
+                                                    if (status === 'INPROGRESS') {
+                                                        return (
+                                                            <span className='badge badge-light-warning fw-bold px-4 py-2'>
+                                                                <i className='bi bi-hourglass-split me-1'></i> กำลังดำเนินการ
+                                                            </span>
+                                                        );
+                                                    }
+
+                                                    // PENDING — show readiness
+                                                    const si = item.sales_item;
+                                                    const needed = item.quantity ?? 0;
+                                                    const unavailable = si?.unavailable_for_test_qty ?? 0;
+                                                    const produced = si?.produced_qty ?? 0;
+                                                    const ready_test = (produced - unavailable) >= needed;
 
                                                     return (
                                                         <div className='d-flex flex-column align-items-center gap-1'>
-                                                            <div className='d-flex gap-2 flex-wrap justify-content-center'>
-                                                                {passed > 0 && (
-                                                                    <span className='badge badge-light-success fw-semibold'>
-                                                                        <i className='bi bi-check me-1'></i>ผ่าน {passed}
-                                                                    </span>
-                                                                )}
-                                                                {failed > 0 && (
-                                                                    <span className='badge badge-light-danger fw-semibold'>
-                                                                        <i className='bi bi-x me-1'></i>ไม่ผ่าน {failed}
-                                                                    </span>
-                                                                )}
-                                                                {testing > 0 && (
-                                                                    <span className='badge badge-light-warning fw-semibold'>
-                                                                        <i className='bi bi-hourglass-split me-1'></i>กำลังทดสอบ {testing}
-                                                                    </span>
-                                                                )}
-                                                                {passed === 0 && failed === 0 && testing === 0 && (
-                                                                    <>
-                                                                       <span className='badge badge-light-secondary fw-semibold'>ยังไม่เริ่ม</span>
-                                                                        <span className={`badge badge-light-${ready_test ? "success" : "danger"} fw-semibold`}>{ready_test ? "พร้อมเทส" : "ยังไม่สามารถเทสได้"}</span>
-                                                                    </>
-                                                                )}
+                                                            <span className='badge badge-light-primary fw-semibold'>รอดำเนินการ</span>
+                                                            <span className={`badge badge-light-${ready_test ? "success" : "danger"} fw-semibold`}>
+                                                                {ready_test ? "พร้อมเทส" : "ยังไม่พร้อม"}
+                                                            </span>
+                                                            <div className='text-muted fs-8 mt-1'>
+                                                                <span>ผลิตแล้ว <strong>{produced}</strong></span>
+                                                                {unavailable > 0 && <span className='text-danger ms-1'>(ไม่พร้อม {unavailable})</span>}
+                                                                <span className='ms-1'>/ ต้องการ <strong>{needed}</strong></span>
                                                             </div>
-                                                            <span className='text-muted fs-8'>เป้าหมาย {needed} ชิ้น</span>
                                                         </div>
                                                     );
                                                 })()}
@@ -401,29 +394,12 @@ const QCWorkOrdersList: React.FC = () => {
                                             </td>
 
                                             <td className='text-end'>
-                                                <button
-                                                    className='btn btn-sm btn-icon btn-bg-light btn-color-info me-1'
-                                                    title="View Details"
-                                                    onClick={() => navigate(`view/${item.qc_work_order_id}`)}
-                                                >
-                                                    <i className='bi bi-eye fs-3'></i>
-                                                </button>
-                                                <button
-                                                    className='btn btn-sm btn-icon btn-bg-light btn-color-primary me-1'
-                                                    title="Edit"
-                                                    onClick={() => navigate(`edit/${item.qc_work_order_id}`)}
-                                                >
-                                                    <i className='bi bi-pencil-square fs-3'></i>
-                                                </button>
-                                                {allowedActions.delete && (
-                                                    <button
-                                                        className='btn btn-sm btn-icon btn-bg-light btn-color-danger'
-                                                        title="Delete"
-                                                        onClick={() => handleDelete(item.qc_work_order_id)}
-                                                    >
-                                                        <i className='bi bi-trash fs-3'></i>
-                                                    </button>
-                                                )}
+                                                <TableActionButton
+                                                    permissions={allowedActions}
+                                                    handleView={() => navigate(`view/${item.qc_work_order_id}`)}
+                                                    handleEdit={() => navigate(`edit/${item.qc_work_order_id}`)}
+                                                    handleDelete={() => handleDelete(item.qc_work_order_id)}
+                                                />
                                             </td>
                                         </tr>
                                     ))

@@ -37,7 +37,7 @@ interface TestResult {
 interface QCWorkOrder {
     qc_work_order_id: number;
     qc_work_order_code: string;
-    qc_status: string;
+    status: string;
     qc_date: string | null;
     qc_by: string | null;
     quantity: number;
@@ -75,7 +75,7 @@ const WORK_ORDER_STATUS: Record<string, { label: string; css: string }> = {
     COMPLETED: { label: 'เสร็จสิ้น', css: 'badge-light-success' },
 };
 
-const QC_STATUS: Record<string, { label: string; css: string }> = {
+const status: Record<string, { label: string; css: string }> = {
     PENDING: { label: 'รอดำเนินการ', css: 'badge-light-primary' },
     INPROGRESS: { label: 'กำลังดำเนินการ', css: 'badge-light-warning' },
     PASSED: { label: 'ผ่าน', css: 'badge-light-success' },
@@ -261,7 +261,7 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
                                                             จำนวน <span className="fw-bold text-gray-700">{qc.quantity}</span> ชิ้น
                                                         </span>
                                                     </div>
-                                                    <StatusBadge status={qc.qc_status} map={QC_STATUS} />
+                                                    <StatusBadge status={qc.status} map={status} />
                                                 </div>
 
                                                 <div className="row g-3 text-muted fs-7 mb-3">

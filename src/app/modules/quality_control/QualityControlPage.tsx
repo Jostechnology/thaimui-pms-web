@@ -1,6 +1,7 @@
 import { Routes, Route, Outlet } from "react-router-dom";
 import QCWorkOrdersList from "./components/QCWorkOrdersList";
 import CreateEditViewQCWorkOrder from "./components/CreateEditViewQCWorkOrder";
+import ViewQCWorkOrder from "./components/ViewQCWorkOrder";
 import TestCertificate from "./components/TestCertificateList";
 import CreateTestCertificate from "./components/CreateTestCertificate";
 import CertificateDetail from "./components/CertificateDetail";
@@ -11,7 +12,7 @@ const WorkorderPage = () => {
         <Routes>
             <Route path="qc_workorders_list/create" element={<CreateEditViewQCWorkOrder />} />
             <Route path="qc_workorders_list/edit/:qc_workorder_id" element={<CreateEditViewQCWorkOrder />} />
-            <Route path="qc_workorders_list/view/:qc_workorder_id" element={<CreateEditViewQCWorkOrder />} />
+            <Route path="qc_workorders_list/view/:qc_workorder_id" element={<ViewQCWorkOrder />} />
 
             <Route path="qc_test_cert_list/create" element={<CreateTestCertificate />} />
             <Route path="qc_test_cert_list/edit/:qc_certification_id" element={<EditTestCertificate />} />

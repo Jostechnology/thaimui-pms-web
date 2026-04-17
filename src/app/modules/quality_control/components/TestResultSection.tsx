@@ -824,10 +824,10 @@ const TestResultSection: React.FC<Props> = ({
                                         {/* ── INPROGRESS body: Work Run Sources + Picking Items ── */}
                                         {isInProgress && (workRunSources.length > 0 || pickingItemSources.length > 0) && (
                                             <div className="px-6 py-4 border-top bg-white">
-                                                <div className="row g-4">
+                                                <div className="d-flex flex-column gap-4">
                                                     {/* Work Run Sources */}
                                                     {workRunSources.length > 0 && (
-                                                        <div className={pickingItemSources.length > 0 ? "col-md-6" : "col-12"}>
+                                                        <div>
                                                             <div className="fs-8 fw-bold text-muted text-uppercase mb-2">
                                                                 <i className="bi bi-diagram-3 me-1"></i>Work Run ที่นำมาทดสอบ
                                                             </div>
@@ -853,7 +853,7 @@ const TestResultSection: React.FC<Props> = ({
 
                                                     {/* Picking Item Sources (auto-allocated) */}
                                                     {pickingItemSources.length > 0 && (
-                                                        <div className={workRunSources.length > 0 ? "col-md-6" : "col-12"}>
+                                                        <div>
                                                             <div className="fs-8 fw-bold text-muted text-uppercase mb-2">
                                                                 <i className="bi bi-box-seam me-1"></i>สินค้าที่เบิกมา
                                                             </div>
@@ -866,7 +866,6 @@ const TestResultSection: React.FC<Props> = ({
                                                                                 <span className="fw-bold badge badge-info">{pri.picking_request.picking_request_code}</span>
                                                                                 <span className="fw-bold text-gray-800 fs-7">{pri.item_code ?? '-'}</span>
                                                                                 <span className="text-muted fs-8">{pri.item_name ?? '-'}</span>
-                                                                                
                                                                             </div>
                                                                             <span className="text-muted fs-8">
                                                                                 นำมา <span className="fw-bold text-gray-700">{src.qty_allocated} {src.picking_request_item.unit}</span>
@@ -1118,9 +1117,9 @@ const TestResultSection: React.FC<Props> = ({
 
                                                 {/* Work Run Sources + Picking Item Sources (completed) */}
                                                 {(workRunSources.length > 0 || pickingItemSources.length > 0) && (
-                                                    <div className="row g-4 mb-5">
+                                                    <div className="d-flex flex-column gap-4 mb-5">
                                                         {workRunSources.length > 0 && (
-                                                            <div className={pickingItemSources.length > 0 ? "col-md-6" : "col-12"}>
+                                                            <div>
                                                                 <div className="fs-8 fw-bold text-muted text-uppercase mb-2">
                                                                     <i className="bi bi-diagram-3 me-1"></i>Work Run ที่นำมาทดสอบ
                                                                 </div>
@@ -1144,7 +1143,7 @@ const TestResultSection: React.FC<Props> = ({
                                                             </div>
                                                         )}
                                                         {pickingItemSources.length > 0 && (
-                                                            <div className={workRunSources.length > 0 ? "col-md-6" : "col-12"}>
+                                                            <div>
                                                                 <div className="fs-8 fw-bold text-muted text-uppercase mb-2">
                                                                     <i className="bi bi-box-seam me-1"></i>สินค้าที่เบิกมา
                                                                 </div>
