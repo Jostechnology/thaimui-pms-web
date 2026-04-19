@@ -5,7 +5,6 @@ import { getQCWorkOrderById } from "../../../services/qcWorkOrderService";
 import { generateQCWorkOrderPDF } from "../../../utils/generateQCWorkOrderPDF";
 import { QCWorkOrderData, QCWorkOrderItem } from "../../../type_interface/QCWorkOrderType";
 import { qcWorkData } from "../../../libs/defaultFormData";
-import { getSalesOrderService } from "../../../services/salesOrderService";
 import { formatThaiDate } from "../../../helpers/dataHelpers";
 import TestResultSection from "./TestResultSection";
 import Swal from "sweetalert2";
@@ -72,10 +71,10 @@ const ViewQCWorkOrder: React.FC = () => {
             const raw = result.data;
             setRawData(raw);
             setTestResults(raw.test_results ?? []);
-
             const form  = raw.qc_form || {};
             const items: QCWorkOrderItem[] = (raw.qc_items || []).map((item: any) => {
                 const ml = item.material_list ?? {};
+                
                 return {
                     id:              String(item.qc_item_id),
                     code:            ml.item_code  ?? item.item_code  ?? "",
@@ -86,9 +85,11 @@ const ViewQCWorkOrder: React.FC = () => {
                     remark:          item.item_remark ?? "",
                     unit_name:       ml.unit_name   ?? "",
                     material_list_id: item.material_list_id ?? undefined,
+                    material_list : item.material_list
                 };
             });
 
+            const so = raw.sales_order ?? {};
             setFormData({
                 ...qcWorkData,
                 work_order_id:       raw.work_order_id,
@@ -117,26 +118,14 @@ const ViewQCWorkOrder: React.FC = () => {
                 salesItemCode:       raw.sales_item_code  ?? "",
                 quantity:            raw.quantity         ?? 1,
                 items,
+                customerCode:        so.card_code         ?? "",
+                customerName:        so.card_name         ?? "",
+                docNum:              so.doc_num           ?? "",
+                salesCode:           so.slp_code          ?? "",
+                salesName:           so.slp_name          ?? "",
+                teamCode:            so.group_code        ?? "",
+                teamName:            so.group_name        ?? "",
             });
-
-            if (raw.doc_entry) {
-                try {
-                    const soRes = await getSalesOrderService(Number(raw.doc_entry));
-                    if (soRes?.data) {
-                        const d = soRes.data;
-                        setFormData(prev => ({
-                            ...prev,
-                            customerCode: d.card_code,
-                            customerName: d.card_name,
-                            docNum:       d.doc_num,
-                            salesCode:    d.slp_code,
-                            salesName:    d.slp_name,
-                            teamCode:     d.group_code,
-                            teamName:     d.group_name,
-                        }));
-                    }
-                } catch { /* ignore */ }
-            }
         } catch (err) {
             console.error(err);
             Swal.fire("ผิดพลาด!", "ไม่สามารถโหลดข้อมูลได้", "error");
@@ -410,18 +399,22 @@ const ViewQCWorkOrder: React.FC = () => {
                         </CardSection>
                     )}
 
+                    {/* Test Results — full width under details */}
+                    {qc_workorder_id && (
+                        <TestResultSection
+                            qcWorkOrderId={Number(qc_workorder_id)}
+                            quantity={formData.quantity ?? 1}
+                            salesItemDescription={formData.salesItemCode}
+                            salesItemId={formData.salesItemId}
+                            testResultsPre={testResults}
+                            qcItems={formData.items}
+                        />
+                    )}
+
                 </div>
 
-                {/* ── RIGHT 40% — test results ───────────────────────────── */}
+                {/* ── RIGHT 40% — Testing Dashboard ───────────────────────── */}
                 <div className="col-12 col-xl-5">
-                    {/*
-                        Sticky wrapper — scrolls independently.
-                        max-height keeps it viewport-bound; overflow-y lets the
-                        panel scroll when test sessions expand.
-                        The inner content already has table-responsive on every
-                        table, so wide tables get horizontal scroll instead of
-                        breaking the layout.
-                    */}
                     <div
                         style={{
                             position: "sticky",
@@ -431,15 +424,171 @@ const ViewQCWorkOrder: React.FC = () => {
                             overflowX: "hidden",
                         }}
                     >
-                        {qc_workorder_id && (
-                            <TestResultSection
-                                qcWorkOrderId={Number(qc_workorder_id)}
-                                quantity={formData.quantity ?? 1}
-                                salesItemDescription={formData.salesItemCode}
-                                salesItemId={formData.salesItemId}
-                                testResultsPre={testResults}
-                                qcItems={formData.items}
-                            />
+                        {/* Progress Overview */}
+                        <div className="card card-flush border-0 shadow-sm mb-5">
+                            <div className="card-header min-h-50px border-bottom border-gray-100 py-0">
+                                <div className="card-title d-flex align-items-center gap-2">
+                                    <i className="bi bi-speedometer2 text-primary fs-5"></i>
+                                    <span className="fw-bold text-gray-800 fs-6">สรุปการทดสอบ</span>
+                                </div>
+                            </div>
+                            <div className="card-body py-5 px-6">
+                                {(() => {
+                                    const total = formData.quantity ?? 0;
+                                    const completed = testResults.filter(tr => tr.session_status === "COMPLETED");
+                                    const inProgress = testResults.filter(tr => tr.session_status === "INPROGRESS");
+                                    const pending = testResults.filter(tr => tr.session_status === "PENDING");
+                                    const passedCount = completed.filter(tr => tr.overall_status === "PASSED").length;
+                                    const failedCount = completed.filter(tr => tr.overall_status === "FAILED").length;
+                                    const testedQty = completed.reduce((sum: number, tr: any) => sum + (tr.claimed_qty ?? 0), 0);
+                                    const inProgressQty = inProgress.reduce((sum: number, tr: any) => sum + (tr.claimed_qty ?? 0), 0);
+                                    const progressPct = total > 0 ? Math.min(100, Math.round((testedQty / total) * 100)) : 0;
+
+                                    return (
+                                        <>
+                                            {/* Main progress */}
+                                            <div className="mb-6">
+                                                <div className="d-flex justify-content-between align-items-end mb-2">
+                                                    <span className="text-muted fw-bold fs-7">ความคืบหน้าการทดสอบ</span>
+                                                    <span className="fw-bold text-gray-800 fs-6">{progressPct}%</span>
+                                                </div>
+                                                <div className="progress h-10px">
+                                                    <div
+                                                        className={`progress-bar ${progressPct === 100 ? 'bg-success' : 'bg-primary'}`}
+                                                        style={{ width: `${progressPct}%` }}
+                                                    />
+                                                </div>
+                                                <div className="d-flex justify-content-between mt-2">
+                                                    <span className="text-muted fs-8">ทดสอบแล้ว {testedQty} / {total} ชิ้น</span>
+                                                    {inProgressQty > 0 && (
+                                                        <span className="text-warning fs-8 fw-bold">กำลังทดสอบ {inProgressQty} ชิ้น</span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Stat cards */}
+                                            <div className="row g-4 mb-5">
+                                                <div className="col-6">
+                                                    <div className="border border-gray-200 rounded p-4 text-center">
+                                                        <span className="text-muted fs-8 fw-bold d-block mb-1">Sessions ทั้งหมด</span>
+                                                        <span className="fw-bold text-gray-800 fs-2x">{testResults.length}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="col-6">
+                                                    <div className="border border-gray-200 rounded p-4 text-center">
+                                                        <span className="text-muted fs-8 fw-bold d-block mb-1">เสร็จสิ้น</span>
+                                                        <span className="fw-bold text-success fs-2x">{completed.length}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="col-6">
+                                                    <div className="border border-gray-200 rounded p-4 text-center">
+                                                        <span className="text-muted fs-8 fw-bold d-block mb-1">กำลังดำเนินการ</span>
+                                                        <span className="fw-bold text-warning fs-2x">{inProgress.length}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="col-6">
+                                                    <div className="border border-gray-200 rounded p-4 text-center">
+                                                        <span className="text-muted fs-8 fw-bold d-block mb-1">รอเริ่ม</span>
+                                                        <span className="fw-bold text-gray-500 fs-2x">{pending.length}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Pass / Fail breakdown */}
+                                            {completed.length > 0 && (
+                                                <div>
+                                                    <span className="text-muted fs-8 fw-bold text-uppercase d-block mb-3">ผลการทดสอบ (Sessions ที่เสร็จ)</span>
+                                                    <div className="d-flex gap-3">
+                                                        <div className="flex-grow-1 border border-success border-dashed rounded p-4 text-center bg-light-success">
+                                                            <i className="bi bi-check-circle-fill text-success fs-2 d-block mb-1"></i>
+                                                            <span className="fw-bold text-success fs-3">{passedCount}</span>
+                                                            <span className="text-muted fs-8 d-block">PASSED</span>
+                                                        </div>
+                                                        <div className="flex-grow-1 border border-danger border-dashed rounded p-4 text-center bg-light-danger">
+                                                            <i className="bi bi-x-circle-fill text-danger fs-2 d-block mb-1"></i>
+                                                            <span className="fw-bold text-danger fs-3">{failedCount}</span>
+                                                            <span className="text-muted fs-8 d-block">FAILED</span>
+                                                        </div>
+                                                    </div>
+                                                    {completed.length > 0 && (
+                                                        <div className="mt-3">
+                                                            <div className="progress h-8px">
+                                                                <div
+                                                                    className="progress-bar bg-success"
+                                                                    style={{ width: `${(passedCount / completed.length) * 100}%` }}
+                                                                />
+                                                                <div
+                                                                    className="progress-bar bg-danger"
+                                                                    style={{ width: `${(failedCount / completed.length) * 100}%` }}
+                                                                />
+                                                            </div>
+                                                            <div className="text-center mt-1">
+                                                                <span className="text-muted fs-8">
+                                                                    อัตราผ่าน {completed.length > 0 ? Math.round((passedCount / completed.length) * 100) : 0}%
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {testResults.length === 0 && (
+                                                <div className="text-center py-6 text-muted">
+                                                    <i className="bi bi-clipboard2-x fs-2x d-block mb-3 text-gray-300"></i>
+                                                    <span className="fs-7">ยังไม่มีการทดสอบ</span>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+
+                        {/* Recent Sessions Timeline */}
+                        {testResults.length > 0 && (
+                            <div className="card card-flush border-0 shadow-sm mb-5">
+                                <div className="card-header min-h-50px border-bottom border-gray-100 py-0">
+                                    <div className="card-title d-flex align-items-center gap-2">
+                                        <i className="bi bi-clock-history text-primary fs-5"></i>
+                                        <span className="fw-bold text-gray-800 fs-6">Sessions ล่าสุด</span>
+                                    </div>
+                                </div>
+                                <div className="card-body py-5 px-6">
+                                    <div className="timeline">
+                                        {testResults.slice(0, 5).map((tr: any, idx: number) => {
+                                            const isCompleted = tr.session_status === "COMPLETED";
+                                            const isInProgress = tr.session_status === "INPROGRESS";
+                                            const dotColor = isCompleted
+                                                ? (tr.overall_status === "PASSED" ? "bg-success" : "bg-danger")
+                                                : isInProgress ? "bg-warning" : "bg-secondary";
+
+                                            return (
+                                                <div key={tr.test_result_id} className={`d-flex align-items-start gap-3 ${idx < Math.min(testResults.length, 5) - 1 ? 'mb-5 pb-5 border-bottom border-gray-100' : ''}`}>
+                                                    <div className={`rounded-circle ${dotColor} flex-shrink-0 mt-1`} style={{ width: 10, height: 10 }} />
+                                                    <div className="flex-grow-1">
+                                                        <div className="d-flex justify-content-between align-items-center">
+                                                            <span className="fw-bold text-gray-800 fs-7">
+                                                                {tr.test_result_code || `Session #${idx + 1}`}
+                                                            </span>
+                                                            <span className={`badge fw-bold fs-9 ${
+                                                                isCompleted ? (tr.overall_status === "PASSED" ? "badge-light-success" : "badge-light-danger")
+                                                                : isInProgress ? "badge-light-warning" : "badge-light-secondary"
+                                                            }`}>
+                                                                {isCompleted ? tr.overall_status : tr.session_status}
+                                                            </span>
+                                                        </div>
+                                                        <div className="d-flex gap-3 mt-1 text-muted fs-8">
+                                                            <span><i className="bi bi-box-seam me-1"></i>{tr.claimed_qty ?? 0} ชิ้น</span>
+                                                            {tr.test_date && <span><i className="bi bi-calendar3 me-1"></i>{tr.test_date.split("T")[0]}</span>}
+                                                            {tr.tested_by && <span><i className="bi bi-person me-1"></i>{tr.tested_by}</span>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>

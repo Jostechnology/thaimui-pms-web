@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Swal from "sweetalert2";
+import { Modal } from "react-bootstrap";
 import {
     createTestResult,
     getTestResultsByQCWorkOrder,
@@ -7,10 +8,13 @@ import {
     deleteTestResult,
     createTestResultRequiredItems,
     startTestResult,
+    getTestResultPickRequests,
 } from "../../../services/testResultService";
+import type { StartTestResultPayload } from "../../../services/testResultService";
 import { getWorkRunsBySalesItem } from "../../../services/workRunService";
 import type { QCWorkOrderItem } from "../../../type_interface/QCWorkOrderType";
 import { formatIntegerInput, toDecimalInput } from "../../../utils/input_format_utils";
+import { PickingRequest, PickingRequestItemDetail } from "../../../type_interface/PickingRequestType";
 
 interface WorkRunOption {
     work_run_id: number;
@@ -149,9 +153,17 @@ const TestResultSection: React.FC<Props> = ({
     const [reqItemsSaving, setReqItemsSaving] = useState(false);
     const [reqItemErrors, setReqItemErrors] = useState<Record<number, string>>({});
 
-    useEffect(() => {
-        reloadResults();
-    }, []);
+    // Start modal
+    const [startTargetId, setStartTargetId] = useState<number | null>(null);
+    const [startTargetTr, setStartTargetTr] = useState<any>(null);
+    const [startAllocationMode, setStartAllocationMode] = useState<'auto' | 'manual'>('auto');
+    const [startPickRequests, setStartPickRequests] = useState<PickingRequest[]>([]);
+    const [startPickLoading, setStartPickLoading] = useState(false);
+    const [startSaving, setStartSaving] = useState(false);
+    // sales_item_sources: { [picking_request_item_id]: qty_string }
+    const [salesItemAllocations, setSalesItemAllocations] = useState<Record<number, string>>({});
+    // material_sources: { [required_item_id]: { [picking_request_item_id]: qty_string } }
+    const [materialAllocations, setMaterialAllocations] = useState<Record<number, Record<number, string>>>({});
 
     const reloadResults = async () => {
         setLoading(true);
@@ -259,21 +271,79 @@ const TestResultSection: React.FC<Props> = ({
         }
     };
 
-    const handleStart = async (testResultId: number) => {
-        const confirm = await Swal.fire({
-            title: "เริ่มทดสอบ?",
-            icon: "question",
-            showCancelButton: true,
-            confirmButtonText: "เริ่มเลย",
-            cancelButtonText: "ยกเลิก",
+    const openStartModal = (tr: any) => {
+        setStartTargetId(tr.test_result_id);
+        setStartTargetTr(tr);
+        setStartAllocationMode('auto');
+        setSalesItemAllocations({});
+        setMaterialAllocations({});
+        setStartPickRequests([]);
+        setStartPickLoading(true);
+        getTestResultPickRequests(tr.test_result_id)
+            .then(res => setStartPickRequests(res?.success && Array.isArray(res.data) ? res.data : []))
+            .catch(() => setStartPickRequests([]))
+            .finally(() => setStartPickLoading(false));
+    };
+
+    const closeStartModal = () => {
+        setStartTargetId(null);
+        setStartTargetTr(null);
+        setStartAllocationMode('auto');
+        setSalesItemAllocations({});
+        setMaterialAllocations({});
+        setStartSaving(false);
+    };
+
+    // Get pick items matching a specific item_code (for sales item or required material)
+    const getPickItemsByCode = (itemCode: string) => {
+        const result: (PickingRequestItemDetail & { picking_request_code: string })[] = [];
+        startPickRequests.forEach(pr => {
+            pr.items.forEach(item => {
+                if (item.item_code === itemCode && item.qty_available > 0) {
+                    
+                    result.push({ ...item, picking_request_code: pr.picking_request_code });
+                }
+            });
         });
-        if (!confirm.isConfirmed) return;
-        const res = await startTestResult(testResultId);
-        if (res.success) {
-            Swal.fire({ title: "เริ่มทดสอบแล้ว", icon: "success", timer: 1500, showConfirmButton: false });
-            reloadResults();
-        } else {
-            Swal.fire("ผิดพลาด!", res.message || "ไม่สามารถเริ่มทดสอบได้", "error");
+        return result;
+    };
+
+    const handleStart = async () => {
+        if (startTargetId === null) return;
+
+        const payload: StartTestResultPayload = { allocation_mode: startAllocationMode };
+
+        if (startAllocationMode === 'manual') {
+            // sales_item_sources
+            const salesSources = Object.entries(salesItemAllocations)
+                .filter(([, v]) => v !== '' && Number(v) > 0)
+                .map(([pickItemId, qty]) => ({ picking_request_item_id: Number(pickItemId), qty: Number(qty) }));
+            if (salesSources.length > 0) payload.sales_item_sources = salesSources;
+
+            // material_sources
+            const matSources: StartTestResultPayload['material_sources'] = [];
+            for (const reqItem of (startTargetTr?.required_items ?? [])) {
+                const allocMap = materialAllocations[reqItem.id] ?? {};
+                const sources = Object.entries(allocMap)
+                    .filter(([, v]) => v !== '' && Number(v) > 0)
+                    .map(([pickItemId, qty]) => ({ picking_request_item_id: Number(pickItemId), qty: Number(qty) }));
+                if (sources.length > 0) matSources.push({ required_item_id: reqItem.id, sources });
+            }
+            if (matSources!.length > 0) payload.material_sources = matSources;
+        }
+
+        setStartSaving(true);
+        try {
+            const res = await startTestResult(startTargetId, payload);
+            if (res.success) {
+                closeStartModal();
+                Swal.fire({ title: "เริ่มทดสอบแล้ว", icon: "success", timer: 1500, showConfirmButton: false });
+                reloadResults();
+            } else {
+                Swal.fire("ผิดพลาด!", res.message || "ไม่สามารถเริ่มทดสอบได้", "error");
+            }
+        } finally {
+            setStartSaving(false);
         }
     };
 
@@ -604,9 +674,9 @@ const TestResultSection: React.FC<Props> = ({
                                             style={{ cursor: isCompleted ? "pointer" : "default" }}
                                             onClick={() => isCompleted && setExpandedId(isExpanded ? null : tr.test_result_id)}
                                         >
-                                            <div className="d-flex align-items-center gap-4 flex-wrap">
-                                                <span className="fw-bold text-gray-700 fs-6">{tr.test_result_code || `ครั้งที่ ${idx + 1}`}</span>
-                                                <SessionStatusBadge status={tr.session_status} />
+                                            <div className="d-flex flex-column align-items-start gap-4 flex-wrap">
+                                                <span className="fw-bold text-gray-700 fs-6">{tr.test_result_code || `ครั้งที่ ${idx + 1}`} <SessionStatusBadge status={tr.session_status} /></span>
+                                                
                                                 {isCompleted && <OverallStatusBadge status={tr.overall_status} />}
                                                 <span className="text-muted fs-7">
                                                     <i className="bi bi-box-seam me-1"></i>{tr.claimed_qty ?? quantity} ชิ้น
@@ -645,11 +715,11 @@ const TestResultSection: React.FC<Props> = ({
                                                             className="btn btn-sm btn-light-primary fw-bold"
                                                             onClick={(e) => { e.stopPropagation(); handleOpenRequiredItems(tr); }}
                                                         >
-                                                            <i className="bi bi-list-check me-1"></i>รายการวัตถุดิบ
+                                                            <i className="bi bi-list-check me-1"></i>วัตถุดิบ
                                                         </button>
                                                         <button
                                                             className="btn btn-sm btn-primary fw-bold"
-                                                            onClick={(e) => { e.stopPropagation(); handleStart(tr.test_result_id); }}
+                                                            onClick={(e) => { e.stopPropagation(); openStartModal(tr); }}
                                                         >
                                                             <i className="bi bi-play-fill me-1"></i>เริ่มทดสอบ
                                                         </button>
@@ -743,14 +813,14 @@ const TestResultSection: React.FC<Props> = ({
                                                                                 <option value="">-- เลือกสินค้า --</option>
                                                                                 {qcItems.map(qi => (
                                                                                     <option key={qi.id} value={Number(qi.id)}>
-                                                                                        {qi.code} — {qi.description}
+                                                                                        {qi.material_list?.item_name} ({qi.material_list?.item_code}) (SO-Line : {qi.material_list?.order_line_num})
                                                                                     </option>
                                                                                 ))}
                                                                             </select>
                                                                             {reqItemErrors[i] && <div className="invalid-feedback">{reqItemErrors[i]}</div>}
                                                                         </td>
                                                                         <td className="text-center text-muted fw-bold">
-                                                                            {selectedQcItem?.unit_name ?? row.unit ?? "-"}
+                                                                            {selectedQcItem?.material_list?.unit_name ?? row.unit ?? "-"}
                                                                         </td>
                                                                         <td>
                                                                             <input
@@ -810,7 +880,7 @@ const TestResultSection: React.FC<Props> = ({
                                                             {(tr.required_items as any[]).map((it: any, i: number) => (
                                                                 <tr key={i}>
                                                                     <td className="fw-bold text-gray-800">{it.item_code || "-"}</td>
-                                                                    <td>{it.item_name || "-"}</td>
+                                                                    <td>{`${it.item_name} (SO-Line : ${it.material_list?.order_line_num})` || "-"}</td>
                                                                     <td className="text-center text-muted">{it.unit || "-"}</td>
                                                                     <td className="text-center fw-bold text-primary">{it.required_qty ?? it.quantity ?? "-"}</td>
                                                                 </tr>
@@ -1206,6 +1276,233 @@ const TestResultSection: React.FC<Props> = ({
                     )}
                 </div>
             </div>
+
+            {/* Start Test Result Modal */}
+            <Modal show={startTargetId !== null} onHide={closeStartModal} centered size="lg">
+                <Modal.Header closeButton>
+                    <Modal.Title className="fw-bold">เริ่มทดสอบ</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {/* Allocation mode toggle */}
+                    <div className="mb-6">
+                        <label className="form-label fw-bold fs-6">รูปแบบการจัดสรรวัตถุดิบ</label>
+                        <div className="d-flex gap-3">
+                            <label className={`d-flex align-items-center border rounded px-4 py-3 cursor-pointer flex-grow-1 ${startAllocationMode === 'auto' ? 'border-primary bg-light-primary' : 'border-gray-300'}`}>
+                                <input
+                                    type="radio"
+                                    className="form-check-input me-3"
+                                    name="tr_allocation_mode"
+                                    checked={startAllocationMode === 'auto'}
+                                    onChange={() => setStartAllocationMode('auto')}
+                                />
+                                <div>
+                                    <span className="fw-bold text-gray-800 d-block">อัตโนมัติ</span>
+                                    <span className="text-muted fs-8">ระบบจัดสรรวัตถุดิบให้อัตโนมัติ</span>
+                                </div>
+                            </label>
+                            <label className={`d-flex align-items-center border rounded px-4 py-3 cursor-pointer flex-grow-1 ${startAllocationMode === 'manual' ? 'border-primary bg-light-primary' : 'border-gray-300'}`}>
+                                <input
+                                    type="radio"
+                                    className="form-check-input me-3"
+                                    name="tr_allocation_mode"
+                                    checked={startAllocationMode === 'manual'}
+                                    onChange={() => setStartAllocationMode('manual')}
+                                />
+                                <div>
+                                    <span className="fw-bold text-gray-800 d-block">เลือกเอง</span>
+                                    <span className="text-muted fs-8">เลือกรายการวัตถุดิบจาก Picking Request</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Manual allocation UI */}
+                    {startAllocationMode === 'manual' && (
+                        <div>
+                            {startPickLoading ? (
+                                <div className="text-center text-muted py-10">กำลังโหลดรายการ Picking...</div>
+                            ) : (
+                                <>
+                                    {/* Sales Item Sources (non-produced items) */}
+                                    {salesItemDescription && (() => {
+                                        // Flatten all pick items that could be the product itself
+                                        const allPickItems: (PickingRequestItemDetail & { picking_request_code: string })[] = [];
+                                        startPickRequests.forEach(pr => {
+                                            pr.items.forEach(item => {
+                                                if (item.qty_available > 0) {
+                                                    allPickItems.push({ ...item, picking_request_code: pr.picking_request_code });
+                                                }
+                                            });
+                                        });
+                                        const totalSalesAllocated = Object.values(salesItemAllocations).reduce((sum, v) => sum + (Number(v) || 0), 0);
+                                        const claimedQty = startTargetTr?.claimed_qty ?? quantity;
+
+                                        // Only show if there are pick items not matched to required materials
+                                        const reqItemCodes = new Set((startTargetTr?.required_items ?? []).map((ri: any) => ri.item_code));
+                                        const salesPickItems = allPickItems.filter(pi => !reqItemCodes.has(pi.item_code));
+
+                                        if (salesPickItems.length === 0) return null;
+
+                                        return (
+                                            <div className="mb-6 border border-gray-200 rounded p-4">
+                                                <div className="d-flex justify-content-between align-items-center mb-3">
+                                                    <div>
+                                                        <span className="fw-bold text-gray-800 fs-6">
+                                                            <i className="bi bi-box me-2 text-info"></i>สินค้า (Non-produced)
+                                                        </span>
+                                                        <span className="text-muted fs-8 ms-2">{salesItemDescription}</span>
+                                                    </div>
+                                                    <div className="text-end">
+                                                        <span className="text-muted fs-8">ต้องใช้: </span>
+                                                        <span className="fw-bold text-gray-700">{claimedQty}</span>
+                                                        <span className="mx-2 text-muted">|</span>
+                                                        <span className="text-muted fs-8">จัดสรรแล้ว: </span>
+                                                        <span className={`fw-bold ${totalSalesAllocated >= claimedQty ? 'text-success' : 'text-warning'}`}>
+                                                            {totalSalesAllocated}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="table-responsive">
+                                                    <table className="table table-row-dashed align-middle gs-0 gy-2 mb-0">
+                                                        <thead>
+                                                            <tr className="fw-bold text-muted text-uppercase fs-8">
+                                                                <th>Picking Request</th>
+                                                                <th>รหัสสินค้า</th>
+                                                                <th className="text-center">คงเหลือ</th>
+                                                                <th className="text-center" style={{ width: 140 }}>จำนวนที่จัดสรร</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {salesPickItems.map(pi => (
+                                                                <tr key={pi.picking_request_item_id}>
+                                                                    <td><span className="fw-semibold text-gray-700 fs-7">{pi.picking_request_code}</span></td>
+                                                                    <td><span className="text-muted fs-7">{pi.item_code}</span></td>
+                                                                    <td className="text-center">
+                                                                        <span className="fw-semibold text-gray-700 fs-7">{pi.qty_available} {pi.unit}</span>
+                                                                    </td>
+                                                                    <td>
+                                                                        <input
+                                                                            type="text"
+                                                                            className="form-control form-control-sm text-center"
+                                                                            placeholder="0"
+                                                                            value={salesItemAllocations[pi.picking_request_item_id] ?? ''}
+                                                                            onChange={e => {
+                                                                                const v = formatIntegerInput(e.target.value);
+                                                                                setSalesItemAllocations(prev => ({ ...prev, [pi.picking_request_item_id]: v }));
+                                                                            }}
+                                                                        />
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Material Sources (required items) */}
+                                    {(startTargetTr?.required_items ?? []).length > 0 && (
+                                        <>
+                                            <div className="fs-7 fw-bold text-muted text-uppercase mb-3">
+                                                <i className="bi bi-box-seam me-1"></i>วัตถุดิบที่ต้องใช้
+                                            </div>
+                                            {(startTargetTr?.required_items ?? []).map((reqItem: any) => {
+                                                const availableItems = getPickItemsByCode(reqItem.item_code);
+                                                const allocMap = materialAllocations[reqItem.id] ?? {};
+                                                const totalAllocated = Object.values(allocMap).reduce((sum, v) => sum + (Number(v) || 0), 0);
+                                                const reqQty = reqItem.required_qty ?? reqItem.quantity ?? 0;
+
+                                                return (
+                                                    <div key={reqItem.id} className="mb-6 border border-gray-200 rounded p-4">
+                                                        <div className="d-flex justify-content-between align-items-center mb-3">
+                                                            <div>
+                                                                <span className="fw-bold text-gray-800 fs-6">{reqItem.item_name}</span>
+                                                                <span className="text-muted fs-8 ms-2">({reqItem.item_code})</span>
+                                                            </div>
+                                                            <div className="text-end">
+                                                                <span className="text-muted fs-8">ต้องใช้: </span>
+                                                                <span className="fw-bold text-gray-700">{reqQty}</span>
+                                                                <span className="text-muted fs-8"> {reqItem.unit}</span>
+                                                                <span className="mx-2 text-muted">|</span>
+                                                                <span className="text-muted fs-8">จัดสรรแล้ว: </span>
+                                                                <span className={`fw-bold ${totalAllocated >= reqQty ? 'text-success' : 'text-warning'}`}>
+                                                                    {totalAllocated}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {availableItems.length === 0 ? (
+                                                            <div className="text-muted fs-7 py-3 text-center bg-light rounded">
+                                                                ไม่พบรายการ Picking ที่มีวัตถุดิบนี้
+                                                            </div>
+                                                        ) : (
+                                                            <div className="table-responsive">
+                                                                <table className="table table-row-dashed align-middle gs-0 gy-2 mb-0">
+                                                                    <thead>
+                                                                        <tr className="fw-bold text-muted text-uppercase fs-8">
+                                                                            <th>Picking Request</th>
+                                                                            <th>รหัสสินค้า</th>
+                                                                            <th className="text-center">คงเหลือ</th>
+                                                                            <th className="text-center" style={{ width: 140 }}>จำนวนที่จัดสรร</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {availableItems.map(pi => (
+                                                                            <tr key={pi.picking_request_item_id}>
+                                                                                <td><span className="fw-semibold text-gray-700 fs-7">{pi.picking_request_code}</span></td>
+                                                                                <td><span className="text-muted fs-7">{pi.item_code}</span></td>
+                                                                                <td className="text-center">
+                                                                                    <span className="fw-semibold text-gray-700 fs-7">{pi.qty_available} {pi.unit}</span>
+                                                                                </td>
+                                                                                <td>
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        className="form-control form-control-sm text-center"
+                                                                                        placeholder="0"
+                                                                                        value={allocMap[pi.picking_request_item_id] ?? ''}
+                                                                                        onChange={e => {
+                                                                                            const v = formatIntegerInput(e.target.value);
+                                                                                            setMaterialAllocations(prev => ({
+                                                                                                ...prev,
+                                                                                                [reqItem.id]: { ...(prev[reqItem.id] ?? {}), [pi.picking_request_item_id]: v },
+                                                                                            }));
+                                                                                        }}
+                                                                                    />
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </>
+                                    )}
+
+                                    {/* Empty state */}
+                                    {(startTargetTr?.required_items ?? []).length === 0 && startPickRequests.length === 0 && (
+                                        <div className="text-center text-muted py-6 border border-dashed border-gray-300 rounded">
+                                            ไม่พบรายการ Picking Request
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <button className="btn btn-light" onClick={closeStartModal} disabled={startSaving}>ยกเลิก</button>
+                    <button className="btn btn-primary fw-bold" onClick={handleStart} disabled={startSaving}>
+                        {startSaving
+                            ? <><span className="spinner-border spinner-border-sm me-2" />กำลังเริ่ม...</>
+                            : <><i className="bi bi-play-fill me-1"></i>เริ่มทดสอบ</>
+                        }
+                    </button>
+                </Modal.Footer>
+            </Modal>
         </div>
     );
 };

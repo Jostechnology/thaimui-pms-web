@@ -1,3 +1,5 @@
+import { Material } from "./MaterialType";
+
 export interface QCWorkOrderItem {
   id: string;
   code: string;
@@ -8,6 +10,7 @@ export interface QCWorkOrderItem {
   remark: string;
   unit_name?: string;
   material_list_id?: number;
+  material_list : Material
 }
 
 export interface QCWorkOrderData {

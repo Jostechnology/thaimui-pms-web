@@ -9,6 +9,8 @@ export interface PickingRequestListItem {
     quantity: number;
     unit: string;
     remark: string | null;
+    qty_available : number
+    picking_request_code : string
 }
 
 export interface PickingRequest {

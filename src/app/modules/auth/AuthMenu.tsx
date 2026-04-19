@@ -59,7 +59,7 @@ export const mainRoutesConfig: MainRouteType[] = [
     {
         module_code: "DOCUMENTS",
         path: "/document",
-        title: "รายการเอกสาร",
+        title: "สต็อกของเบิก",
         fontIcon: "bi-archive",
         icon: "bi bi-archive",
         subMenu: [],

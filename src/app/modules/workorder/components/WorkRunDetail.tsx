@@ -19,21 +19,17 @@ import {
     updateWorkRunRequiredItem,
     deleteWorkRunRequiredItem,
     getWorkRunMaterialOfWorkOrder,
+    getWorkRunPickRequests,
 } from '../../../services/workRunService';
+import type { MaterialSourceEntry } from '../../../services/workRunService';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import type { WorkRunDetail as WorkRunDetailType, WorkRunRequiredItem } from '../../../type_interface/WorkOrderType';
 import type { Machine } from '../../../type_interface/MachineType';
 import { formatIntegerInput } from '../../../utils/input_format_utils';
 import { validateRequired, validatePositiveNumber } from '../../../utils/validate_utils';
-
-interface MaterialListItem {
-    material_list_id: number;
-    item_code: string;
-    item_name: string;
-    quantity: number;
-    unit_name: string;
-}
+import { PickingRequest, PickingRequestListItem } from '../../../type_interface/PickingRequestType';
+import { Material } from '../../../type_interface/MaterialType';
 
 interface Employee {
     citizen_id: string;
@@ -71,14 +67,22 @@ const WorkRunDetail: React.FC = () => {
     const [showRequiredItemModal, setShowRequiredItemModal] = useState(false);
     const [editingRequiredItem, setEditingRequiredItem] = useState<WorkRunRequiredItem | null>(null);
     // Add mode — staged list
-    const [stagedItems, setStagedItems] = useState<{ material: MaterialListItem; quantity: string }[]>([]);
+    const [stagedItems, setStagedItems] = useState<{ material: Material; quantity: string }[]>([]);
     const [currentPicker, setCurrentPicker] = useState({ material_list_id: 0, quantity: '' });
     const [pickerErrors, setPickerErrors] = useState<Record<string, string>>({});
     // Edit mode
     const [editQty, setEditQty] = useState('');
     const [editQtyError, setEditQtyError] = useState('');
-    const [materialList, setMaterialList] = useState<MaterialListItem[]>([]);
+    const [materialList, setMaterialList] = useState<Material[]>([]);
     const [materialLoading, setMaterialLoading] = useState(false);
+
+    // Start modal
+    const [showStartModal, setShowStartModal] = useState(false);
+    const [allocationMode, setAllocationMode] = useState<'auto' | 'manual'>('auto');
+    const [pickRequests, setPickRequests] = useState<PickingRequest[]>([]);
+    const [pickRequestsLoading, setPickRequestsLoading] = useState(false);
+    // manual allocations: { [required_item_id]: { [picking_request_item_id]: qty_string } }
+    const [manualAllocations, setManualAllocations] = useState<Record<number, Record<number, string>>>({});
 
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
@@ -125,7 +129,7 @@ const WorkRunDetail: React.FC = () => {
     useEffect(() => {
         if (showAssignEmpModal && allEmployees.length === 0) {
             setEmpLoading(true);
-            getEmployeeList('').then(res => {
+            getEmployeeList(1,10,'').then(res => {
                 setAllEmployees(res?.success && Array.isArray(res.data?.items) ? res.data.items : []);
             }).catch(() => setAllEmployees([])).finally(() => setEmpLoading(false));
         }
@@ -150,6 +154,16 @@ const WorkRunDetail: React.FC = () => {
             }).catch(() => setMaterialList([])).finally(() => setMaterialLoading(false));
         }
     }, [showRequiredItemModal]);
+
+    // Fetch pick requests when start modal opens
+    useEffect(() => {
+        if (showStartModal) {
+            setPickRequestsLoading(true);
+            getWorkRunPickRequests(Number(workRunId)).then(res => {
+                setPickRequests(res?.success && Array.isArray(res.data) ? res.data : []);
+            }).catch(() => setPickRequests([])).finally(() => setPickRequestsLoading(false));
+        }
+    }, [showStartModal]);
 
     const filteredEmployees = React.useMemo(() => {
         if (!empSearch) return allEmployees;
@@ -177,19 +191,66 @@ const WorkRunDetail: React.FC = () => {
     const isActive = status === 'INPROGRESS' || status === 'PAUSED';
 
     // --- Lifecycle ---
-    const handleStart = async () => {
-        const confirm = await Swal.fire({
-            title: 'เริ่ม Work Run?',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'เริ่มเลย',
-            cancelButtonText: 'ยกเลิก',
+    const openStartModal = () => {
+        setAllocationMode('auto');
+        setManualAllocations({});
+        setPickRequests([]);
+        setShowStartModal(true);
+    };
+
+    const closeStartModal = () => {
+        setShowStartModal(false);
+        setAllocationMode('auto');
+        setManualAllocations({});
+    };
+
+    const handleManualQtyChange = (requiredItemId: number, pickItemId: number, value: string) => {
+        const formatted = formatIntegerInput(value);
+        setManualAllocations(prev => ({
+            ...prev,
+            [requiredItemId]: { ...(prev[requiredItemId] ?? {}), [pickItemId]: formatted },
+        }));
+    };
+
+    // Flatten all pick request items matching a required item by item_code
+    const getPickItemsForRequired = (requiredItem: { item_code: string }) => {
+        const result: (PickingRequestListItem & { picking_request_code: string })[] = [];
+        pickRequests.forEach(pr => {
+            pr.items.forEach(item => {
+                if (item.item_code === requiredItem.item_code && item.qty_available > 0) {
+                    result.push({ ...item, picking_request_code: pr.picking_request_code ?? "" });
+                }
+            });
         });
-        if (!confirm.isConfirmed) return;
+        return result;
+    };
+
+    const handleStart = async () => {
+        const payload: { allocation_mode: 'auto' | 'manual'; material_sources?: MaterialSourceEntry[] } = {
+            allocation_mode: allocationMode,
+        };
+
+        if (allocationMode === 'manual') {
+            const materialSources: MaterialSourceEntry[] = [];
+            for (const reqItem of (workRun?.required_items ?? [])) {
+                const allocMap = manualAllocations[reqItem.id] ?? {};
+                const sources = Object.entries(allocMap)
+                    .filter(([, v]) => v !== '' && Number(v) > 0)
+                    .map(([pickItemId, qty]) => ({ picking_request_item_id: Number(pickItemId), qty: Number(qty) }));
+                if (sources.length > 0) {
+                    materialSources.push({ required_item_id: reqItem.id, sources });
+                }
+            }
+            if (materialSources.length > 0) {
+                payload.material_sources = materialSources;
+            }
+        }
+
         setLoading();
         try {
-            const result = await startWorkRun(Number(workRunId));
+            const result = await startWorkRun(Number(workRunId), payload);
             if (result?.success) {
+                closeStartModal();
                 Swal.fire({ title: 'เริ่มงานสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false }).then(fetchWorkRun);
             } else {
                 Swal.fire('เกิดข้อผิดพลาด', result?.message || 'ไม่สามารถเริ่มงานได้', 'error');
@@ -438,7 +499,7 @@ const WorkRunDetail: React.FC = () => {
                 </div>
                 <div className='d-flex gap-2'>
                     {status === 'PENDING' && (
-                        <button className='btn btn-sm btn-primary fw-bold px-6' onClick={handleStart}>
+                        <button className='btn btn-sm btn-primary fw-bold px-6' onClick={openStartModal}>
                             <i className='bi bi-play-fill me-1'></i> เริ่มงาน
                         </button>
                     )}
@@ -685,7 +746,8 @@ const WorkRunDetail: React.FC = () => {
                                     {workRun.required_items.map(item => (
                                         <tr key={item.id}>
                                             <td><span className='text-muted fw-semibold fs-7'>{item.item_code}</span></td>
-                                            <td><span className='fw-bold text-gray-800 fs-7'>{item.item_name}</span></td>
+                                            <td><span className='fw-bold text-gray-800 fs-7'>{item.item_name} (SO-Line : {item.material_list.order_line_num})</span></td>
+
                                             <td><span className='fw-semibold text-gray-700 fs-7'>{item.quantity}</span></td>
                                             <td>
                                                 {item.qty_consumed_actual != null
@@ -932,6 +994,136 @@ const WorkRunDetail: React.FC = () => {
                         </table>
                     </div>
                 </Modal.Body>
+            </Modal>
+
+            {/* Start Work Run Modal */}
+            <Modal show={showStartModal} onHide={closeStartModal} centered size="lg">
+                <Modal.Header closeButton>
+                    <Modal.Title className='fw-bold'>เริ่ม Work Run</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {/* Allocation mode toggle */}
+                    <div className='mb-6'>
+                        <label className='form-label fw-bold fs-6'>รูปแบบการจัดสรรวัตถุดิบ</label>
+                        <div className='d-flex gap-3'>
+                            <label className={`d-flex align-items-center border rounded px-4 py-3 cursor-pointer flex-grow-1 ${allocationMode === 'auto' ? 'border-primary bg-light-primary' : 'border-gray-300'}`}>
+                                <input
+                                    type='radio'
+                                    className='form-check-input me-3'
+                                    name='allocation_mode'
+                                    checked={allocationMode === 'auto'}
+                                    onChange={() => setAllocationMode('auto')}
+                                />
+                                <div>
+                                    <span className='fw-bold text-gray-800 d-block'>อัตโนมัติ</span>
+                                    <span className='text-muted fs-8'>ระบบจัดสรรวัตถุดิบให้อัตโนมัติ</span>
+                                </div>
+                            </label>
+                            <label className={`d-flex align-items-center border rounded px-4 py-3 cursor-pointer flex-grow-1 ${allocationMode === 'manual' ? 'border-primary bg-light-primary' : 'border-gray-300'}`}>
+                                <input
+                                    type='radio'
+                                    className='form-check-input me-3'
+                                    name='allocation_mode'
+                                    checked={allocationMode === 'manual'}
+                                    onChange={() => setAllocationMode('manual')}
+                                />
+                                <div>
+                                    <span className='fw-bold text-gray-800 d-block'>เลือกเอง</span>
+                                    <span className='text-muted fs-8'>เลือกรายการวัตถุดิบจาก Picking Request</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Manual allocation UI */}
+                    {allocationMode === 'manual' && (
+                        <div>
+                            {pickRequestsLoading ? (
+                                <div className='text-center text-muted py-10'>กำลังโหลดรายการ Picking...</div>
+                            ) : (workRun?.required_items ?? []).length === 0 ? (
+                                <div className='text-center text-muted py-6 border border-dashed border-gray-300 rounded'>
+                                    ยังไม่มีรายการวัตถุดิบที่ต้องใช้
+                                </div>
+                            ) : (
+                                (workRun?.required_items ?? []).map(reqItem => {
+                                    const availableItems = getPickItemsForRequired(reqItem);
+                                    const allocMap = manualAllocations[reqItem.id] ?? {};
+                                    const totalAllocated = Object.values(allocMap).reduce((sum, v) => sum + (Number(v) || 0), 0);
+
+                                    return (
+                                        <div key={reqItem.id} className='mb-6 border border-gray-200 rounded p-4'>
+                                            <div className='d-flex justify-content-between align-items-center mb-3'>
+                                                <div>
+                                                    <span className='fw-bold text-gray-800 fs-6'>{reqItem.item_name}</span>
+                                                    <span className='text-muted fs-8 ms-2'>({reqItem.item_code})</span>
+                                                </div>
+                                                <div className='text-end'>
+                                                    <span className='text-muted fs-8'>ต้องใช้: </span>
+                                                    <span className='fw-bold text-gray-700'>{reqItem.quantity}</span>
+                                                    <span className='text-muted fs-8'> {reqItem.unit}</span>
+                                                    <span className='mx-2 text-muted'>|</span>
+                                                    <span className='text-muted fs-8'>จัดสรรแล้ว: </span>
+                                                    <span className={`fw-bold ${totalAllocated >= reqItem.quantity ? 'text-success' : 'text-warning'}`}>
+                                                        {totalAllocated}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {availableItems.length === 0 ? (
+                                                <div className='text-muted fs-7 py-3 text-center bg-light rounded'>
+                                                    ไม่พบรายการ Picking ที่มีวัตถุดิบนี้
+                                                </div>
+                                            ) : (
+                                                <div className='table-responsive'>
+                                                    <table className='table table-row-dashed align-middle gs-0 gy-2 mb-0'>
+                                                        <thead>
+                                                            <tr className='fw-bold text-muted text-uppercase fs-8'>
+                                                                <th>Picking Request</th>
+                                                                <th>รหัสสินค้า</th>
+                                                                <th className='text-center'>คงเหลือ</th>
+                                                                <th className='text-center' style={{ width: 140 }}>จำนวนที่จัดสรร</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {availableItems.map(pi => (
+                                                                <tr key={pi.picking_request_item_id}>
+                                                                    <td>
+                                                                        <span className='fw-semibold text-gray-700 fs-7'>{pi.picking_request_code}</span>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span className='text-muted fs-7'>{pi.item_code}</span>
+                                                                    </td>
+                                                                    <td className='text-center'>
+                                                                        <span className='fw-semibold text-gray-700 fs-7'>{pi.qty_available} {pi.unit}</span>
+                                                                    </td>
+                                                                    <td>
+                                                                        <input
+                                                                            type='text'
+                                                                            className='form-control form-control-sm text-center'
+                                                                            placeholder='0'
+                                                                            value={allocMap[pi.picking_request_item_id] ?? ''}
+                                                                            onChange={e => handleManualQtyChange(reqItem.id, pi.picking_request_item_id, e.target.value)}
+                                                                        />
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <button className='btn btn-light' onClick={closeStartModal}>ยกเลิก</button>
+                    <button className='btn btn-primary fw-bold' onClick={handleStart}>
+                        <i className='bi bi-play-fill me-1'></i> เริ่มงาน
+                    </button>
+                </Modal.Footer>
             </Modal>
 
             {/* Complete Work Run Modal */}

@@ -1,5 +1,6 @@
 import type { Employee } from './EmployeeType';
 import type { Machine } from './MachineType';
+import { Material } from './MaterialType';
 import { SalesItem } from './SalesItemType';
 
 
@@ -65,6 +66,7 @@ export interface WorkRunRequiredItem {
     qty_consumed_actual: number | null;
     created_by: string;
     created_date: string;
+    material_list : Material
 }
 
 // Full WorkRun display — returned from GET /api/work_run/:id (WorkRunDisplaySchema)

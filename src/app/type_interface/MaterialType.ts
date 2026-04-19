@@ -10,4 +10,7 @@ export type Material = {
     material_list_id : number
     sales_item_id : number
     unit_price : number
+    order_line_num : number
+    unit_name : string
+    unit_id : number
 }

@@ -343,7 +343,7 @@ const PickingRequestCreate: React.FC = () => {
                                                             <optgroup label='สินค้า (Sales Items)'>
                                                                 {salesItemOptions.map((o) => (
                                                                     <option key={o.value} value={o.value}>
-                                                                        {o.item_name} ({o.item_code})
+                                                                        {o.item_name} ({o.item_code}) (SO-Line : {o.order_line_num})
                                                                     </option>
                                                                 ))}
                                                             </optgroup>
@@ -352,7 +352,7 @@ const PickingRequestCreate: React.FC = () => {
                                                             <optgroup label='วัสดุ (Materials)'>
                                                                 {materialOptions.map((o) => (
                                                                     <option key={o.value} value={o.value}>
-                                                                        {o.item_name} ({o.item_code})
+                                                                        {o.item_name} ({o.item_code}) (SO-Line : {o.order_line_num})
                                                                     </option>
                                                                 ))}
                                                             </optgroup>
