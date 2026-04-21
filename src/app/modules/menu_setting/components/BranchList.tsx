@@ -148,7 +148,7 @@ const BranchList: React.FC = () => {
                             <i className="bi bi-search position-absolute ms-4 fs-4 text-gray-500"></i>
                             <input
                                 type="text"
-                                className="form-control form-control-solid w-250px ps-12"
+                                className="form-control form-control-lg w-250px ps-12"
                                 placeholder="ค้นหารหัส หรือ ชื่อสาขา..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}

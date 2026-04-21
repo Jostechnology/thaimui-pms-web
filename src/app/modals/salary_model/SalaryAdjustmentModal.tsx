@@ -156,7 +156,7 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
             </button>
             <input
                 type="text"
-                className="form-control form-control-sm form-control-solid w-125px text-center fw-bold cursor-pointer"
+                className="form-control form-control-sm form-control-lg w-125px text-center fw-bold cursor-pointer"
                 value={value || ""}
                 readOnly
                 placeholder="ดูทั้งหมด"
@@ -195,7 +195,7 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
                             <div className="col-5">
                                 <label className="form-label fw-bold text-gray-700 fs-7">ปรับขึ้น/ลง (%)</label>
                                 <div className="position-relative">
-                                    <input type="text" className="form-control form-control-solid fw-bold pe-8" value={percent} onChange={(e) => handlePercentChange(e.target.value)} placeholder="0" />
+                                    <input type="text" className="form-control form-control-lg fw-bold pe-8" value={percent} onChange={(e) => handlePercentChange(e.target.value)} placeholder="0" />
                                     <span className="position-absolute top-50 end-0 translate-middle-y me-3 text-gray-500 fw-bold">%</span>
                                 </div>
                             </div>
@@ -204,7 +204,7 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
                                 <div className="position-relative">
                                     <input
                                         type="text"
-                                        className={`form-control form-control-solid fw-bold pe-8 border-primary ${errors.newSalary ? "is-invalid" : ""}`}
+                                        className={`form-control form-control-lg fw-bold pe-8 border-primary ${errors.newSalary ? "is-invalid" : ""}`}
                                         value={newSalary}
                                         onChange={(e) => handleNewSalaryChange(e.target.value)}
                                     />
@@ -218,7 +218,7 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
                             <label className="form-label fw-bold text-gray-700 fs-7 required">มีผลตั้งแต่วันที่</label>
                             <input
                                 type="date"
-                                className={`form-control form-control-solid ${errors.effectiveDate ? "is-invalid" : ""}`}
+                                className={`form-control form-control-lg ${errors.effectiveDate ? "is-invalid" : ""}`}
                                 value={effectiveDate}
                                 onChange={(e) => { setEffectiveDate(e.target.value); if (errors.effectiveDate) setErrors(prev => { const next = { ...prev }; delete next.effectiveDate; return next; }); }}
                             />
@@ -227,7 +227,7 @@ const SalaryAdjustmentModal: React.FC<SalaryAdjustmentModalProps> = ({ show, onH
 
                         <div className="mb-8">
                             <label className="form-label fw-bold text-gray-700 fs-7">หมายเหตุ / เหตุผล</label>
-                            <textarea className="form-control form-control-solid" rows={3} placeholder="เช่น ปรับประจำปี, ผ่านโปร, ปรับตำแหน่ง" value={reason} onChange={(e) => setReason(e.target.value)}></textarea>
+                            <textarea className="form-control form-control-lg" rows={3} placeholder="เช่น ปรับประจำปี, ผ่านโปร, ปรับตำแหน่ง" value={reason} onChange={(e) => setReason(e.target.value)}></textarea>
                         </div>
 
                         <button className="btn btn-primary w-100 py-3 fw-bold fs-6 shadow-sm hover-elevate-up" onClick={handleSave}>

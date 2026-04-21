@@ -1292,7 +1292,7 @@ const TemplateBuilder: React.FC = () => {
                     <div className='card shadow-sm mb-5'>
                         <div className='card-body py-4'>
                             <label className='form-label fw-bold fs-6'>ชื่อ Template</label>
-                            <input className='form-control form-control-solid'
+                            <input className='form-control form-control-lg'
                                 placeholder='เช่น ใบสั่งผลิต ชุดประกอบสลิง'
                                 value={templateName}
                                 onChange={e => setTemplateName(e.target.value)} />

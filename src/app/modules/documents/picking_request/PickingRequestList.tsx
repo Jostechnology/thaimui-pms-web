@@ -206,7 +206,7 @@ const PickingRequestList: React.FC = () => {
                             </i>
                             <input
                                 type='text'
-                                className='form-control form-control-solid w-250px ps-12'
+                                className='form-control form-control-lg w-250px ps-12'
                                 placeholder='ค้นหา WMS Reference หรือ ID'
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -400,7 +400,7 @@ const PickingRequestList: React.FC = () => {
                         <label className='form-label fw-bold'>WMS Reference (ไม่บังคับ)</label>
                         <input
                             type='text'
-                            className='form-control form-control-solid'
+                            className='form-control form-control-lg'
                             placeholder='เช่น WMS-2026-00142'
                             value={updateForm.wms_reference}
                             onChange={(e) => setUpdateForm((f) => ({ ...f, wms_reference: e.target.value }))}
@@ -409,7 +409,7 @@ const PickingRequestList: React.FC = () => {
                     <div className='mb-2'>
                         <label className='form-label fw-bold'>หมายเหตุ (ไม่บังคับ)</label>
                         <textarea
-                            className='form-control form-control-solid'
+                            className='form-control form-control-lg'
                             rows={2}
                             placeholder='หมายเหตุการอัปเดตสถานะ'
                             value={updateForm.remark}

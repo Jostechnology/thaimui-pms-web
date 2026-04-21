@@ -67,7 +67,7 @@ const MachineTypeList: React.FC = () => {
                         <i className="bi bi-search text-muted me-3 fs-4"></i>
                         <input
                             type="text"
-                            className="form-control form-control-solid"
+                            className="form-control form-control-lg"
                             placeholder="ค้นหาประเภทเครื่องจักร..."
                             value={search}
                             onChange={e => { setSearch(e.target.value); setPage(1); }}

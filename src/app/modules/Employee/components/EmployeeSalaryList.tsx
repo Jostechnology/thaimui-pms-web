@@ -115,7 +115,7 @@ const EmployeeSalaryList: React.FC = () => {
                             </span>
                             <input
                                 type="text"
-                                className="form-control form-control-solid w-250px ps-14"
+                                className="form-control form-control-lg w-250px ps-14"
                                 placeholder="ค้นหาจากชื่อพนักงาน..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}

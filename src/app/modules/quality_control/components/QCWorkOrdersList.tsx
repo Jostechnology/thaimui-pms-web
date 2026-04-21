@@ -260,7 +260,7 @@ const QCWorkOrdersList: React.FC = () => {
                             </i>
                             <input
                                 type='text'
-                                className='form-control form-control-solid w-250px ps-12'
+                                className='form-control form-control-lg w-250px ps-12'
                                 placeholder='ค้นหาโดย ผู้ตรวจ, หมายเหตุ...'
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}

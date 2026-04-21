@@ -199,7 +199,7 @@ const AddRepairModal: React.FC<AddRepairModalProps> = ({ show, onHide, onSuccess
                                         selected={form.maintenance_date}
                                         onChange={(date) => handleChange('maintenance_date', date)}
                                         dateFormat="dd/MM/yyyy"
-                                        className="form-control form-control-solid w-100"
+                                        className="form-control form-control-lg w-100"
                                         placeholderText="เลือกวันที่"
                                     />
                                 </div>
@@ -210,7 +210,7 @@ const AddRepairModal: React.FC<AddRepairModalProps> = ({ show, onHide, onSuccess
                                     </label>
                                     <input
                                         type="text"
-                                        className="form-control form-control-solid"
+                                        className="form-control form-control-lg"
                                         placeholder="0"
                                         value={form.fix_cost}
                                         onChange={(e) => {
@@ -242,7 +242,7 @@ const AddRepairModal: React.FC<AddRepairModalProps> = ({ show, onHide, onSuccess
                                     รายละเอียด
                                 </label>
                                 <textarea
-                                    className="form-control form-control-solid"
+                                    className="form-control form-control-lg"
                                     rows={3}
                                     placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"
                                     value={form.description}
@@ -423,7 +423,7 @@ const PmRepairList: React.FC = () => {
                             </i>
                             <input
                                 type="text"
-                                className="form-control form-control-solid w-250px ps-12"
+                                className="form-control form-control-lg w-250px ps-12"
                                 placeholder="ค้นหาชื่อเครื่องจักร"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}

@@ -120,13 +120,13 @@ const MachineDetail: React.FC = () => {
                             <div className="row mb-6">
                                 <div className="col-md-6 mb-6 mb-md-0">
                                     <label className="fs-6 fw-semibold mb-2 text-muted">รหัสเครื่องจักร</label>
-                                    <div className="form-control form-control-solid bg-light-primary">
+                                    <div className="form-control form-control-lg bg-light-primary">
                                         <span className="fw-bold text-dark">{machine.machine_code || '—'}</span>
                                     </div>
                                 </div>
                                 <div className="col-md-6">
                                     <label className="fs-6 fw-semibold mb-2 text-muted">ชื่อเครื่องจักร</label>
-                                    <div className="form-control form-control-solid bg-light-primary">
+                                    <div className="form-control form-control-lg bg-light-primary">
                                         <span className="fw-bold text-dark">{machine.machine_name || '—'}</span>
                                     </div>
                                 </div>
@@ -135,13 +135,13 @@ const MachineDetail: React.FC = () => {
                             <div className="row">
                                 <div className="col-md-6 mb-6 mb-md-0">
                                     <label className="fs-6 fw-semibold mb-2 text-muted">ผู้ผลิต / ยี่ห้อ</label>
-                                    <div className="form-control form-control-solid">
+                                    <div className="form-control form-control-lg">
                                         {machine.manufacturer || '— (ไม่ระบุ)'}
                                     </div>
                                 </div>
                                 <div className="col-md-6">
                                     <label className="fs-6 fw-semibold mb-2 text-muted">วันที่สั่งซื้อ</label>
-                                    <div className="form-control form-control-solid">
+                                    <div className="form-control form-control-lg">
                                         {machine.purchase_date
                                             ? new Date(machine.purchase_date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
                                             : '— (ไม่ระบุ)'}
@@ -152,7 +152,7 @@ const MachineDetail: React.FC = () => {
                             <div className="row mt-6">
                                 <div className="col-md-6">
                                     <label className="fs-6 fw-semibold mb-2 text-muted">ประเภทเครื่องจักร</label>
-                                    <div className="form-control form-control-solid">
+                                    <div className="form-control form-control-lg">
                                         {machine.machine_type_name ? (
                                             <span className="badge badge-light-info fw-semibold">{machine.machine_type_name}</span>
                                         ) : (
@@ -215,7 +215,7 @@ const MachineDetail: React.FC = () => {
                             </div>
                         </div>
                         <div className="card-body">
-                            <div className="form-control form-control-solid" style={{ minHeight: '80px', whiteSpace: 'pre-wrap' }}>
+                            <div className="form-control form-control-lg" style={{ minHeight: '80px', whiteSpace: 'pre-wrap' }}>
                                 {machine.machine_description || '— (ไม่มีรายละเอียดเพิ่มเติม)'}
                             </div>
                         </div>

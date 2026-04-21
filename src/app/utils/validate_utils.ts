@@ -64,9 +64,12 @@ export const validateCitizenId = (id: string): string | null => {
 /** Validate that a value is a number greater than 0. */
 export const validatePositiveNumber = (
     value: string | number,
-    label: string
+    label?: string
 ): string | null => {
     const num = Number(String(value).replace(/,/g, ""));
+    if (!label) {
+        label = "จำนวน"
+    }
     if (isNaN(num) || num <= 0) {
         return `${label}ต้องเป็นตัวเลขที่มากกว่า 0`;
     }
@@ -115,5 +118,44 @@ export const validateExactLength = (
     if (value.length !== length) {
         return `${label}ต้องมี ${length} ตัวอักษร`;
     }
+    return null;
+};
+
+/** Validate that a value is a signed integer (may be negative) and not zero. */
+export const validateIntegerNonZero = (
+    value: string | number,
+    label?: string
+): string | null => {
+    const lbl = label ?? "จำนวน";
+    const s = String(value).trim();
+    if (!s || s === "-") return `กรุณากรอก${lbl}`;
+    if (!/^-?\d+$/.test(s)) return `${lbl}ต้องเป็นตัวเลขจำนวนเต็ม`;
+    if (Number(s) === 0) return `${lbl}ต้องไม่เป็น 0`;
+    return null;
+};
+
+/** Validate that a value is a positive integer (> 0, digits only). */
+export const validatePositiveInteger = (
+    value: string | number,
+    label?: string
+): string | null => {
+    const lbl = label ?? "จำนวน";
+    const s = String(value).trim();
+    if (!s) return `กรุณากรอก${lbl}`;
+    if (!/^\d+$/.test(s)) return `${lbl}ต้องเป็นจำนวนเต็มบวก`;
+    if (Number(s) <= 0) return `${lbl}ต้องมากกว่า 0`;
+    return null;
+};
+
+/** Validate that a numeric value does not exceed a maximum. */
+export const validateMaxValue = (
+    value: string | number,
+    max: number,
+    label?: string
+): string | null => {
+    const lbl = label ?? "จำนวน";
+    const num = Number(String(value).replace(/,/g, ""));
+    if (isNaN(num)) return null;
+    if (num > max) return `${lbl}ต้องไม่เกิน ${max}`;
     return null;
 };

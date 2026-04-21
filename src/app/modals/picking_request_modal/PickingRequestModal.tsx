@@ -220,7 +220,7 @@ const PickingRequestModal: React.FC<Props> = ({
                         <div className="mb-2">
                             <label className="form-label fw-bold text-gray-700">หมายเหตุรวม (ไม่บังคับ)</label>
                             <textarea
-                                className="form-control form-control-solid"
+                                className="form-control form-control-lg"
                                 rows={2}
                                 placeholder="หมายเหตุสำหรับ Picking Request นี้"
                                 value={remark}

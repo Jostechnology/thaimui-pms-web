@@ -174,9 +174,9 @@ const MachineCreate: React.FC = () => {
 
     // ─── Helper: สร้าง class สำหรับ input ที่มี error / success ──
     const fieldClass = (fieldName: string) => {
-        if (!touched[fieldName]) return 'form-control form-control-solid';
-        if (errors[fieldName as keyof FormErrors]) return 'form-control form-control-solid is-invalid';
-        return 'form-control form-control-solid is-valid';
+        if (!touched[fieldName]) return 'form-control form-control-lg';
+        if (errors[fieldName as keyof FormErrors]) return 'form-control form-control-lg is-invalid';
+        return 'form-control form-control-lg is-valid';
     };
 
     const selectClass = (fieldName: string) => {

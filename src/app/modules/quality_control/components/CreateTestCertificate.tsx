@@ -323,11 +323,11 @@ const CreateTestCertificate: React.FC = () => {
                             <div className="col-md-6 d-flex flex-column gap-4">
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-125px fs-5">Customer :</label>
-                                    <input type="text" className="form-control form-control-solid bg-light fw-bold" value={certForm.customerName} readOnly placeholder="[Auto from Sales Order]" />
+                                    <input type="text" className="form-control form-control-lg bg-light fw-bold" value={certForm.customerName} readOnly placeholder="[Auto from Sales Order]" />
                                 </div>
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-125px fs-5">PO Ref. :</label>
-                                    <input type="text" className="form-control form-control-solid bg-light fw-bold" value={certForm.poReference} readOnly placeholder="[Auto from Sales Order]" />
+                                    <input type="text" className="form-control form-control-lg bg-light fw-bold" value={certForm.poReference} readOnly placeholder="[Auto from Sales Order]" />
                                 </div>
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-125px fs-5">Test Method :</label>
@@ -346,7 +346,7 @@ const CreateTestCertificate: React.FC = () => {
                                 </div>
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-150px fs-5">Date of Test :</label>
-                                    <input type="date" className="form-control form-control-solid bg-light fw-bold" value={certForm.dateOfTest} onChange={(e) => setCertForm({ ...certForm, dateOfTest: e.target.value })} />
+                                    <input type="date" className="form-control form-control-lg bg-light fw-bold" value={certForm.dateOfTest} onChange={(e) => setCertForm({ ...certForm, dateOfTest: e.target.value })} />
                                 </div>
                                 <div className="d-flex align-items-center">
                                     <label className="fw-bold text-gray-800 min-w-150px fs-5">Standard Ref. :</label>

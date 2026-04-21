@@ -263,7 +263,7 @@ const PickingRequestCreate: React.FC = () => {
                                 </i>
                                 <input
                                     type='text'
-                                    className='form-control form-control-solid ps-12'
+                                    className='form-control form-control-lg ps-12'
                                     placeholder='ค้นหา Sales Order (เลขที่ SO หรือชื่อลูกค้า)'
                                     value={soSearch}
                                     onChange={handleSOSearchChange}
@@ -413,7 +413,7 @@ const PickingRequestCreate: React.FC = () => {
                 <div className='card-body'>
                     <label className='form-label fw-bold'>หมายเหตุรวม (ไม่บังคับ)</label>
                     <textarea
-                        className='form-control form-control-solid'
+                        className='form-control form-control-lg'
                         rows={2}
                         placeholder='หมายเหตุสำหรับคำขอเบิกนี้'
                         value={remark}

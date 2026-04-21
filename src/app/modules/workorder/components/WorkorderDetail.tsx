@@ -470,7 +470,7 @@ const WorkorderDetail: React.FC = () => {
                             <label className='form-label fw-bold required'>จำนวนที่ต้องการผลิต</label>
                             <input
                                 type='text'
-                                className='form-control form-control-solid'
+                                className='form-control form-control-lg'
                                 value={createRunQty === 0 ? '' : String(createRunQty)}
                                 onChange={(e) => {
                                     const s = formatIntegerInput(e.target.value);
@@ -517,7 +517,7 @@ const WorkorderDetail: React.FC = () => {
                                                         <td>
                                                             <input
                                                                 type='text'
-                                                                className='form-control form-control-sm form-control-solid text-center'
+                                                                className='form-control form-control-sm form-control-lg text-center'
                                                                 value={String(sourceAllocations[run.work_run_id] ?? 0)}
                                                                 onChange={(e) => {
                                                                     const s = formatIntegerInput(e.target.value);
@@ -595,7 +595,7 @@ const WorkorderDetail: React.FC = () => {
                                                             <td>
                                                                 <input
                                                                     type='text'
-                                                                    className='form-control form-control-sm form-control-solid text-center'
+                                                                    className='form-control form-control-sm form-control-lg text-center'
                                                                     value={String(testResultAllocations[result.test_result_id] ?? 0)}
                                                                     onChange={(e) => {
                                                                         const s = formatIntegerInput(e.target.value);

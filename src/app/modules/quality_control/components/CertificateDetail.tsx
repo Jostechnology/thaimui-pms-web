@@ -91,30 +91,30 @@ const CertificateDetail: React.FC = () => {
                         <div className="col-md-6 d-flex flex-column gap-4">
                             <div className="d-flex align-items-center">
                                 <label className="fw-bold text-gray-800 min-w-125px fs-5">Customer :</label>
-                                <input type="text" className="form-control form-control-solid bg-light fw-bold" value={certificate.customer || certificate.customer_name || "-"} readOnly />
+                                <input type="text" className="form-control form-control-lg bg-light fw-bold" value={certificate.customer || certificate.customer_name || "-"} readOnly />
                             </div>
                             <div className="d-flex align-items-center">
                                 <label className="fw-bold text-gray-800 min-w-125px fs-5">Test Method :</label>
-                                <input type="text" className="form-control form-control-solid bg-light" value={certificate.test_method || "-"} readOnly />
+                                <input type="text" className="form-control form-control-lg bg-light" value={certificate.test_method || "-"} readOnly />
                             </div>
                             <div className="d-flex align-items-center">
                                 <label className="fw-bold text-gray-800 min-w-125px fs-5">Remark :</label>
-                                <input type="text" className="form-control form-control-solid bg-light" value={certificate.remark || "-"} readOnly />
+                                <input type="text" className="form-control form-control-lg bg-light" value={certificate.remark || "-"} readOnly />
                             </div>
                         </div>
 
                         <div className="col-md-6 d-flex flex-column gap-4">
                             <div className="d-flex align-items-center">
                                 <label className="fw-bold text-gray-800 min-w-150px fs-5">Certificate No :</label>
-                                <input type="text" className="form-control form-control-solid bg-light fw-bold" value={certificate.certification_number || "-"} readOnly />
+                                <input type="text" className="form-control form-control-lg bg-light fw-bold" value={certificate.certification_number || "-"} readOnly />
                             </div>
                             <div className="d-flex align-items-center">
                                 <label className="fw-bold text-gray-800 min-w-150px fs-5">Date of Test :</label>
-                                <input type="text" className="form-control form-control-solid bg-light" value={formatDate(certificate.certification_date)} readOnly />
+                                <input type="text" className="form-control form-control-lg bg-light" value={formatDate(certificate.certification_date)} readOnly />
                             </div>
                             <div className="d-flex align-items-center">
                                 <label className="fw-bold text-gray-800 min-w-150px fs-5">Standard Ref. :</label>
-                                <input type="text" className="form-control form-control-solid bg-light" value={certificate.standard_reference || certificate.standard_ref || "-"} readOnly />
+                                <input type="text" className="form-control form-control-lg bg-light" value={certificate.standard_reference || certificate.standard_ref || "-"} readOnly />
                             </div>
                         </div>
                     </div>

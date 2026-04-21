@@ -117,7 +117,7 @@ const TemplateManagement: React.FC = () => {
             <i className='bi bi-search text-muted fs-4 me-3'></i>
             <input
               type='text'
-              className='form-control form-control-solid border-0'
+              className='form-control form-control-lg border-0'
               placeholder='ค้นหา Template ตามชื่อ...'
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
