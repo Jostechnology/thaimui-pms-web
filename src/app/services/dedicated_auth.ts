@@ -262,6 +262,26 @@ export const changePassword = async (data: any) => {
     }
 }
 
+export const ssoLogin = async (token: string) => {
+    try {
+        const response = await front_api("POST", '/sso-login', { token }, {wrapData: false});
+        if (!response)
+            return {success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้"};
+
+        const data = await response.json();
+        if (!data.success)
+            return {success: false, message: data.error || "Token ไม่ถูกต้องหรือหมดอายุ"};
+
+        const { branch_select_token, user_branches, has_all_branch_access} = data;
+
+        sessionStorage.setItem('branch_select_data', JSON.stringify({user_branches, has_all_branch_access: !!has_all_branch_access,}));
+
+        return {success: true, requireBranchSelect: true, branch_select_token};
+    } catch (error) {
+        return {success: false, message: "เกิดข้อผิดพลาดในการเข้าสู่ระบบ"};
+    }
+};
+
 export const banUser = async (data: any) => {
     const body = {
         username: data.username,

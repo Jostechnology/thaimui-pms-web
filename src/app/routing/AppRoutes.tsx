@@ -12,6 +12,7 @@ import { getTokenFromLocal, giveAccessDenied, getEmpId } from '../helpers/appHel
 import DedicatedLogin from '../modules/auth/components/DedicaatedLogin'
 import DedicatedRegister from '../modules/auth/components/DedicatedRegister';
 import BranchSelect from '../modules/auth/components/BranchSelect';
+import SSOCallback from '../modules/auth/components/SSOCallback';
 
 
 const { BASE_URL } = import.meta.env
@@ -23,28 +24,32 @@ const AppRoutes: FC = () => {
 
   useEffect(() => {
   (async () => {
+    if (window.location.pathname === "/sso") return;
+
     if (token && window.location.pathname === "/login") {
       window.location.href = "/main";
       return;
     }
 
-    if (window.location.pathname === "/login" || window.location.pathname === "/select-branch") return;
+    if (window.location.pathname === "/login" || window.location.pathname === "/select-branch" || window.location.pathname === "/sso") return;
 
     if (token) {
       // await initializeNotifications();
         
         if (window.location.pathname === "/") {
         if (isTokenExpired()) {
+          console.log("1")
           giveAccessDenied();
         } else {
           window.location.href = "/main";
         }
       } else {
+
         checkIfTokenExpired();
       }
     } else {
 
-        if (window.location.pathname !== "/login" && window.location.pathname !== "/select-branch" && window.location.pathname !== "/access-denied") {
+        if (window.location.pathname !== "/login" && window.location.pathname !== "/select-branch" && window.location.pathname !== "/access-denied" && window.location.pathname !== "/sso") {
           window.location.href = "/login";
         }
     }
@@ -56,6 +61,7 @@ const AppRoutes: FC = () => {
     <BrowserRouter basename={BASE_URL}>
       <Routes>
         <Route element={<App />}>
+          <Route path='sso' element={<SSOCallback />} />
           {
             token ?
               <>

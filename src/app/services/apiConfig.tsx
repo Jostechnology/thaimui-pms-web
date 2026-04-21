@@ -26,7 +26,7 @@ export const front_api = async (
 	options: ApiOptions = {}
 ) => {
 	try {
-		if (isTokenExpired() && path !== "/login" && path !== "/register" && path !== "/select-branch" && path !== "/select-all-branch") {
+		if (isTokenExpired() && path !== "/login" && path !== "/register" && path !== "/select-branch" && path !== "/select-all-branch" && path != "/sso-login") {
 			const refresh_token = getTokenRefresh();
 			if (!refresh_token) {
 				giveAccessDenied();
@@ -56,7 +56,7 @@ export const front_api = async (
 			"X-Permission-Token" : getSignaturePermTree() || ""
 		}
 
-		const publicPaths = ["/login", "/register", "/select-branch", "/select-all-branch", "/verify_token"];
+		const publicPaths = ["/login", "/register", "/select-branch", "/select-all-branch", "/verify_token", "/sso-login"];
 
 		let body: any;
 
