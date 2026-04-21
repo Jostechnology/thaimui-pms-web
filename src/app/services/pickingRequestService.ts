@@ -23,7 +23,9 @@ export const getPickingRequestList = async (
     per_page: number,
     search?: string,
     status?: string,
-    doc_entry?: number
+    doc_entry?: number,
+    start_date?: string,
+    end_date?: string
 ): Promise<any> => {
     const params = new URLSearchParams();
     params.append("page", page.toString());
@@ -31,6 +33,8 @@ export const getPickingRequestList = async (
     if (search) params.append("search", search);
     if (status) params.append("status", status);
     if (doc_entry) params.append("doc_entry", doc_entry.toString());
+    if (start_date) params.append("start_date", start_date);
+    if (end_date) params.append("end_date", end_date);
     try {
         const response = await front_api("GET", `/picking_request/list?${params.toString()}`, {}, { wrapData: false });
         if (!response) return { success: false };

@@ -13,6 +13,9 @@ import { useMasterData } from '../../../context/MasterDataContext';
 import { formatThaiDate } from '../../../helpers/dataHelpers';
 import SalesItemTrackingModal from './SalesItemTrackingModal';
 import TableActionButton from '../../../custom_components/TableActionButton';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { toDateOnly } from '../../../utils/validate_utils';
 
 interface SalesItem {
     sales_item_id: number;
@@ -70,6 +73,8 @@ const QCWorkOrdersList: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get("page") || "1"));
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
     const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("filter") || "");
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    const [startDate, endDate] = dateRange;
 
     useTableParams({
         currentPage,
@@ -82,10 +87,18 @@ const QCWorkOrdersList: React.FC = () => {
     });
 
     const fetchQCWorkOrders = async () => {
+        if ((startDate && !endDate) || (!startDate && endDate)) return;
         setDataLoading(true);
         setLoading();
         try {
-            const result = await getQCWorkOrderList(currentPage, pageConfig, keyword, statusFilter);
+            const result = await getQCWorkOrderList(
+                currentPage,
+                pageConfig,
+                keyword,
+                statusFilter,
+                toDateOnly(startDate) ?? "",
+                toDateOnly(endDate) ?? ""
+            );
             if (result && result.success) {
                 setQCWorkOrders(result.data.items);
                 setTotalPages(result.pagination?.pages ?? 0);
@@ -104,7 +117,7 @@ const QCWorkOrdersList: React.FC = () => {
 
     useEffect(() => {
         fetchQCWorkOrders();
-    }, [currentPage, keyword, pageConfig, statusFilter]);
+    }, [currentPage, keyword, pageConfig, statusFilter, startDate, endDate]);
 
     const getStatusBadge = (status: string) => {
         const s = status?.toUpperCase();
@@ -272,6 +285,27 @@ const QCWorkOrdersList: React.FC = () => {
                     {/* Status filter */}
                     <div className='card-toolbar'>
                         <div className='d-flex justify-content-end align-items-center gap-3'>
+                            <DatePicker
+                                selectsRange
+                                startDate={startDate}
+                                endDate={endDate}
+                                onChange={(update) => {
+                                    setDateRange(update as [Date | null, Date | null]);
+                                    setCurrentPage(1);
+                                }}
+                                dateFormat="dd/MM/yyyy"
+                                isClearable
+                                placeholderText="เลือกช่วงวันที่"
+                                disabled={dataLoading}
+                                customInput={
+                                    <button className="btn btn-light-primary btn-sm" disabled={dataLoading}>
+                                        <i className="fas fa-calendar-alt me-2"></i>
+                                        {startDate && endDate
+                                            ? `${startDate.toLocaleDateString("th-TH")} - ${endDate.toLocaleDateString("th-TH")}`
+                                            : "เลือกช่วงวันที่"}
+                                    </button>
+                                }
+                            />
                             <div className='fw-bold text-gray-700'>Status:</div>
                             <select
                                 className='form-select form-select-solid w-150px'
@@ -292,6 +326,7 @@ const QCWorkOrdersList: React.FC = () => {
                                     setSearchTerm("");
                                     setKeyword("");
                                     setStatusFilter("");
+                                    setDateRange([null, null]);
                                 }}
                             >
                                 <i className='bi bi-arrow-clockwise fs-3'></i>

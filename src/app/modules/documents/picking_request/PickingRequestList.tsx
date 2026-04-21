@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Content } from '../../../../_metronic/layout/components/content';
 import { Modal } from 'react-bootstrap';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import Swal from 'sweetalert2';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAppLoading } from '../../../context/AppLoadingContext';
@@ -9,6 +11,7 @@ import { useTableParams } from '../../../hooks/useTableParams';
 import TablePaginator from '../../../custom_components/TablePaginator';
 import { getPickingRequestList, updatePickingRequestStatus } from '../../../services/pickingRequestService';
 import type { PickingRequest } from '../../../type_interface/PickingRequestType';
+import { toDateOnly } from '../../../utils/validate_utils';
 
 const STATUS_TRANSITIONS: Record<string, string[]> = {
     PENDING: ['SENT', 'FAILED'],
@@ -52,6 +55,8 @@ const PickingRequestList: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'));
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get('pageConfig') || '10'));
     const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    const [startDate, endDate] = dateRange;
 
     const [expandedId, setExpandedId] = useState<number | null>(null);
 
@@ -85,10 +90,19 @@ const PickingRequestList: React.FC = () => {
     });
 
     const fetchList = async () => {
+        if ((startDate && !endDate) || (!startDate && endDate)) return;
         setDataLoading(true);
         setLoading();
         try {
-            const result = await getPickingRequestList(currentPage, pageConfig, keyword || undefined, statusFilter || undefined);
+            const result = await getPickingRequestList(
+                currentPage,
+                pageConfig,
+                keyword || undefined,
+                statusFilter || undefined,
+                undefined,
+                toDateOnly(startDate),
+                toDateOnly(endDate)
+            );
             if (result && result.success) {
                 setItems(result.data?.items ?? []);
                 setTotalPages(result.pagination?.pages ?? 0);
@@ -108,7 +122,7 @@ const PickingRequestList: React.FC = () => {
 
     useEffect(() => {
         fetchList();
-    }, [currentPage, keyword, pageConfig, statusFilter]);
+    }, [currentPage, keyword, pageConfig, statusFilter, startDate, endDate]);
 
     const pendingCount = items.filter((i) => i.status === 'PENDING').length;
     const sentCount = items.filter((i) => i.status === 'SENT').length;
@@ -216,6 +230,27 @@ const PickingRequestList: React.FC = () => {
                     </div>
 
                     <div className='card-toolbar d-flex align-items-center gap-3'>
+                        <DatePicker
+                            selectsRange
+                            startDate={startDate}
+                            endDate={endDate}
+                            onChange={(update) => {
+                                setDateRange(update as [Date | null, Date | null]);
+                                setCurrentPage(1);
+                            }}
+                            dateFormat="dd/MM/yyyy"
+                            isClearable
+                            placeholderText="เลือกช่วงวันที่"
+                            disabled={dataLoading}
+                            customInput={
+                                <button className="btn btn-light-primary btn-sm" disabled={dataLoading}>
+                                    <i className="fas fa-calendar-alt me-2"></i>
+                                    {startDate && endDate
+                                        ? `${startDate.toLocaleDateString("th-TH")} - ${endDate.toLocaleDateString("th-TH")}`
+                                        : "เลือกช่วงวันที่"}
+                                </button>
+                            }
+                        />
                         <select
                             className='form-select form-select-solid w-160px'
                             value={statusFilter}

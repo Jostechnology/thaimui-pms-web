@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { getSalesOrderList, SalesOrderSummary } from '../../../services/salesOrder';
 import { useTableParams } from '../../../hooks/useTableParams';
 import TablePaginator from '../../../custom_components/TablePaginator';
 import TableActionButton from '../../../custom_components/TableActionButton';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
+import { toDateOnly } from '../../../utils/validate_utils';
 
 const SalesOrderList: React.FC = () => {
     const navigate = useNavigate();
@@ -23,6 +26,8 @@ const SalesOrderList: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState<string>(searchParams.get("search") || "");
     const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get("page") || "1"));
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    const [startDate, endDate] = dateRange;
 
     useTableParams({
         currentPage,
@@ -35,10 +40,17 @@ const SalesOrderList: React.FC = () => {
     });
 
     const fetchSalesOrders = async () => {
+        if ((startDate && !endDate) || (!startDate && endDate)) return;
         setDataLoading(true);
         setLoading();
         try {
-            const result = await getSalesOrderList(currentPage, pageConfig, keyword);
+            const result = await getSalesOrderList(
+                currentPage,
+                pageConfig,
+                keyword,
+                toDateOnly(startDate) ?? "",
+                toDateOnly(endDate) ?? ""
+            );
             if (result && result.success) {
                 setSalesOrders(result.data.items || []);
                 setTotalPages(result.pagination?.pages ?? 0);
@@ -59,7 +71,7 @@ const SalesOrderList: React.FC = () => {
 
     useEffect(() => {
         fetchSalesOrders();
-    }, [currentPage, keyword, pageConfig]);
+    }, [currentPage, keyword, pageConfig, startDate, endDate]);
 
     return (
         <Content>
@@ -100,6 +112,27 @@ const SalesOrderList: React.FC = () => {
                     </div>
 
                     <div className='card-toolbar d-flex align-items-center gap-3'>
+                        <DatePicker
+                            selectsRange
+                            startDate={startDate}
+                            endDate={endDate}
+                            onChange={(update) => {
+                                setDateRange(update as [Date | null, Date | null]);
+                                setCurrentPage(1);
+                            }}
+                            dateFormat="dd/MM/yyyy"
+                            isClearable
+                            placeholderText="เลือกช่วงวันที่"
+                            disabled={dataLoading}
+                            customInput={
+                                <button className="btn btn-light-primary btn-sm" disabled={dataLoading}>
+                                    <i className="fas fa-calendar-alt me-2"></i>
+                                    {startDate && endDate
+                                        ? `${startDate.toLocaleDateString("th-TH")} - ${endDate.toLocaleDateString("th-TH")}`
+                                        : "เลือกช่วงวันที่"}
+                                </button>
+                            }
+                        />
                         <select
                             className='form-select form-select-solid w-100px'
                             value={pageConfig}

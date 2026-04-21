@@ -9,6 +9,7 @@ import { useAlertModal } from '../../../context/ModalContext';
 import { useTableParams } from '../../../hooks/useTableParams';
 import { deleteOperationCostMonthly, getOperationCostMonthly } from '../../../services/costCalculation';
 import TablePaginator from '../../../custom_components/TablePaginator';
+import TableActionButton from '../../../custom_components/TableActionButton';
 import Swal from 'sweetalert2';
 
 
@@ -339,29 +340,11 @@ const MonthlyOperationList: React.FC = () => {
                                                 </span>
                                             </td>
                                             <td className='text-end'>
-                                                <button
-                                                    className='btn btn-sm btn-light-info fw-bold me-2'
-                                                    onClick={() => navigate(`/cost_calculation/view/${item.operation_cost_monthly_id}`)}
-                                                    title="ดูรายละเอียด"
-                                                >
-                                                    <i className='bi bi-eye fs-5'></i>
-                                                </button>
-                                                <button
-                                                    className='btn btn-sm btn-light-primary fw-bold me-2'
-                                                    onClick={() => navigate(`/cost_calculation/edit/${item.operation_cost_monthly_id}`)}
-                                                    title="แก้ไข"
-                                                >
-                                                    <i className='bi bi-pencil-square fs-5'></i>
-                                                </button>
-                                                <button
-                                                    className='btn btn-sm btn-light-danger fw-bold'
-                                                    onClick={() => {
-                                                        handleDelete(item.operation_cost_monthly_id!);
-                                                    }}
-                                                    title="ลบ"
-                                                >
-                                                    <i className='bi bi-trash-fill fs-5'></i>
-                                                </button>
+                                                <TableActionButton
+                                                    handleView={() => navigate(`/cost_calculation/view/${item.operation_cost_monthly_id}`)}
+                                                    handleEdit={() => navigate(`/cost_calculation/edit/${item.operation_cost_monthly_id}`)}
+                                                    handleDelete={() => handleDelete(item.operation_cost_monthly_id!)}
+                                                />
                                             </td>
                                         </tr>
                                     ))

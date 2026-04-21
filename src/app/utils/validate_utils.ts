@@ -159,3 +159,8 @@ export const validateMaxValue = (
     if (num > max) return `${lbl}ต้องไม่เกิน ${max}`;
     return null;
 };
+
+export const toDateOnly = (date?: Date | null) => {
+  if (!date) return undefined;
+  return date.toLocaleDateString("en-CA"); // YYYY-MM-DD
+};

@@ -14,7 +14,8 @@ export const getWorkOrderList = async (
     per_page: number,
     search: string = "",
     statusFilter: string = "",
-    month: string = ""
+    start_date: string = "",
+    end_date: string = ""
 ) => {
     try {
         const params = new URLSearchParams({
@@ -24,7 +25,8 @@ export const getWorkOrderList = async (
 
         if (search) params.append("search", search);
         if (statusFilter) params.append("filter", statusFilter);
-        if (month) params.append("month", month);
+        if (start_date) params.append("start_date", start_date);
+        if (end_date) params.append("end_date", end_date);
 
         const response = await front_api(
             "GET",

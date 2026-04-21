@@ -10,6 +10,8 @@ import { useSearchParams } from 'react-router-dom';
 import TablePaginator from '../../../custom_components/TablePaginator'; // สมมติว่ามี Component นี้อยู่แล้ว
 import { WorkOrderStatusEnum } from '../../../type_interface/WorkOrderType';
 import DatePicker from "react-datepicker";
+import 'react-datepicker/dist/react-datepicker.css';
+import { toDateOnly } from '../../../utils/validate_utils';
 // 1. ปรับ Interface ให้ตรงกับข้อมูลจริงใน ER Diagram
 interface WorkRunSummary {
     work_run_id: number;
@@ -59,7 +61,8 @@ const WorkorderList: React.FC = () => {
         return str.toUpperCase().replace(/\s+/g, '_');
     };
 
-    const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    const [startDate, endDate] = dateRange;
     const statusThaiMap: Record<string, string> = {
         READY: 'พร้อม',
         INPROGRESS: 'กำลังดำเนินงาน',
@@ -86,31 +89,19 @@ const WorkorderList: React.FC = () => {
         setPageConfig,
         setSearchTerm
     });
-    const CustomDateInput = React.forwardRef(({ value, onClick }: any, ref: any) => (
-        <div className="d-flex align-items-center position-relative" onClick={onClick} ref={ref}>
-            <button className="btn btn-sm btn-light-primary fw-bold" type="button">
-                <i className="bi bi-calendar3"></i>
-            </button>
-            <input
-                type="text"
-                className="form-control form-control-sm form-control-lg w-150px text-center fw-bold cursor-pointer ms-2"
-                value={value}
-                readOnly
-                placeholder="ทุกเดือน"
-            />
-        </div>
-    ));
     const fetchWorkorders = async () => {
+        if ((startDate && !endDate) || (!startDate && endDate)) return;
         setDataLoading(true);
         setLoading();
         try {
-            let monthParam = "";
-            if (selectedDate) {
-                const year = selectedDate.getFullYear();
-                const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                monthParam = `${year}-${month}`;
-            }
-            const result = await getWorkOrderList(currentPage, pageConfig, keyword, statusFilter, monthParam);
+            const result = await getWorkOrderList(
+                currentPage,
+                pageConfig,
+                keyword,
+                statusFilter,
+                toDateOnly(startDate) ?? "",
+                toDateOnly(endDate) ?? ""
+            );
             if (result && result.success) {
                 // SERVER MAY NOT APPLY FILTER — apply client-side fallback filter
                 let items = result.data.items || [];
@@ -135,7 +126,7 @@ const WorkorderList: React.FC = () => {
 
     useEffect(() => {
         fetchWorkorders();
-    }, [currentPage, keyword, pageConfig, statusFilter, selectedDate]);
+    }, [currentPage, keyword, pageConfig, statusFilter, startDate, endDate]);
 
     const getStatusBadge = (status: string) => {
         const display = statusThaiMap[status] || (status || '').toString().normalize('NFC');
@@ -258,20 +249,27 @@ const WorkorderList: React.FC = () => {
                     </div>
 
                     <div className='card-toolbar d-flex align-items-center gap-3'>
-                        <div>
-                            <DatePicker
-                                selected={selectedDate}
-                                onChange={(date) => {
-                                    setSelectedDate(date);
-                                    setCurrentPage(1);
-                                }}
-                                dateFormat="MMMM yyyy"
-                                showMonthYearPicker
-                                customInput={<CustomDateInput />}
-                                isClearable
-                                placeholderText="เลือกเดือน"
-                            />
-                        </div>
+                        <DatePicker
+                            selectsRange
+                            startDate={startDate}
+                            endDate={endDate}
+                            onChange={(update) => {
+                                setDateRange(update as [Date | null, Date | null]);
+                                setCurrentPage(1);
+                            }}
+                            dateFormat="dd/MM/yyyy"
+                            isClearable
+                            placeholderText="เลือกช่วงวันที่"
+                            disabled={dataLoading}
+                            customInput={
+                                <button className="btn btn-light-primary btn-sm" disabled={dataLoading}>
+                                    <i className="fas fa-calendar-alt me-2"></i>
+                                    {startDate && endDate
+                                        ? `${startDate.toLocaleDateString("th-TH")} - ${endDate.toLocaleDateString("th-TH")}`
+                                        : "เลือกช่วงวันที่"}
+                                </button>
+                            }
+                        />
                         <select
                             className='form-select form-select-solid w-150px'
                             value={statusFilter}

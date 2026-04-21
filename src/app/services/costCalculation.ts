@@ -84,7 +84,7 @@ export const createOperationCostMonthly = async (payload: {
             "POST",
             "/create_operation_cost_monthly",
             payload,
-            { wrapData: false }
+            { wrapData: true }
         );
         return await handleResponse(response);
     } catch (error) {

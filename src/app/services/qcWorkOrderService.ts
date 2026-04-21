@@ -23,7 +23,9 @@ export const getQCWorkOrderList = async (
     page: number,
     per_page: number,
     search: string = "",
-    filter: string = ""
+    filter: string = "",
+    start_date: string = "",
+    end_date: string = ""
 ): Promise<APIResponse> => {
     try {
         const params = new URLSearchParams({
@@ -32,6 +34,8 @@ export const getQCWorkOrderList = async (
         });
         if (search) params.append("search", search);
         if (filter) params.append("filter", filter);
+        if (start_date) params.append("start_date", start_date);
+        if (end_date) params.append("end_date", end_date);
 
         const response = await front_api(
             "GET",
