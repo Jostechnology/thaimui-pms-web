@@ -95,7 +95,7 @@ const MachineTypeCreateEdit: React.FC = () => {
                                 <label className="required fs-6 fw-semibold mb-2">ชื่อประเภท</label>
                                 <input
                                     type="text"
-                                    className={`form-control form-control-solid ${errors.type_name ? 'is-invalid' : ''}`}
+                                    className={`form-control form-control-lg ${errors.type_name ? 'is-invalid' : ''}`}
                                     placeholder="เช่น เครื่องดึง, เครื่องลาก"
                                     value={formData.type_name}
                                     onChange={e => setFormData({ ...formData, type_name: e.target.value })}
@@ -109,7 +109,7 @@ const MachineTypeCreateEdit: React.FC = () => {
                             <div className="col-md-8 fv-row">
                                 <label className="fs-6 fw-semibold mb-2">รายละเอียด</label>
                                 <textarea
-                                    className="form-control form-control-solid"
+                                    className="form-control form-control-lg"
                                     rows={3}
                                     placeholder="รายละเอียดเพิ่มเติม (ไม่บังคับ)"
                                     value={formData.type_description}

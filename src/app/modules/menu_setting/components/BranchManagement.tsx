@@ -134,7 +134,7 @@ const BranchManagement: React.FC = () => {
                 <div class="mb-4">
                     <div class="d-flex align-items-center position-relative">
                         <i class="bi bi-search position-absolute ms-4 fs-5 text-gray-500"></i>
-                        <input type="text" id="swal-branch-search" class="form-control form-control-solid ps-12" 
+                        <input type="text" id="swal-branch-search" class="form-control form-control-lg ps-12" 
                                placeholder="ค้นหาสาขา..." style="height: 40px;" />
                     </div>
                 </div>

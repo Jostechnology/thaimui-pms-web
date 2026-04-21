@@ -604,7 +604,7 @@ const WorkorderCreate: React.FC = () => {
                                                 <span className="badge badge-primary me-3 fs-6">{compIdx + 1}</span>
                                                 <input
                                                     type="text"
-                                                    className="form-control form-control-solid form-control-sm fw-bold"
+                                                    className="form-control form-control-lg form-control-sm fw-bold"
                                                     placeholder={`ชื่อส่วนประกอบ (Component ${compIdx + 1})`}
                                                     value={comp.component_name}
                                                     onChange={(e) => updateComponentName(comp.id, e.target.value)}
@@ -676,7 +676,7 @@ const WorkorderCreate: React.FC = () => {
                                                         <div className="col-md-3 mb-2 mb-md-0">
                                                             <input
                                                                 type="text"
-                                                                className="form-control form-control-solid"
+                                                                className="form-control form-control-lg"
                                                                 placeholder="จำนวน"
                                                                 value={mat.quantity_used}
                                                                 onChange={(e) =>

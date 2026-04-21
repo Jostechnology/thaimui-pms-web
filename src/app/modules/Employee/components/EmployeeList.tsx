@@ -175,7 +175,7 @@ const EmployeeList: React.FC = () => {
             <div className="position-relative w-100" style={{ maxWidth: 420 }}>
               <i className="bi bi-search position-absolute text-muted fs-6" style={{ left: 14, top: '50%', transform: 'translateY(-50%)' }}></i>
               <input
-                className="form-control form-control-solid ps-12"
+                className="form-control form-control-lg ps-12"
                 placeholder="ค้นหาชื่อ, เลขบัตร, เบอร์โทร, อีเมล..."
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); }}

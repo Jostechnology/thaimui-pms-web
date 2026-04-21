@@ -785,7 +785,7 @@ const WorkRunDetail: React.FC = () => {
                         <>
                             <div className='mb-4'>
                                 <label className='form-label fw-bold'>วัตถุดิบ</label>
-                                <div className='form-control form-control-solid bg-light text-gray-700'>
+                                <div className='form-control form-control-lg bg-light text-gray-700'>
                                     {editingRequiredItem.item_code} — {editingRequiredItem.item_name}
                                     <span className='text-muted ms-2 fs-8'>({editingRequiredItem.unit})</span>
                                 </div>
@@ -794,7 +794,7 @@ const WorkRunDetail: React.FC = () => {
                                 <label className='form-label fw-bold required'>จำนวน</label>
                                 <input
                                     type='text'
-                                    className={`form-control form-control-solid ${editQtyError ? 'is-invalid' : ''}`}
+                                    className={`form-control form-control-lg ${editQtyError ? 'is-invalid' : ''}`}
                                     value={editQty}
                                     onChange={e => {
                                         setEditQty(formatIntegerInput(e.target.value));
@@ -811,7 +811,7 @@ const WorkRunDetail: React.FC = () => {
                                 <div className='col'>
                                     <label className='form-label fw-bold required'>วัตถุดิบ</label>
                                     {materialLoading ? (
-                                        <div className='form-control form-control-solid text-muted'>กำลังโหลด...</div>
+                                        <div className='form-control form-control-lg text-muted'>กำลังโหลด...</div>
                                     ) : (
                                         <select
                                             className={`form-select form-select-solid ${pickerErrors.material_list_id ? 'is-invalid' : ''}`}
@@ -835,7 +835,7 @@ const WorkRunDetail: React.FC = () => {
                                     <label className='form-label fw-bold required'>จำนวน</label>
                                     <input
                                         type='text'
-                                        className={`form-control form-control-solid ${pickerErrors.quantity ? 'is-invalid' : ''}`}
+                                        className={`form-control form-control-lg ${pickerErrors.quantity ? 'is-invalid' : ''}`}
                                         placeholder='0'
                                         value={currentPicker.quantity}
                                         onChange={e => {
@@ -910,7 +910,7 @@ const WorkRunDetail: React.FC = () => {
                 <Modal.Body>
                     <div className='d-flex align-items-center position-relative my-4'>
                         <i className='ki-duotone ki-magnifier fs-3 position-absolute ms-5'><span className='path1'></span><span className='path2'></span></i>
-                        <input type='text' className='form-control form-control-solid w-100 ps-13' placeholder='ค้นหาชื่อพนักงาน...' value={empSearch} onChange={e => setEmpSearch(e.target.value)} />
+                        <input type='text' className='form-control form-control-lg w-100 ps-13' placeholder='ค้นหาชื่อพนักงาน...' value={empSearch} onChange={e => setEmpSearch(e.target.value)} />
                     </div>
                     <div className='table-responsive' style={{ maxHeight: '400px' }}>
                         <table className='table table-row-dashed align-middle gs-0 gy-4'>
@@ -956,7 +956,7 @@ const WorkRunDetail: React.FC = () => {
                 <Modal.Body>
                     <div className='d-flex align-items-center position-relative my-4'>
                         <i className='ki-duotone ki-magnifier fs-3 position-absolute ms-5'><span className='path1'></span><span className='path2'></span></i>
-                        <input type='text' className='form-control form-control-solid w-100 ps-13' placeholder='ค้นหาชื่อเครื่องจักร...' value={machineSearch} onChange={e => setMachineSearch(e.target.value)} />
+                        <input type='text' className='form-control form-control-lg w-100 ps-13' placeholder='ค้นหาชื่อเครื่องจักร...' value={machineSearch} onChange={e => setMachineSearch(e.target.value)} />
                     </div>
                     <div className='table-responsive' style={{ maxHeight: '400px' }}>
                         <table className='table table-row-dashed align-middle gs-0 gy-4'>
@@ -1134,7 +1134,7 @@ const WorkRunDetail: React.FC = () => {
                         <label className='form-label fw-bold'>จำนวนที่ใช้งานได้</label>
                         <input
                             type='text'
-                            className='form-control form-control-solid'
+                            className='form-control form-control-lg'
                             value={completeForm.usable_qty === 0 ? '' : String(completeForm.usable_qty)}
                             onChange={e => {
                                 const s = formatIntegerInput(e.target.value);
@@ -1146,7 +1146,7 @@ const WorkRunDetail: React.FC = () => {
                         <label className='form-label fw-bold'>จำนวนของเสีย</label>
                         <input
                             type='text'
-                            className='form-control form-control-solid'
+                            className='form-control form-control-lg'
                             value={completeForm.defect_qty === 0 ? '' : String(completeForm.defect_qty)}
                             onChange={e => {
                                 const s = formatIntegerInput(e.target.value);
@@ -1157,7 +1157,7 @@ const WorkRunDetail: React.FC = () => {
                     <div className='mb-4'>
                         <label className='form-label fw-bold'>หมายเหตุ (ไม่บังคับ)</label>
                         <textarea
-                            className='form-control form-control-solid'
+                            className='form-control form-control-lg'
                             rows={3}
                             value={completeForm.completion_remark}
                             onChange={e => setCompleteForm(prev => ({ ...prev, completion_remark: e.target.value }))}

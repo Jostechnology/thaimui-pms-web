@@ -151,7 +151,7 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                                     <label className="required fs-6 fw-semibold mb-2">ชื่อ</label>
                                     <input
                                         type="text"
-                                        className={`form-control form-control-solid ${errors.firstName ? "is-invalid" : ""}`}
+                                        className={`form-control form-control-lg ${errors.firstName ? "is-invalid" : ""}`}
                                         placeholder="ชื่อจริง"
                                         value={firstName}
                                         onChange={e => { setFirstName(e.target.value); clearError('firstName'); }}
@@ -162,7 +162,7 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                                     <label className="required fs-6 fw-semibold mb-2">นามสกุล</label>
                                     <input
                                         type="text"
-                                        className={`form-control form-control-solid ${errors.lastName ? "is-invalid" : ""}`}
+                                        className={`form-control form-control-lg ${errors.lastName ? "is-invalid" : ""}`}
                                         placeholder="นามสกุล"
                                         value={lastName}
                                         onChange={e => { setLastName(e.target.value); clearError('lastName'); }}
@@ -176,7 +176,7 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                                     <label className="required fs-6 fw-semibold mb-2">เลขบัตรประชาชน</label>
                                     <input
                                         type="text"
-                                        className={`form-control form-control-solid ${errors.citizenId ? "is-invalid" : ""}`}
+                                        className={`form-control form-control-lg ${errors.citizenId ? "is-invalid" : ""}`}
                                         placeholder="เลขบัตรประชาชน 13 หลัก"
                                         value={citizenId}
                                         onChange={e => { setCitizenId(formatTaxInput(e.target.value)); clearError('citizenId'); }}
@@ -188,7 +188,7 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                                     <label className="fs-6 fw-semibold mb-2">เบอร์โทรศัพท์</label>
                                     <input
                                         type="text"
-                                        className={`form-control form-control-solid ${errors.phone ? "is-invalid" : ""}`}
+                                        className={`form-control form-control-lg ${errors.phone ? "is-invalid" : ""}`}
                                         placeholder="เบอร์โทรศัพท์ติดต่อ"
                                         value={phone}
                                         onChange={e => { setPhone(formatPhoneInput(e.target.value)); clearError('phone'); }}
@@ -202,7 +202,7 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                                 <label className="fs-6 fw-semibold mb-2">อีเมล</label>
                                 <input
                                     type="text"
-                                    className={`form-control form-control-solid ${errors.email ? "is-invalid" : ""}`}
+                                    className={`form-control form-control-lg ${errors.email ? "is-invalid" : ""}`}
                                     placeholder="Ex. example@email.com"
                                     value={email}
                                     onChange={e => { setEmail(e.target.value); clearError('email'); }}
@@ -213,7 +213,7 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                             <div className="fv-row mb-8">
                                 <label className="fs-6 fw-semibold mb-2">ที่อยู่</label>
                                 <textarea
-                                    className="form-control form-control-solid"
+                                    className="form-control form-control-lg"
                                     rows={3}
                                     placeholder="ที่อยู่ปัจจุบัน"
                                     value={address}
@@ -238,7 +238,7 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                                     <label className="fs-6 fw-semibold mb-2">ฐานเงินเดือน</label>
                                     <input
                                         type="text"
-                                        className={`form-control form-control-solid ${errors.salary_base ? "is-invalid" : ""}`}
+                                        className={`form-control form-control-lg ${errors.salary_base ? "is-invalid" : ""}`}
                                         placeholder="0"
                                         value={salary_base}
                                         onChange={e => {

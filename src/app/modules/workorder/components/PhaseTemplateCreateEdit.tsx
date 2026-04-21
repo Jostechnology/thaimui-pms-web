@@ -169,7 +169,7 @@ const PhaseTemplateCreateEdit: React.FC = () => {
                                     <label className="required fs-6 fw-semibold mb-2">ชื่อ Template</label>
                                     <input
                                         type="text"
-                                        className={`form-control form-control-solid ${errors.template_name ? 'is-invalid' : ''}`}
+                                        className={`form-control form-control-lg ${errors.template_name ? 'is-invalid' : ''}`}
                                         placeholder="เช่น เทมเพลตสลิง, เทมเพลตลวดสลิง"
                                         value={templateName}
                                         onChange={e => setTemplateName(e.target.value)}
@@ -231,7 +231,7 @@ const PhaseTemplateCreateEdit: React.FC = () => {
                                                     <label className="required fs-7 fw-semibold mb-1">ชื่อ Phase</label>
                                                     <input
                                                         type="text"
-                                                        className={`form-control form-control-solid form-control-sm ${errors[`phase_${idx}`] ? 'is-invalid' : ''}`}
+                                                        className={`form-control form-control-lg form-control-sm ${errors[`phase_${idx}`] ? 'is-invalid' : ''}`}
                                                         placeholder="เช่น ดึง, ลาก, ตัด"
                                                         value={item.phase_name}
                                                         onChange={e => updatePhaseItem(idx, 'phase_name', e.target.value)}

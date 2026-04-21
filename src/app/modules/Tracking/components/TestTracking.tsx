@@ -75,7 +75,7 @@ const TestTracking: React.FC = () => {
                             <label className="form-label fw-bold fs-7 text-gray-700">ค้นหาวัตถุดิบ</label>
                             <input
                                 type="text"
-                                className="form-control form-control-solid"
+                                className="form-control form-control-lg"
                                 placeholder="ค้นหาตามรหัส หรือชื่อวัตถุดิบ..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}

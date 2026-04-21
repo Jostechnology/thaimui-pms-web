@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Content } from '../../../../_metronic/layout/components/content';
-import { Modal } from 'react-bootstrap';
-import Swal from 'sweetalert2';
-import { getPickingRequestById, createPickingItemAdjustment } from '../../../services/pickingRequestService';
+import { getPickingRequestById } from '../../../services/pickingRequestService';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
+import AdjustItemModal from '../../../modals/picking_request_modal/AdjustItemModal';
 import type {
     PickingRequestDetail,
     PickingRequestItemDetail,
-    PickingItemAdjustmentReason,
 } from '../../../type_interface/PickingRequestType';
 
 const STATUS_BADGE: Record<string, string> = {
@@ -26,11 +24,12 @@ const STATUS_LABEL: Record<string, string> = {
     FAILED: 'ล้มเหลว',
 };
 
-const REASON_LABEL: Record<PickingItemAdjustmentReason, string> = {
+const REASON_LABEL: Record<string, string> = {
     MISCOUNT: 'นับผิด',
     SPILLAGE: 'สูญหาย/เสียหาย',
     CORRECTION: 'แก้ไขรายการ',
     OTHER: 'อื่นๆ',
+    REALLOCATE: 'โอนไปรายการอื่น',
 };
 
 const SESSION_BADGE: Record<string, string> = {
@@ -125,25 +124,67 @@ const ItemRow: React.FC<{ item: PickingRequestItemDetail; onAdjust: (item: Picki
                                                     <tr className='fw-bold text-gray-700 fs-8'>
                                                         <th className='w-90px text-center'>จำนวนที่ปรับ</th>
                                                         <th className='w-180px'>เหตุผล</th>
+                                                        <th className='w-250px'>คู่โอน (Reallocate)</th>
                                                         <th>หมายเหตุ</th>
                                                         <th className='w-120px'>บันทึกโดย</th>
                                                         <th className='w-150px'>วันที่</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {item.adjustments.map(adj => (
-                                                        <tr key={adj.id}>
-                                                            <td className='text-center'><DeltaBadge value={adj.delta_qty} /></td>
-                                                            <td>
-                                                                <span className='badge badge-light-secondary fw-bold fs-8'>
-                                                                    {REASON_LABEL[adj.reason] ?? adj.reason}
-                                                                </span>
-                                                            </td>
-                                                            <td className='text-gray-600'>{adj.remark ?? '-'}</td>
-                                                            <td className='text-gray-600'>{adj.created_by ?? '-'}</td>
-                                                            <td className='text-gray-600'>{formatDate(adj.created_date)}</td>
-                                                        </tr>
-                                                    ))}
+                                                    {item.adjustments.map(adj => {
+                                                        const isRealloc = adj.reason === 'REALLOCATE';
+                                                        const cp = adj.counterparty;
+                                                        const direction = adj.delta_qty < 0 ? 'out' : 'in';
+                                                        return (
+                                                            <tr key={adj.id}>
+                                                                <td className='text-center'><DeltaBadge value={adj.delta_qty} /></td>
+                                                                <td>
+                                                                    <span className={`badge ${isRealloc ? 'badge-light-info' : 'badge-light-secondary'} fw-bold fs-8`}>
+                                                                        {isRealloc && (
+                                                                            <i className={`bi bi-arrow-${direction === 'out' ? 'right' : 'left'} me-1`}></i>
+                                                                        )}
+                                                                        {REASON_LABEL[adj.reason] ?? adj.reason}
+                                                                    </span>
+                                                                </td>
+                                                                <td>
+                                                                    {isRealloc && cp ? (
+                                                                        <div>
+                                                                            <div className='fw-bold fs-8'>
+                                                                                <i className={`bi bi-arrow-${direction === 'out' ? 'up-right' : 'down-left'} me-1 ${direction === 'out' ? 'text-danger' : 'text-success'}`}></i>
+                                                                                {cp.picking_request_id ? (
+                                                                                    <a
+                                                                                        href={`/documents/picking_request/${cp.picking_request_id}`}
+                                                                                        target='_blank'
+                                                                                        rel='noopener noreferrer'
+                                                                                        className='text-primary text-hover-primary text-decoration-underline'
+                                                                                        title='เปิดใบเบิกในแท็บใหม่'
+                                                                                    >
+                                                                                        {cp.picking_request_code ?? `PR #${cp.picking_request_id}`}
+                                                                                        <i className='bi bi-box-arrow-up-right ms-1 fs-9'></i>
+                                                                                    </a>
+                                                                                ) : (
+                                                                                    <span className='text-gray-800'>
+                                                                                        {cp.picking_request_code ?? `PRI #${cp.picking_request_item_id}`}
+                                                                                    </span>
+                                                                                )}
+                                                                                {cp.so_order_line_num != null && (
+                                                                                    <span className='text-muted fw-normal ms-2'>Line {cp.so_order_line_num}</span>
+                                                                                )}
+                                                                            </div>
+                                                                            <div className='text-muted fs-8 mt-1'>
+                                                                                {cp.item_code} — {cp.item_name}
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className='text-muted'>-</span>
+                                                                    )}
+                                                                </td>
+                                                                <td className='text-gray-600'>{adj.remark ?? '-'}</td>
+                                                                <td className='text-gray-600'>{adj.created_by ?? '-'}</td>
+                                                                <td className='text-gray-600'>{formatDate(adj.created_date)}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -251,12 +292,7 @@ const PickingRequestView: React.FC = () => {
     const { alertMessage } = useAlertModal();
 
     const [pr, setPr] = useState<PickingRequestDetail | null>(null);
-
-    // Adjust modal
     const [adjustTarget, setAdjustTarget] = useState<PickingRequestItemDetail | null>(null);
-    const [adjustForm, setAdjustForm] = useState<{ delta_qty: string; reason: PickingItemAdjustmentReason | ''; remark: string }>({ delta_qty: '', reason: '', remark: '' });
-    const [adjustErrors, setAdjustErrors] = useState<Record<string, string>>({});
-    const [adjustSaving, setAdjustSaving] = useState(false);
 
     const fetchDetail = async () => {
         setLoading();
@@ -276,37 +312,6 @@ const PickingRequestView: React.FC = () => {
 
     const openAdjustModal = (item: PickingRequestItemDetail) => {
         setAdjustTarget(item);
-        setAdjustForm({ delta_qty: '', reason: '', remark: '' });
-        setAdjustErrors({});
-    };
-
-    const handleAdjustSubmit = async () => {
-        if (!adjustTarget) return;
-        const newErrors: Record<string, string> = {};
-        const deltaStr = adjustForm.delta_qty.trim();
-        if (!deltaStr || deltaStr === '-') newErrors.delta_qty = 'กรุณาระบุจำนวน';
-        else if (!/^-?\d+$/.test(deltaStr)) newErrors.delta_qty = 'ต้องเป็นตัวเลขจำนวนเต็ม';
-        else if (Number(deltaStr) === 0) newErrors.delta_qty = 'จำนวนต้องไม่เป็น 0';
-        if (!adjustForm.reason) newErrors.reason = 'กรุณาเลือกเหตุผล';
-        if (Object.keys(newErrors).length > 0) { setAdjustErrors(newErrors); return; }
-
-        setAdjustSaving(true);
-        try {
-            const res = await createPickingItemAdjustment(adjustTarget.picking_request_item_id, {
-                delta_qty: Number(adjustForm.delta_qty),
-                reason: adjustForm.reason as PickingItemAdjustmentReason,
-                remark: adjustForm.remark.trim() || undefined,
-            });
-            if (res.success) {
-                Swal.fire({ title: 'บันทึกการปรับปรุงสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false });
-                setAdjustTarget(null);
-                fetchDetail();
-            } else {
-                Swal.fire('ผิดพลาด!', res.message || 'ไม่สามารถบันทึกได้', 'error');
-            }
-        } finally {
-            setAdjustSaving(false);
-        }
     };
 
     return (
@@ -329,12 +334,12 @@ const PickingRequestView: React.FC = () => {
                             )}
                             {pr?.sales_order && (
                                 <span className='text-muted fw-semibold fs-7'>
-                                    <i className='bi bi-receipt me-1'></i>{pr.sales_order.doc_num}
+                                    <i className='bi bi-receipt me-1'></i>หมายเลขใบสั่งขาย {pr.sales_order.doc_num}
                                 </span>
                             )}
                             {pr?.wms_reference && (
                                 <span className='text-muted fw-semibold fs-7'>
-                                    <i className='bi bi-link-45deg me-1'></i>{pr.wms_reference}
+                                    <i className='bi bi-link-45deg me-1'></i>WMS Reference : {pr.wms_reference}
                                 </span>
                             )}
                         </div>
@@ -424,85 +429,12 @@ const PickingRequestView: React.FC = () => {
                     )}
                 </div>
             </div>
-            {/* Adjust Item Modal */}
-            <Modal show={adjustTarget !== null} onHide={() => setAdjustTarget(null)} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title className='fw-bold'>
-                        <i className='bi bi-pencil-square me-2 text-warning'></i>ปรับปรุงรายการ
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    {adjustTarget && (
-                        <div className='p-3 bg-light rounded mb-5'>
-                            <div className='fw-bold text-gray-800 fs-6'>{adjustTarget.item_name}</div>
-                            <div className='text-muted fs-7 mt-1'>
-                                <span className='me-4'><i className='bi bi-tag me-1'></i>{adjustTarget.item_code}</span>
-                                <span><i className='bi bi-box-seam me-1'></i>จำนวนเดิม: <span className='fw-bold text-gray-700'>{adjustTarget.quantity} {adjustTarget.unit}</span></span>
-                            </div>
-                            <div className='mt-2 d-flex gap-4 fs-8 text-muted'>
-                                <span>Committed: <span className='fw-bold text-gray-700'>{adjustTarget.qty_committed}</span></span>
-                                <span>Adj.รวม: <span className={`fw-bold ${adjustTarget.adj_total < 0 ? 'text-danger' : adjustTarget.adj_total > 0 ? 'text-success' : 'text-gray-700'}`}>{adjustTarget.adj_total > 0 ? `+${adjustTarget.adj_total}` : adjustTarget.adj_total}</span></span>
-                                <span>คงเหลือ: <span className={`fw-bold ${adjustTarget.qty_available > 0 ? 'text-success' : adjustTarget.qty_available < 0 ? 'text-danger' : 'text-gray-700'}`}>{adjustTarget.qty_available}</span></span>
-                            </div>
-                        </div>
-                    )}
-                    <div className='mb-5'>
-                        <label className='form-label fw-bold required'>จำนวนที่ปรับ (+ เพิ่ม / − ลด)</label>
-                        <input
-                            type='text'
-                            className={`form-control form-control-solid ${adjustErrors.delta_qty ? 'is-invalid' : ''}`}
-                            placeholder='เช่น -2 หรือ 5'
-                            value={adjustForm.delta_qty}
-                            onChange={e => {
-                                const v = e.target.value;
-                                if (v === '' || v === '-' || /^-?\d*$/.test(v)) {
-                                    setAdjustForm(f => ({ ...f, delta_qty: v }));
-                                    if (adjustErrors.delta_qty) setAdjustErrors(prev => { const n = { ...prev }; delete n.delta_qty; return n; });
-                                }
-                            }}
-                        />
-                        {adjustErrors.delta_qty && <div className='invalid-feedback'>{adjustErrors.delta_qty}</div>}
-                        <div className='form-text text-muted'>ค่าลบ = ลดจำนวน, ค่าบวก = เพิ่มจำนวน</div>
-                    </div>
-                    <div className='mb-5'>
-                        <label className='form-label fw-bold required'>เหตุผล</label>
-                        <select
-                            className={`form-select form-select-solid ${adjustErrors.reason ? 'is-invalid' : ''}`}
-                            value={adjustForm.reason}
-                            onChange={e => {
-                                setAdjustForm(f => ({ ...f, reason: e.target.value as PickingItemAdjustmentReason }));
-                                if (adjustErrors.reason) setAdjustErrors(prev => { const n = { ...prev }; delete n.reason; return n; });
-                            }}
-                        >
-                            <option value=''>-- เลือกเหตุผล --</option>
-                            {(Object.entries(REASON_LABEL) as [PickingItemAdjustmentReason, string][]).map(([val, label]) => (
-                                <option key={val} value={val}>{label}</option>
-                            ))}
-                        </select>
-                        {adjustErrors.reason && <div className='invalid-feedback'>{adjustErrors.reason}</div>}
-                    </div>
-                    <div className='mb-2'>
-                        <label className='form-label fw-bold'>หมายเหตุ (ไม่บังคับ)</label>
-                        <textarea
-                            className='form-control form-control-solid'
-                            rows={2}
-                            placeholder='อธิบายสาเหตุหรือบริบทเพิ่มเติม'
-                            value={adjustForm.remark}
-                            onChange={e => setAdjustForm(f => ({ ...f, remark: e.target.value }))}
-                        />
-                    </div>
-                </Modal.Body>
-                <Modal.Footer>
-                    <button className='btn btn-light fw-bold' onClick={() => setAdjustTarget(null)} disabled={adjustSaving}>
-                        ยกเลิก
-                    </button>
-                    <button className='btn btn-warning fw-bold' onClick={handleAdjustSubmit} disabled={adjustSaving}>
-                        {adjustSaving
-                            ? <><span className='spinner-border spinner-border-sm me-2' />กำลังบันทึก...</>
-                            : <><i className='bi bi-check-lg me-2'></i>บันทึกการปรับปรุง</>}
-                    </button>
-                </Modal.Footer>
-            </Modal>
+            <AdjustItemModal
+                show={adjustTarget !== null}
+                onHide={() => setAdjustTarget(null)}
+                item={adjustTarget}
+                onSuccess={fetchDetail}
+            />
         </Content>
     );
 };

@@ -28,7 +28,7 @@ function SearchComponent(props: SearchProps) {
         <div className="input-group">
             <input
                 type="text"
-                className="form-control form-control-solid" 
+                className="form-control form-control-lg" 
                 placeholder={placeholer ? placeholer : "Search..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}

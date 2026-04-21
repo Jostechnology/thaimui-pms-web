@@ -48,7 +48,7 @@ const MonthlyOperationList: React.FC = () => {
             </button>
             <input
                 type="text"
-                className="form-control form-control-sm form-control-solid w-150px text-center fw-bold cursor-pointer ms-2"
+                className="form-control form-control-sm form-control-lg w-150px text-center fw-bold cursor-pointer ms-2"
                 value={value}
                 readOnly
                 placeholder="ทุกเดือน"
@@ -234,7 +234,7 @@ const MonthlyOperationList: React.FC = () => {
                             </i>
                             <input
                                 type='text'
-                                className='form-control form-control-solid w-250px ps-12'
+                                className='form-control form-control-lg w-250px ps-12'
                                 placeholder='ค้นหาจากวันที่'
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}

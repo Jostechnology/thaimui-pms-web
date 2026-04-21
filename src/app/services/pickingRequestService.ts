@@ -1,5 +1,5 @@
 import { front_api } from "./apiConfig";
-import type { PickingRequestPayload, PickingRequestStatusPayload, PickingItemAdjustmentPayload } from "../type_interface/PickingRequestType";
+import type { PickingRequestPayload, PickingRequestStatusPayload, PickingItemAdjustmentPayload, ReallocatePayload } from "../type_interface/PickingRequestType";
 
 interface APIResponse {
     success: boolean;
@@ -120,6 +120,39 @@ export const getPickingRequestAdjustments = async (
         return await handleResponse(response);
     } catch {
         return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูล" };
+    }
+};
+
+export const getPickingItemReallocateOptions = async (
+    pickingRequestItemId: number
+): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "GET",
+            `/picking_request_item/${pickingRequestItemId}/reallocate_options`,
+            {},
+            { wrapData: false }
+        );
+        return await handleResponse(response);
+    } catch {
+        return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูล" };
+    }
+};
+
+export const createPickingItemReallocate = async (
+    pickingRequestItemId: number,
+    payload: ReallocatePayload
+): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "POST",
+            `/picking_request_item/${pickingRequestItemId}/reallocate`,
+            payload,
+            { wrapData: false }
+        );
+        return await handleResponse(response);
+    } catch {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
     }
 };
 

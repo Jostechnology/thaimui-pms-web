@@ -30,14 +30,27 @@ export interface PickingRequest {
 
 // ── Detail view types ──────────────────────────────────────────────────────
 
+export interface AdjustmentCounterparty {
+    picking_request_item_id: number;
+    picking_request_id?: number;
+    picking_request_code: string | null;
+    item_code: string;
+    item_name: string;
+    so_order_line_num: number | null;
+    quantity: number;
+    unit?: string;
+}
+
 export interface PickingRequestAdjustmentDetail {
     id: number;
     picking_request_item_id: number;
     delta_qty: number;
-    reason: PickingItemAdjustmentReason;
+    reason: PickingItemAdjustmentReason | 'REALLOCATE';
     remark: string | null;
     created_by: string | null;
     created_date: string | null;
+    counterparty_picking_request_item_id?: number | null;
+    counterparty?: AdjustmentCounterparty | null;
 }
 
 export interface TestResultConsumption {
@@ -127,6 +140,7 @@ export interface PickingRequestStatusPayload {
 }
 
 export type PickingItemAdjustmentReason = 'MISCOUNT' | 'SPILLAGE' | 'CORRECTION' | 'OTHER';
+export type AdjustmentActionType = PickingItemAdjustmentReason | 'REALLOCATE';
 
 export interface PickingItemAdjustment {
     id: number;
@@ -146,5 +160,53 @@ export interface PickingItemAdjustment {
 export interface PickingItemAdjustmentPayload {
     delta_qty: number;
     reason: PickingItemAdjustmentReason;
+    remark?: string;
+}
+
+export interface ReallocateTargetPRI {
+    picking_request_item_id: number;
+    picking_request_id: number;
+    picking_request_code: string | null;
+    item_code: string;
+    item_name: string;
+    quantity: number;
+    unit: string;
+    qty_available?: number;
+    order_line_num: number | null;
+}
+
+export interface ReallocateTargetSalesItem {
+    sales_item_id: number;
+    item_code: string;
+    item_name: string;
+    quantity: number;
+    unit_name: string;
+    doc_entry: number;
+    doc_num: number;
+}
+
+export interface ReallocateTargetMaterialList {
+    material_list_id: number;
+    item_code: string;
+    item_name: string;
+    quantity: number;
+    unit_name: string;
+    sales_item_id: number;
+    order_line_num: number;
+}
+
+export interface ReallocateOptionsData {
+    picking_request_items: ReallocateTargetPRI[];
+    sales_items: ReallocateTargetSalesItem[];
+    material_lists: ReallocateTargetMaterialList[];
+}
+
+export type ReallocateTargetKind = 'picking_request_item' | 'sales_item' | 'material_list';
+
+export interface ReallocatePayload {
+    qty: number;
+    to_picking_request_item_id?: number;
+    to_sales_item_id?: number;
+    to_material_list_id?: number;
     remark?: string;
 }
