@@ -316,7 +316,7 @@ const PickingRequestList: React.FC = () => {
                                                     <td>
                                                         {item.wms_reference
                                                             ? <span className='fw-bold text-gray-800'>{item.wms_reference}</span>
-                                                            : <span className='text-muted'>-</span>}
+                                                            : <span className='fw-bold text-info'>Reallocate</span>}
                                                     </td>
                                                     <td className='text-gray-700'>{item.created_by ?? '-'}</td>
                                                     <td className='text-gray-700'>{formatDate(item.created_date)}</td>

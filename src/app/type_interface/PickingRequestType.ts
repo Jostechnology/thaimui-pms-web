@@ -208,5 +208,6 @@ export interface ReallocatePayload {
     to_picking_request_item_id?: number;
     to_sales_item_id?: number;
     to_material_list_id?: number;
+    so_doc_entry?: number;
     remark?: string;
 }

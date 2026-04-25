@@ -368,12 +368,16 @@ const PickingRequestView: React.FC = () => {
                                 <span className='text-muted fs-8 fw-bold d-block mb-1'>วันที่อัปเดต</span>
                                 <span className='fw-semibold text-gray-700 fs-7'>{formatDate(pr.updated_date)}</span>
                             </div>
-                            {pr.remark && (
-                                <div className='col-12'>
-                                    <span className='text-muted fs-8 fw-bold d-block mb-1'>หมายเหตุ</span>
-                                    <span className='text-gray-700 fs-7'>{pr.remark}</span>
-                                </div>
-                            )}
+                            
+                            <div className='col-md-3'>
+                                <span className='text-muted fs-8 fw-bold d-block mb-1'>หมายเหตุ</span>
+                                <span className='text-gray-700 fs-7'>{pr.remark}</span>
+                            </div>
+                            
+                            <div className='col-md-3'>
+                                <span className='text-muted fs-8 fw-bold d-block mb-1'>WMS Reference</span>
+                                <span className='fw-semibold text-gray-700 fs-7'>{pr.wms_reference ?? <span>ไม่ถูกส่งไป WMS <span className='fw-bold text-info'>(Reallocate)</span></span>}</span>
+                            </div>
                         </div>
                     </div>
                 </div>

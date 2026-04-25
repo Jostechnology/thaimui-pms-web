@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from 'react-bootstrap';
+import Select from 'react-select';
 import Swal from 'sweetalert2';
 import {
     createPickingItemAdjustment,
     createPickingItemReallocate,
     getPickingItemReallocateOptions,
 } from '../../services/pickingRequestService';
+import { searchSalesOrderService, getSalesOrderItems } from '../../services/salesOrderService';
 import type {
     AdjustmentActionType,
     PickingItemAdjustmentReason,
@@ -44,6 +46,11 @@ const AdjustItemModal: React.FC<Props> = ({ show, onHide, item, onSuccess }) => 
     const [targetId, setTargetId] = useState<string>('');
     const [options, setOptions] = useState<ReallocateOptionsData | null>(null);
     const [optionsLoading, setOptionsLoading] = useState(false);
+    const [soKeyword, setSoKeyword] = useState('');
+    const [soOptions, setSoOptions] = useState<any[]>([]);
+    const [selectedSO, setSelectedSO] = useState<any>(null);
+    const [soItems, setSoItems] = useState<{ sales_items: any[]; material_lists: any[] } | null>(null);
+    const [soItemsLoading, setSoItemsLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [saving, setSaving] = useState(false);
 
@@ -56,9 +63,55 @@ const AdjustItemModal: React.FC<Props> = ({ show, onHide, item, onSuccess }) => 
             setTargetKind('picking_request_item');
             setTargetId('');
             setOptions(null);
+            setSoKeyword('');
+            setSoOptions([]);
+            setSelectedSO(null);
+            setSoItems(null);
+            setSoItemsLoading(false);
             setErrors({});
         }
     }, [show, item]);
+
+    useEffect(() => {
+        if (targetKind === 'picking_request_item') return;
+        const timeout = setTimeout(async () => {
+            try {
+                const res: any = await searchSalesOrderService(soKeyword);
+                const list = res?.data
+                    ? (Array.isArray(res.data) ? res.data : (res.data.items || res.data.data || []))
+                    : [];
+                setSoOptions(list);
+            } catch {
+                setSoOptions([]);
+            }
+        }, 400);
+        return () => clearTimeout(timeout);
+    }, [soKeyword, targetKind]);
+
+    useEffect(() => {
+        if (!selectedSO || !item) {
+            setSoItems(null);
+            return;
+        }
+        (async () => {
+            setSoItemsLoading(true);
+            setTargetId('');
+            try {
+                const res = await getSalesOrderItems(selectedSO.doc_entry);
+                if (res.success && res.data) {
+                    const code = item.item_code;
+                    setSoItems({
+                        sales_items: (res.data.sales_items ?? []).filter((o: any) => o.item_code === code),
+                        material_lists: (res.data.material_lists ?? []).filter((o: any) => o.item_code === code),
+                    });
+                } else {
+                    setSoItems({ sales_items: [], material_lists: [] });
+                }
+            } finally {
+                setSoItemsLoading(false);
+            }
+        })();
+    }, [selectedSO]);
 
     useEffect(() => {
         const load = async () => {
@@ -100,6 +153,9 @@ const AdjustItemModal: React.FC<Props> = ({ show, onHide, item, onSuccess }) => 
         const qtyErr = validatePositiveInteger(qty, 'จำนวนที่โอน')
             ?? (item ? validateMaxValue(qty, item.qty_available, 'จำนวนที่โอน') : null);
         if (qtyErr) e.qty = qtyErr;
+        if (targetKind !== 'picking_request_item' && !selectedSO) {
+            e.so = 'กรุณาเลือกใบสั่งขาย';
+        }
         const targetErr = validateRequired(targetId, 'ปลายทาง');
         if (targetErr) e.target = targetErr;
         setErrors(e);
@@ -133,9 +189,15 @@ const AdjustItemModal: React.FC<Props> = ({ show, onHide, item, onSuccess }) => 
         if (!validateReallocate()) return;
         const id = Number(targetId);
         const payload: any = { qty: Number(qty), remark: remark.trim() || undefined };
-        if (targetKind === 'picking_request_item') payload.to_picking_request_item_id = id;
-        else if (targetKind === 'sales_item') payload.to_sales_item_id = id;
-        else payload.to_material_list_id = id;
+        if (targetKind === 'picking_request_item') {
+            payload.to_picking_request_item_id = id;
+        } else if (targetKind === 'sales_item') {
+            payload.to_sales_item_id = id;
+            payload.so_doc_entry = selectedSO?.doc_entry;
+        } else {
+            payload.to_material_list_id = id;
+            payload.so_doc_entry = selectedSO?.doc_entry;
+        }
 
         setSaving(true);
         try {
@@ -162,17 +224,30 @@ const AdjustItemModal: React.FC<Props> = ({ show, onHide, item, onSuccess }) => 
     };
 
     const renderTargetList = () => {
-        if (!options) return null;
-        const opts = targetKind === 'picking_request_item' ? options.picking_request_items
-            : targetKind === 'sales_item' ? options.sales_items
-            : options.material_lists;
+        if (targetKind !== 'picking_request_item') {
+            if (!selectedSO) {
+                return <div className='text-muted fs-7 p-3 bg-light rounded text-center'>เลือกใบสั่งขายก่อนเพื่อดูตัวเลือก</div>;
+            }
+            if (soItemsLoading) {
+                return <div className='text-center py-4 text-muted'><span className='spinner-border spinner-border-sm me-2' />กำลังโหลดรายการ...</div>;
+            }
+        }
+
+        if (!options && targetKind === 'picking_request_item') return null;
+
+        const opts: any[] = targetKind === 'picking_request_item'
+            ? (options?.picking_request_items ?? [])
+            : targetKind === 'sales_item'
+                ? (soItems?.sales_items ?? [])
+                : (soItems?.material_lists ?? []);
+
         if (opts.length === 0) {
             return <div className='text-muted fs-7 p-3 bg-light rounded'>ไม่มีตัวเลือกสำหรับประเภทนี้</div>;
         }
         return (
             <div className='table-responsive border rounded' style={{ maxHeight: 260, overflowY: 'auto' }}>
                 <table className='table table-hover align-middle fs-7 mb-0'>
-                    <thead className='table-light sticky-top'>
+                    <thead className='table-light'>
                         <tr className='fw-bold text-gray-700 fs-8'>
                             <th className='w-40px'></th>
                             {targetKind === 'picking_request_item' && <><th>PR Code</th><th>สินค้า</th><th className='text-center w-70px'>จำนวน</th></>}
@@ -181,14 +256,14 @@ const AdjustItemModal: React.FC<Props> = ({ show, onHide, item, onSuccess }) => 
                         </tr>
                     </thead>
                     <tbody>
-                        {targetKind === 'picking_request_item' && options.picking_request_items.map(o => (
+                        {targetKind === 'picking_request_item' && opts.map(o => (
                             <tr key={o.picking_request_item_id}
                                 className={targetId === String(o.picking_request_item_id) ? 'table-active' : ''}
                                 onClick={() => { setTargetId(String(o.picking_request_item_id)); clearErr('target'); }}
                                 style={{ cursor: 'pointer' }}>
                                 <td className='text-center'>
                                     <input type='radio' className='form-check-input'
-                                        checked={targetId === String(o.picking_request_item_id)}readOnly />
+                                        checked={targetId === String(o.picking_request_item_id)} readOnly />
                                 </td>
                                 <td className='fw-bold text-gray-800'>{o.picking_request_code ?? `#${o.picking_request_id}`} (SO-Line : {o.order_line_num})</td>
                                 <td>
@@ -198,7 +273,7 @@ const AdjustItemModal: React.FC<Props> = ({ show, onHide, item, onSuccess }) => 
                                 <td className='text-center text-gray-700'>{o.quantity} {o.unit}</td>
                             </tr>
                         ))}
-                        {targetKind === 'sales_item' && options.sales_items.map(o => (
+                        {targetKind === 'sales_item' && opts.map(o => (
                             <tr key={o.sales_item_id}
                                 className={targetId === String(o.sales_item_id) ? 'table-active' : ''}
                                 onClick={() => { setTargetId(String(o.sales_item_id)); clearErr('target'); }}
@@ -215,7 +290,7 @@ const AdjustItemModal: React.FC<Props> = ({ show, onHide, item, onSuccess }) => 
                                 <td className='text-center text-gray-700'>{o.quantity} {o.unit_name}</td>
                             </tr>
                         ))}
-                        {targetKind === 'material_list' && options.material_lists.map(o => (
+                        {targetKind === 'material_list' && opts.map(o => (
                             <tr key={o.material_list_id}
                                 className={targetId === String(o.material_list_id) ? 'table-active' : ''}
                                 onClick={() => { setTargetId(String(o.material_list_id)); clearErr('target'); }}
@@ -323,7 +398,7 @@ const AdjustItemModal: React.FC<Props> = ({ show, onHide, item, onSuccess }) => 
                             {errors.qty && <div className='invalid-feedback'>{errors.qty}</div>}
                             <div className='form-text text-muted'>ระบบจะสร้างรายการปรับลบฝั่งต้นทาง และเพิ่มฝั่งปลายทาง</div>
                             <div className='form-text text-muted'><span className='text-info fw-bold'>ใบเบิกอื่น</span> ระบบจะย้ายจำนวนไปยังรายการใบเบิกที่เลือก</div>
-                            <div className='form-text text-muted'><span className='text-info fw-bold'>สินค้า / วัตถุดิบ</span> ระบบจะสร้างใบเบิกใหม่ขึ้นมา เพื่อให้สินค้ามีที่อยู่ โดยจะเป็นสินค้า item code เดียวกันภายใน SalesOrder เดียวกัน ใบเบิกนี้จะไม่ถูกส่งไป WMS</div>
+                            <div className='form-text text-muted'><span className='text-info fw-bold'>สินค้า / วัตถุดิบ</span> ระบบจะสร้างใบเบิกใหม่ขึ้นมา เพื่อให้สินค้ามีที่อยู่ โดยจะเป็นสินค้า item code เดียวกันภายใน SalesOrder ที่เลือกไว้ ใบเบิกนี้จะไม่ถูกส่งไป WMS</div>
                         </div>
 
                         <div className='mb-3'>
@@ -331,20 +406,50 @@ const AdjustItemModal: React.FC<Props> = ({ show, onHide, item, onSuccess }) => 
                             <div className='btn-group w-100 mb-3' role='group'>
                                 <button type='button'
                                     className={`btn btn-sm ${targetKind === 'picking_request_item' ? 'btn-primary' : 'btn-light'}`}
-                                    onClick={() => { setTargetKind('picking_request_item'); setTargetId(''); clearErr('target'); }}>
+                                    onClick={() => {
+                                        setTargetKind('picking_request_item');
+                                        setTargetId('');
+                                        setSoKeyword('');
+                                        setSoOptions([]);
+                                        setSelectedSO(null);
+                                        clearErr('target');
+                                        clearErr('so');
+                                    }}>
                                     ใบเบิกอื่น ({options?.picking_request_items.length ?? 0})
                                 </button>
                                 <button type='button'
                                     className={`btn btn-sm ${targetKind === 'sales_item' ? 'btn-primary' : 'btn-light'}`}
                                     onClick={() => { setTargetKind('sales_item'); setTargetId(''); clearErr('target'); }}>
-                                    สินค้า ({options?.sales_items.length ?? 0})
+                                    สินค้า ({soItems?.sales_items.length ?? 0})
                                 </button>
                                 <button type='button'
                                     className={`btn btn-sm ${targetKind === 'material_list' ? 'btn-primary' : 'btn-light'}`}
                                     onClick={() => { setTargetKind('material_list'); setTargetId(''); clearErr('target'); }}>
-                                    วัตถุดิบ ({options?.material_lists.length ?? 0})
+                                    วัตถุดิบ ({soItems?.material_lists.length ?? 0})
                                 </button>
                             </div>
+                            {(targetKind === 'sales_item' || targetKind === 'material_list') && (
+                                <div className='mb-3'>
+                                    <label className='form-label fw-semibold fs-8 text-muted text-uppercase required'>ใบสั่งขาย (Sales Order)</label>
+                                    <Select
+                                        options={soOptions}
+                                        getOptionLabel={(o: any) => o.doc_num}
+                                        getOptionValue={(o: any) => String(o.doc_entry)}
+                                        formatOptionLabel={(o: any) => <span className='fw-bold'>{o.doc_num}</span>}
+                                        value={selectedSO}
+                                        onInputChange={(v, meta) => { if (meta.action === 'input-change') setSoKeyword(v); }}
+                                        onChange={(o) => {
+                                            setSelectedSO(o);
+                                            setTargetId('');
+                                            if (errors.so) clearErr('so');
+                                        }}
+                                        placeholder='ค้นหาใบสั่งขาย...'
+                                        isClearable
+                                        filterOption={null}
+                                    />
+                                    {errors.so && <div className='text-danger fs-8 mt-1'>{errors.so}</div>}
+                                </div>
+                            )}
                             {optionsLoading ? (
                                 <div className='text-center py-5 text-muted'>
                                     <span className='spinner-border spinner-border-sm me-2' />กำลังโหลดตัวเลือก...

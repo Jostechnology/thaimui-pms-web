@@ -78,6 +78,24 @@ export const getSalesItemTracking = async (salesItemId: number) => {
     }
 }
 
+export const getSalesOrderItems = async (doc_entry: number) => {
+    try {
+        const response = await front_api(
+            "GET",
+            `/sales_order/${doc_entry}/items`,
+            {},
+            { wrapData: false }
+        );
+
+        if (!response) return { success: false, data: null };
+        const result = await response.json();
+        return response.ok ? { ...result, success: true } : { ...result, success: false };
+    } catch (error) {
+        console.error("getSalesOrderItems Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+}
+
 export const getSalesItemsFromSalesOrder = async (doc_entry: number) => {
     try {
         const response = await front_api(
