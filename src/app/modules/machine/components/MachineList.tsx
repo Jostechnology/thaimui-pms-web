@@ -4,6 +4,15 @@ import { getMachineList, deleteMachine } from '../../../services/machineService.
 import type { Machine } from '../../../type_interface/MachineType';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
+import Select from 'react-select';
+
+const statusOptions = [
+    { value: '', label: 'สถานะทั้งหมด' },
+    { value: 'RUNNING', label: 'กำลังทำงาน' },
+    { value: 'IDLE', label: 'รอการใช้งาน' },
+    { value: 'DOWN', label: 'เครื่องขัดข้อง' },
+    { value: 'OFFLINE', label: 'ออฟไลน์' },
+];
 
 const MachineList: React.FC = () => {
     const [machines, setMachines] = useState<Machine[]>([]);
@@ -78,15 +87,6 @@ const MachineList: React.FC = () => {
         setCurrentPage(1);
     };
 
-    const getStatusTheme = (status: string) => {
-        switch (status?.toUpperCase()) {
-            case 'RUNNING': return 'success';
-            case 'DOWN': return 'danger';
-            case 'IDLE': return 'warning';
-            default: return 'secondary';
-        }
-    };
-
     const handleDelete = async (machineId: number, machineCode: string) => {
         const confirm = await Swal.fire({
             title: 'ยืนยันการลบ?',
@@ -114,23 +114,22 @@ const MachineList: React.FC = () => {
     return (
         <Content>
             {/* Header: หัวข้อ */}
-            <div className="mb-6">
-                <h1 className="text-gray-900 fw-bold fs-2qx mb-1">
-                    <i className="bi bi-gear-wide text-primary fs-2qx me-3"></i>
-                    Machine Equipment List
-                </h1>
-                <span className="text-muted fw-semibold fs-6">
-                    จัดการเครื่องจักร (Machine Equipment)
-                </span>
-                <div className="d-flex align-items-center my-2">
-                    <button
-                        className="btn btn-primary btn-sm"
-                        title="Add new machine"
-                        onClick={() => navigate('/machine/machine_create')}
-                    >
-                        <i className="bi bi-plus-lg fs-4 me-1"></i> Add Machine
-                    </button>
+            <div className='d-flex flex-stack mb-10'>
+                <div className='d-flex flex-column'>
+                    <h1 className="text-gray-900 fw-bold fs-2qx mb-1">
+                        รายการเครื่องจักร
+                    </h1>
+                    <span className="text-muted fw-semibold fs-6">
+                        จัดการเครื่องจักรในระบบ
+                    </span>
                 </div>
+                <button
+                    className="btn btn-primary fw-bold px-6 shadow-sm"
+                    title="เพิ่มเครื่องจักรใหม่"
+                    onClick={() => navigate('/machine/machine_create')}
+                >
+                    <i className="bi bi-plus-lg fs-4 me-1"></i> เพิ่มเครื่องจักร
+                </button>
             </div>
 
             <div className="card">
@@ -152,18 +151,14 @@ const MachineList: React.FC = () => {
                     <div className="card-toolbar">
                         {/* Dropdown Filter */}
                         <div className="d-flex align-items-center">
-                            <label className="fs-7 fw-bold text-gray-700 me-3">Status:</label>
-                            <select
-                                className="form-select form-select-solid form-select-sm w-150px"
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                            >
-                                <option value="">สถานะทั้งหมด</option>
-                                <option value="RUNNING">🟢 กำลังทำงาน</option>
-                                <option value="IDLE">🟡 รอการใช้งาน</option>
-                                <option value="DOWN">🔴 เครื่องขัดข้อง</option>
-                                <option value="OFFLINE">⚪ ออฟไลน์</option>
-                            </select>
+                            <Select
+                                options={statusOptions}
+                                value={statusOptions.find(o => o.value === statusFilter) ?? statusOptions[0]}
+                                onChange={(selected) => setStatusFilter(selected?.value ?? '')}
+                                isSearchable
+                                className="w-200px"
+                                classNamePrefix="react-select"
+                            />
                         </div>
                     </div>
                 </div>

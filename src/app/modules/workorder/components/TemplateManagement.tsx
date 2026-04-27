@@ -6,7 +6,7 @@ import { useAlertModal } from '../../../context/ModalContext';
 import { getComponentTemplates, deleteComponentTemplate } from '../../../services/componentTemplateService';
 import TablePaginator from '../../../custom_components/TablePaginator';
 import Swal from 'sweetalert2';
-import type { ComponentTemplate } from '../../../type_interface/ComponentTemplateType';
+import type { ComponentTemplate, TemplateSection } from '../../../type_interface/ComponentTemplateType';
 
 const TemplateManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -83,7 +83,7 @@ const TemplateManagement: React.FC = () => {
     }
   };
 
-  const getSectionSummary = (sections: any[]) => {
+  const getSectionSummary = (sections: TemplateSection[]) => {
     if (!sections || !Array.isArray(sections)) return '-';
     const types = sections.map(s => s.type).filter(Boolean);
     const uniqueTypes = [...new Set(types)];
@@ -95,8 +95,7 @@ const TemplateManagement: React.FC = () => {
       {/* Header */}
       <div className='d-flex flex-stack mb-8'>
         <div className='d-flex flex-column'>
-          <h1 className='text-gray-900 fw-bold fs-2 mb-1'>
-            <i className='bi bi-file-earmark-ruled me-2 text-primary'></i>
+          <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>
             จัดการ Template
           </h1>
           <span className='text-muted fw-semibold fs-7'>จัดการ Template สำหรับ Item Component</span>

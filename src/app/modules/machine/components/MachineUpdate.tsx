@@ -5,12 +5,16 @@ import { getAllMachineTypes } from '../../../services/machineTypeService';
 import type { MachineTypeItem } from '../../../type_interface/MachineType';
 import { useNavigate, useParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
+import { validateRequired, validatePositiveNumber } from '../../../utils/validate_utils';
 
 type FormErrors = {
     machine_code?: string;
     machine_name?: string;
     manufacturer?: string;
     purchase_date?: string;
+    purchase_price?: string;
+    useful_life_years?: string;
+    working_hours_per_day?: string;
     status?: string;
     machine_description?: string;
 };
@@ -27,9 +31,14 @@ const MachineUpdate: React.FC = () => {
         machine_name: '',
         manufacturer: '',
         purchase_date: '',
+        purchase_price: '',
+        useful_life_years: '',
+        working_hours_per_day: '',
         status: 'IDLE',
         machine_description: '',
         machine_type_id: '' as string | number,
+        is_second_hand: false,
+        accumulated_hours: '',
     });
     const [machineTypes, setMachineTypes] = useState<MachineTypeItem[]>([]);
 
@@ -63,9 +72,14 @@ const MachineUpdate: React.FC = () => {
                     machine_name: machine.machine_name || '',
                     manufacturer: machine.manufacturer || '',
                     purchase_date: formattedDate,
+                    purchase_price: machine.purchase_price != null ? String(machine.purchase_price) : '',
+                    useful_life_years: machine.useful_life_years != null ? String(machine.useful_life_years) : '',
+                    working_hours_per_day: machine.working_hours_per_day != null ? String(machine.working_hours_per_day) : '',
                     status: machine.status || 'IDLE',
                     machine_description: machine.machine_description || '',
                     machine_type_id: machine.machine_type_id || '',
+                    is_second_hand: machine.is_second_hand ?? false,
+                    accumulated_hours: machine.accumulated_hours != null ? String(machine.accumulated_hours) : '',
                 });
             } else {
                 Swal.fire({
@@ -79,11 +93,35 @@ const MachineUpdate: React.FC = () => {
 
     const validate = (data: typeof formData): FormErrors => {
         const errs: FormErrors = {};
-        if (!data.machine_code.trim()) errs.machine_code = 'กรุณากรอกรหัสเครื่องจักร';
+
+        const codeErr = validateRequired(data.machine_code, 'รหัสเครื่องจักร');
+        if (codeErr) errs.machine_code = codeErr;
         else if (data.machine_code.length > 50) errs.machine_code = 'รหัสเครื่องจักรต้องไม่เกิน 50 ตัวอักษร';
-        if (!data.machine_name.trim()) errs.machine_name = 'กรุณากรอกชื่อเครื่องจักร';
+
+        const nameErr = validateRequired(data.machine_name, 'ชื่อเครื่องจักร');
+        if (nameErr) errs.machine_name = nameErr;
+
         if (data.machine_description.length > 500) errs.machine_description = 'รายละเอียดต้องไม่เกิน 500 ตัวอักษร';
+
+        const priceErr = validateRequired(data.purchase_price, 'ราคาเครื่องจักร') ?? validatePositiveNumber(data.purchase_price, 'ราคาเครื่องจักร');
+        if (priceErr) errs.purchase_price = priceErr;
+
+        const lifeErr = validateRequired(data.useful_life_years, 'อายุการใช้งาน') ?? validatePositiveNumber(data.useful_life_years, 'อายุการใช้งาน');
+        if (lifeErr) errs.useful_life_years = lifeErr;
+
+        const hoursErr = validateRequired(data.working_hours_per_day, 'จำนวนชั่วโมงที่เครื่องทำงานต่อวัน') ?? validatePositiveNumber(data.working_hours_per_day, 'จำนวนชั่วโมงที่เครื่องทำงานต่อวัน');
+        if (hoursErr) errs.working_hours_per_day = hoursErr;
+
         return errs;
+    };
+
+    const handleSecondHandToggle = () => {
+        const newVal = !formData.is_second_hand;
+        setFormData(prev => ({
+            ...prev,
+            is_second_hand: newVal,
+            accumulated_hours: newVal ? prev.accumulated_hours : '',
+        }));
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -160,7 +198,15 @@ const MachineUpdate: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            const res = await updateMachine(id, formData);
+            const res = await updateMachine(id, {
+                ...formData,
+                purchase_price: formData.purchase_price !== '' ? Number(formData.purchase_price) : null,
+                useful_life_years: formData.useful_life_years !== '' ? Number(formData.useful_life_years) : null,
+                working_hours_per_day: formData.working_hours_per_day !== '' ? Number(formData.working_hours_per_day) : null,
+                accumulated_hours: formData.is_second_hand && formData.accumulated_hours !== ''
+                    ? Number(formData.accumulated_hours)
+                    : 0,
+            });
             if (res.success) {
                 await Swal.fire({ icon: 'success', title: 'อัปเดตสำเร็จ!', timer: 2000, showConfirmButton: false });
                 navigate('/machine/machine_list');
@@ -295,7 +341,7 @@ const MachineUpdate: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="row">
+                                <div className="row mb-6">
                                     <div className="col-md-6 fv-row">
                                         <label className="fs-6 fw-semibold mb-2">ประเภทเครื่องจักร</label>
                                         <select
@@ -312,6 +358,57 @@ const MachineUpdate: React.FC = () => {
                                             ))}
                                         </select>
                                     </div>
+
+                                    <div className="col-md-6 fv-row">
+                                        <label className="required fs-6 fw-semibold mb-2">ราคาเครื่องจักร</label>
+                                        <input
+                                            type="number"
+                                            className={fieldClass('purchase_price')}
+                                            placeholder="เช่น 500, 6000"
+                                            name="purchase_price"
+                                            value={formData.purchase_price}
+                                            onChange={handleChange}
+                                            onBlur={handleBlur}
+                                        />
+                                        {touched.purchase_price && errors.purchase_price && (
+                                            <div className="invalid-feedback">{errors.purchase_price}</div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="row mb-6">
+                                    <div className="col-md-6 fv-row">
+                                        <label className="required fs-6 fw-semibold mb-2">อายุการใช้งาน</label>
+                                        <input
+                                            type="number"
+                                            className={fieldClass('useful_life_years')}
+                                            placeholder="เช่น 1 2 3"
+                                            name="useful_life_years"
+                                            value={formData.useful_life_years}
+                                            onChange={handleChange}
+                                            onBlur={handleBlur}
+                                        />
+                                        {touched.useful_life_years && errors.useful_life_years && (
+                                            <div className="invalid-feedback">{errors.useful_life_years}</div>
+                                        )}
+                                    </div>
+
+                                    <div className="col-md-6 fv-row">
+                                        <label className="required fs-6 fw-semibold mb-2">จำนวนชั่วโมงที่เครื่องทำงานต่อวัน</label>
+                                        <input
+                                            type="number"
+                                            className={fieldClass('working_hours_per_day')}
+                                            placeholder="เช่น 1 2 3"
+                                            name="working_hours_per_day"
+                                            value={formData.working_hours_per_day}
+                                            onChange={handleChange}
+                                            onBlur={handleBlur}
+                                        />
+                                        {touched.working_hours_per_day && errors.working_hours_per_day && (
+                                            <div className="invalid-feedback">{errors.working_hours_per_day}</div>
+                                        )}
+                                    </div>
+
                                 </div>
                             </div>
                         </div>
@@ -367,7 +464,78 @@ const MachineUpdate: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* ── Section 3: รายละเอียดเพิ่มเติม ────────────── */}
+                        {/* ── Section 3: ประวัติเครื่องจักร (มือสอง) ──── */}
+                        <div className="card mb-6">
+                            <div className="card-header border-0 pt-6 pb-0">
+                                <div className="card-title">
+                                    <div className="d-flex align-items-center">
+                                        <div className="symbol symbol-35px me-3">
+                                            <span className="symbol-label bg-light-warning">
+                                                <i className="bi bi-recycle text-warning fs-5"></i>
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <h4 className="fw-bold mb-0">ประวัติเครื่องจักร</h4>
+                                            <span className="text-muted fs-8">ระบุหากเป็นเครื่องมือสองหรือผ่านการซ่อมมาก่อน</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="card-body">
+                                {/* Toggle มือสอง */}
+                                <div
+                                    className={`d-flex align-items-center justify-content-between p-5 rounded border cursor-pointer mb-5 ${formData.is_second_hand ? 'border-warning border-2 bg-light-warning' : 'border-gray-300 border-dashed bg-hover-light'}`}
+                                    onClick={handleSecondHandToggle}
+                                    style={{ transition: 'all 0.2s ease' }}
+                                >
+                                    <div className="d-flex align-items-center">
+                                        <div className="symbol symbol-40px me-4">
+                                            <span className={`symbol-label ${formData.is_second_hand ? 'bg-warning' : 'bg-light'}`}>
+                                                <i className={`bi bi-recycle fs-4 ${formData.is_second_hand ? 'text-white' : 'text-gray-400'}`}></i>
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <div className="fw-bold fs-6">เครื่องมือสอง / ผ่านการใช้งานมาก่อน</div>
+                                            <div className="text-muted fs-8">เปิดใช้หากเครื่องนี้ไม่ใช่เครื่องใหม่ หรือซื้อมาจากที่อื่น</div>
+                                        </div>
+                                    </div>
+                                    <div className="form-check form-switch form-check-custom form-check-solid ms-3">
+                                        <input
+                                            className="form-check-input"
+                                            type="checkbox"
+                                            checked={formData.is_second_hand}
+                                            onChange={handleSecondHandToggle}
+                                            onClick={e => e.stopPropagation()}
+                                            style={{ width: '3rem', height: '1.5rem' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Conditional: ชั่วโมงสะสม */}
+                                {formData.is_second_hand && (
+                                    <div className="fv-row">
+                                        <label className="fs-6 fw-semibold mb-2">
+                                            ชั่วโมงสะสมก่อนซื้อ (ชม.)
+                                            <span className="ms-2 badge badge-light-warning fs-9">สำหรับคำนวณค่าซ่อม</span>
+                                        </label>
+                                        <input
+                                            type="number"
+                                            className="form-control form-control-solid"
+                                            placeholder="เช่น 200, 500"
+                                            name="accumulated_hours"
+                                            value={formData.accumulated_hours}
+                                            onChange={handleChange}
+                                            min={0}
+                                        />
+                                        <div className="form-text text-muted mt-1">
+                                            จำนวนชั่วโมงที่เครื่องนี้ถูกใช้งานมาก่อนที่จะซื้อเข้าระบบ — ใช้ในการคำนวณอัตราค่าซ่อมบำรุง
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* ── Section 4: รายละเอียดเพิ่มเติม ────────────── */}
                         <div className="card mb-6">
                             <div className="card-header border-0 pt-6 pb-0">
                                 <div className="card-title">
@@ -530,6 +698,51 @@ const MachineUpdate: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* ─ Purchase Price ─ */}
+                            <div className="d-flex align-items-start mb-4">
+                                <div className="symbol symbol-30px me-3 mt-1">
+                                    <span className={`symbol-label ${formData.purchase_price ? 'bg-light-success' : 'bg-light'}`}>
+                                        <i className={`bi bi-currency-exchange fs-6 ${formData.purchase_price ? 'text-success' : 'text-gray-400'}`}></i>
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-muted fs-8 d-block">ราคาเครื่องจักร</span>
+                                    <span className={`fw-bold fs-6 ${formData.purchase_price ? 'text-dark' : 'text-gray-400'}`}>
+                                        {formData.purchase_price ? `฿${Number(formData.purchase_price).toLocaleString()}` : '—'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* ─ Useful Life ─ */}
+                            <div className="d-flex align-items-start mb-4">
+                                <div className="symbol symbol-30px me-3 mt-1">
+                                    <span className={`symbol-label ${formData.useful_life_years ? 'bg-light-success' : 'bg-light'}`}>
+                                        <i className={`bi bi-hourglass-split fs-6 ${formData.useful_life_years ? 'text-success' : 'text-gray-400'}`}></i>
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-muted fs-8 d-block">อายุการใช้งาน</span>
+                                    <span className={`fs-6 ${formData.useful_life_years ? 'text-dark' : 'text-gray-400'}`}>
+                                        {formData.useful_life_years ? `${formData.useful_life_years} ปี` : '—'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* ─ Working Hours ─ */}
+                            <div className="d-flex align-items-start mb-4">
+                                <div className="symbol symbol-30px me-3 mt-1">
+                                    <span className={`symbol-label ${formData.working_hours_per_day ? 'bg-light-success' : 'bg-light'}`}>
+                                        <i className={`bi bi-clock fs-6 ${formData.working_hours_per_day ? 'text-success' : 'text-gray-400'}`}></i>
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-muted fs-8 d-block">ชั่วโมง/วัน</span>
+                                    <span className={`fs-6 ${formData.working_hours_per_day ? 'text-dark' : 'text-gray-400'}`}>
+                                        {formData.working_hours_per_day ? `${formData.working_hours_per_day} ชม.` : '—'}
+                                    </span>
+                                </div>
+                            </div>
+
                             {/* ─ Status ─ */}
                             <div className="d-flex align-items-start mb-4">
                                 <div className="symbol symbol-30px me-3 mt-1">
@@ -542,6 +755,26 @@ const MachineUpdate: React.FC = () => {
                                     <span className={`badge badge-light-${statusOptions.find(s => s.value === formData.status)?.color} fw-bold`}>
                                         {statusOptions.find(s => s.value === formData.status)?.label}
                                     </span>
+                                </div>
+                            </div>
+
+                            {/* ─ Second Hand ─ */}
+                            <div className="d-flex align-items-start mb-4">
+                                <div className="symbol symbol-30px me-3 mt-1">
+                                    <span className={`symbol-label ${formData.is_second_hand ? 'bg-light-warning' : 'bg-light'}`}>
+                                        <i className={`bi bi-recycle fs-6 ${formData.is_second_hand ? 'text-warning' : 'text-gray-400'}`}></i>
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-muted fs-8 d-block">ประเภทเครื่อง</span>
+                                    {formData.is_second_hand ? (
+                                        <span className="badge badge-light-warning fw-bold">มือสอง</span>
+                                    ) : (
+                                        <span className="text-gray-500 fs-6">เครื่องใหม่</span>
+                                    )}
+                                    {formData.is_second_hand && formData.accumulated_hours !== '' && (
+                                        <div className="text-muted fs-8 mt-1">ชั่วโมงสะสม: {formData.accumulated_hours} ชม.</div>
+                                    )}
                                 </div>
                             </div>
 
@@ -566,6 +799,21 @@ const MachineUpdate: React.FC = () => {
                                 <div className={`d-flex align-items-center mb-2 ${formData.purchase_date ? 'text-success' : 'text-gray-400'}`}>
                                     <i className={`bi ${formData.purchase_date ? 'bi-check-circle-fill' : 'bi-circle'} me-2`}></i>
                                     วันที่ซื้อ
+                                </div>
+                                <div className={`d-flex align-items-center mb-2 ${formData.purchase_price ? 'text-success' : 'text-gray-400'}`}>
+                                    <i className={`bi ${formData.purchase_price ? 'bi-check-circle-fill' : 'bi-circle'} me-2`}></i>
+                                    ราคาเครื่องจักร
+                                    {!formData.purchase_price && <span className="badge badge-light-danger ms-auto fs-9">จำเป็น</span>}
+                                </div>
+                                <div className={`d-flex align-items-center mb-2 ${formData.useful_life_years ? 'text-success' : 'text-gray-400'}`}>
+                                    <i className={`bi ${formData.useful_life_years ? 'bi-check-circle-fill' : 'bi-circle'} me-2`}></i>
+                                    อายุการใช้งาน
+                                    {!formData.useful_life_years && <span className="badge badge-light-danger ms-auto fs-9">จำเป็น</span>}
+                                </div>
+                                <div className={`d-flex align-items-center mb-2 ${formData.working_hours_per_day ? 'text-success' : 'text-gray-400'}`}>
+                                    <i className={`bi ${formData.working_hours_per_day ? 'bi-check-circle-fill' : 'bi-circle'} me-2`}></i>
+                                    ชั่วโมง/วัน
+                                    {!formData.working_hours_per_day && <span className="badge badge-light-danger ms-auto fs-9">จำเป็น</span>}
                                 </div>
                                 <div className={`d-flex align-items-center ${formData.machine_description ? 'text-success' : 'text-gray-400'}`}>
                                     <i className={`bi ${formData.machine_description ? 'bi-check-circle-fill' : 'bi-circle'} me-2`}></i>

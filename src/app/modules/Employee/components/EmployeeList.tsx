@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { Content } from '../../../../_metronic/layout/components/content';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getEmployeeList, deleteEmployee } from '../../../services/employee';
 import { Employee, EmployeeStatus, EmployeeStatusLabel } from '../../../type_interface/EmployeeType';
@@ -154,18 +155,18 @@ const EmployeeList: React.FC = () => {
   };
 
   return (
-    <div className="py-4 px-2">
+    <Content>
       <div className="d-flex flex-stack mb-7">
         <div>
-          <h1 className="text-gray-900 fw-bold fs-2qx mb-1"><i className="bi bi-people-fill me-3 text-primary"></i>รายชื่อพนักงาน</h1>
+          <h1 className="text-gray-900 fw-bold fs-2qx mb-1">รายชื่อพนักงาน</h1>
           <div className="text-muted">จัดการข้อมูลพนักงานทั้งหมดในระบบ</div>
         </div>
         <div className="d-flex align-items-center gap-3">
           {selected.length > 0 && (
-            <button className="btn btn-sm btn-light-danger fw-bold px-4" onClick={handleDeleteSelected}>ลบที่เลือก ({selected.length})</button>
+            <button className="btn btn-light-danger fw-bold px-6" onClick={handleDeleteSelected}>ลบที่เลือก ({selected.length})</button>
           )}
-          <button className="btn btn-sm btn-light-primary fw-bold px-4" onClick={() => fetchData()} disabled={dataLoading}>รีเฟรช</button>
-          <button className="btn btn-sm btn-primary fw-bold px-5" onClick={() => { setSelectedEmployee(null); setShowModal(true); }}><i className="bi bi-plus-lg me-2"></i>เพิ่มพนักงาน</button>
+          <button className="btn btn-light-primary fw-bold px-6" onClick={() => fetchData()} disabled={dataLoading}>รีเฟรช</button>
+          <button className="btn btn-primary fw-bold px-6 shadow-sm" onClick={() => { setSelectedEmployee(null); setShowModal(true); }}><i className="bi bi-plus-lg me-2"></i>เพิ่มพนักงาน</button>
         </div>
       </div>
 
@@ -299,7 +300,7 @@ const EmployeeList: React.FC = () => {
         onSuccess={() => fetchData()}
         employee={selectedEmployee}
       />
-    </div>
+    </Content>
   );
 };
 

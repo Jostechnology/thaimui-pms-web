@@ -340,8 +340,7 @@ const PmDashbord: React.FC = () => {
             <div className='d-flex flex-stack mb-8'>
                 <div className='d-flex flex-column'>
                     <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>
-                        <i className='bi bi-speedometer2 me-3 text-primary'></i>
-                        PM Dashboard
+                        แดชบอร์ดการซ่อมบำรุง
                     </h1>
                     <span className='text-muted fw-semibold fs-6'>
                         ภาพรวมระบบซ่อมบำรุงเครื่องจักร
@@ -352,11 +351,11 @@ const PmDashbord: React.FC = () => {
                 </div>
                 <div className='d-flex align-items-center gap-3'>
                     <button
-                        className='btn btn-sm btn-light-primary fw-bold px-4'
+                        className='btn btn-light-primary fw-bold px-6'
                         onClick={handleRefresh}
                         disabled={isLoading}
                     >
-                        <i className='bi bi-arrow-clockwise me-2'></i>Refresh
+                        <i className='bi bi-arrow-clockwise me-2'></i>รีเฟรช
                     </button>
                 </div>
             </div>

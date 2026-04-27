@@ -159,7 +159,7 @@ const MonthlyOperationList: React.FC = () => {
             {/* Header Section */}
             <div className='d-flex flex-stack mb-10'>
                 <div className='d-flex flex-column'>
-                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>Monthly Operation Costs</h1>
+                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>ต้นทุนการดำเนินงานรายเดือน</h1>
                     <span className='text-muted fw-semibold fs-6'>จัดการและติดตามต้นทุนการบริหารรายเดือน</span>
                 </div>
                 <div className='d-flex align-items-center gap-2'>
@@ -167,7 +167,7 @@ const MonthlyOperationList: React.FC = () => {
                         className='btn btn-primary fw-bold px-6 shadow-sm'
                         onClick={() => navigate('/cost_calculation/create')}
                     >
-                        <i className='bi bi-plus-lg me-2 fs-4'></i> Create Cost
+                        <i className='bi bi-plus-lg me-2 fs-4'></i> สร้างรายการต้นทุน
                     </button>
                 </div>
             </div>

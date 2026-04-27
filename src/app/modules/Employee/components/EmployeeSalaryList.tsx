@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Content } from '../../../../_metronic/layout/components/content';
 import { useSearchParams } from 'react-router-dom';
 import { useAlertModal } from '../../../context/ModalContext';
 import { useAppLoading } from '../../../context/AppLoadingContext';
@@ -99,14 +100,15 @@ const EmployeeSalaryList: React.FC = () => {
     };
 
     return (
+        <Content>
+            <div className='d-flex flex-stack mb-10'>
+                <div className='d-flex flex-column'>
+                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>จัดการรายได้สุทธิพนักงาน</h1>
+                    <span className='text-muted fw-semibold fs-6'>จัดการข้อมูลเงินเดือนพนักงานทั้งหมดในระบบ</span>
+                </div>
+            </div>
         <div className="card card-flush shadow-sm">
             <div className="card-header align-items-center py-5 gap-2 gap-md-5">
-                <div className="card-title">
-                    <h3 className="card-label fw-bold fs-3 mb-1">
-                        จัดการรายได้สุทธิพนักงาน
-                    </h3>
-                </div>
-
                 <div className="card-toolbar">
                     <div className="d-flex align-items-center gap-2 gap-lg-3">
                         <div className="d-flex align-items-center position-relative">
@@ -232,6 +234,7 @@ const EmployeeSalaryList: React.FC = () => {
                 employee={selectedEmp}
             />
         </div>
+        </Content>
     );
 }
 

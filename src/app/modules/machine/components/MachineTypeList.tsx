@@ -48,14 +48,14 @@ const MachineTypeList: React.FC = () => {
 
     return (
         <Content>
-            <div className="d-flex align-items-center justify-content-between mb-6">
-                <div>
-                    <h3 className="fw-bolder mb-1">ประเภทเครื่องจักร</h3>
-                    <span className="text-muted fs-7">จัดการประเภทเครื่องจักร เช่น เครื่องดึง, เครื่องลาก</span>
+            <div className='d-flex flex-stack mb-10'>
+                <div className='d-flex flex-column'>
+                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>ประเภทเครื่องจักร</h1>
+                    <span className='text-muted fw-semibold fs-6'>จัดการประเภทเครื่องจักร เช่น เครื่องดึง, เครื่องลาก</span>
                 </div>
                 {permissions.create && (
-                    <button className="btn btn-primary" onClick={() => navigate('/machine/machine_type_create')}>
-                        <i className="bi bi-plus-lg me-1"></i> เพิ่มประเภท
+                    <button className='btn btn-primary fw-bold px-6 shadow-sm' onClick={() => navigate('/machine/machine_type_create')}>
+                        <i className='bi bi-plus-lg me-1'></i> เพิ่มประเภท
                     </button>
                 )}
             </div>

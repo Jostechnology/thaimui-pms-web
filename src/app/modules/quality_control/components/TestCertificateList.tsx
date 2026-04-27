@@ -63,7 +63,7 @@ const TestCertificateList: React.FC = () => {
             {/* Header Section */}
             <div className='d-flex flex-stack mb-10'>
                 <div className='d-flex flex-column'>
-                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>Test Certificates</h1>
+                    <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>ใบรับรองการทดสอบ</h1>
                     <span className='text-muted fw-semibold fs-6'>จัดการและติดตามใบรับรองการทดสอบคุณภาพ</span>
                 </div>
                 <div className='d-flex align-items-center gap-2'>

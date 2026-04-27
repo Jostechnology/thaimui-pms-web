@@ -1,5 +1,5 @@
 export type Material = {
-    cost_price : number 
+    cost_price : number
     created_data : string
     item_code : string
     item_description : string
@@ -13,4 +13,6 @@ export type Material = {
     order_line_num : number
     unit_name : string
     unit_id : number
+    // cost_price / quantity — ต้นทุนต่อหน่วยวัตถุดิบ (อาจส่งมาจาก backend หรือคำนวณฝั่ง client)
+    cost_per_unit?: number
 }

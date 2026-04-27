@@ -17,7 +17,7 @@ interface PmRepairItem {
     description: string | null;
     performed_by: string | null;
     fix_cost: number | null;
-    machine?: { machine_id: number; machine_name: string; machine_code: string };
+    machine?: { machine_id: number; machine_name: string; machine_code: string; remaining_maintenance_cost: number | null };
     created_date?: string;
 }
 
@@ -374,7 +374,6 @@ const PmRepairList: React.FC = () => {
             <div className="d-flex flex-stack mb-10">
                 <div className="d-flex flex-column">
                     <h1 className="text-gray-900 fw-bold fs-2qx mb-1">
-                        <i className="bi bi-wrench-adjustable-circle me-3 text-primary"></i>
                         รายการซ่อมเครื่องจักร
                     </h1>
                     <span className="text-muted fw-semibold fs-6">
@@ -464,7 +463,8 @@ const PmRepairList: React.FC = () => {
                                     <th>เครื่องจักร</th>
                                     <th>วันที่ซ่อม</th>
                                     <th>ประเภท</th>
-                                    <th>ราคา (บาท)</th>
+                                    <th>ค่าซ่อม (บาท)</th>
+                                    <th>คงเหลือในระบบ</th>
                                     <th>รายละเอียด</th>
                                     <th>วันที่บันทึก</th>
                                 </tr>
@@ -472,14 +472,14 @@ const PmRepairList: React.FC = () => {
                             <tbody className="text-gray-700 fw-semibold">
                                 {dataLoading ? (
                                     <tr>
-                                        <td colSpan={7} className="text-center py-10">
+                                        <td colSpan={8} className="text-center py-10">
                                             <span className="spinner-border text-primary me-2" role="status" />
                                             กำลังโหลดข้อมูล...
                                         </td>
                                     </tr>
                                 ) : repairs.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="text-center py-15">
+                                        <td colSpan={8} className="text-center py-15">
                                             <div className="d-flex flex-column align-items-center">
                                                 <i className="bi bi-inbox fs-3x text-muted mb-3"></i>
                                                 <span className="text-muted fs-6">ยังไม่มีรายการซ่อม</span>
@@ -523,7 +523,23 @@ const PmRepairList: React.FC = () => {
                                                 </span>
                                             </td>
                                             <td className="fw-bold text-success">
-                                                {item.fix_cost != null ? item.fix_cost.toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '-'}
+                                                {item.fix_cost != null ? `฿${item.fix_cost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}` : '-'}
+                                            </td>
+                                            <td>
+                                                {item.machine?.remaining_maintenance_cost != null ? (
+                                                    <div>
+                                                        <span className={`fw-bold ${item.machine.remaining_maintenance_cost > 0 ? 'text-warning' : 'text-success'}`}>
+                                                            ฿{item.machine.remaining_maintenance_cost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                        <div className="text-muted fs-9 mt-1">
+                                                            {item.machine.remaining_maintenance_cost > 0
+                                                                ? 'รอหักเป็นต้นทุน'
+                                                                : 'หักเป็นต้นทุนครบแล้ว'}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-muted">-</span>
+                                                )}
                                             </td>
                                             <td className="text-muted">
                                                 {item.description || '-'}
