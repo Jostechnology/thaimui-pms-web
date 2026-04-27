@@ -162,18 +162,17 @@ const SalesOrderDashboard: React.FC = () => {
             <div className='d-flex flex-stack mb-8'>
                 <div className='d-flex flex-column'>
                     <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>
-                        <i className='bi bi-graph-up-arrow me-3 text-primary'></i>
-                        Sales Order Dashboard
+                        ภาพรวมใบสั่งขาย
                     </h1>
                     <span className='text-muted fw-semibold fs-6'>
                         ภาพรวมใบสั่งขายและลูกค้าในระบบ
                     </span>
                 </div>
                 <div className='d-flex align-items-center gap-3'>
-                    <button className='btn btn-sm btn-light-primary fw-bold px-4' onClick={handleRefresh} disabled={isLoading}>
-                        <i className='bi bi-arrow-clockwise me-2'></i>Refresh
+                    <button className='btn btn-light-primary fw-bold px-6' onClick={handleRefresh} disabled={isLoading}>
+                        <i className='bi bi-arrow-clockwise me-2'></i>รีเฟรช
                     </button>
-                    <button className='btn btn-sm btn-primary fw-bold px-5 shadow-sm' onClick={() => navigate('/sales_order/list')}>
+                    <button className='btn btn-primary fw-bold px-6 shadow-sm' onClick={() => navigate('/sales_order/list')}>
                         <i className='bi bi-list-task me-2'></i>ดูรายการทั้งหมด
                     </button>
                 </div>

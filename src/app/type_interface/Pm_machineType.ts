@@ -5,8 +5,14 @@ export type Machine = {
     machine_description: string | null;
     manufacturer: string | null;
     purchase_date: string | null;
+    purchase_price: number | null;
+    useful_life_years: number | null;
+    working_hours_per_day: number | null;
     status: string;
     is_active: boolean;
+    machine_type?: { type_name: string } | null;
+    created_by: string | null;
+    updated_by: string | null;
     created_date: string;
     updated_date: string;
 }

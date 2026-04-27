@@ -289,7 +289,6 @@ const WorkorderDashboard: React.FC = () => {
             <div className='d-flex flex-stack mb-8'>
                 <div className='d-flex flex-column'>
                     <h1 className='text-gray-900 fw-bold fs-2qx mb-1'>
-                        <i className='bi bi-kanban me-3 text-primary'></i>
                         แดชบอร์ดใบสั่งผลิต
                     </h1>
                     <span className='text-muted fw-semibold fs-6'>
@@ -301,14 +300,14 @@ const WorkorderDashboard: React.FC = () => {
                 </div>
                 <div className='d-flex align-items-center gap-3'>
                     <button
-                        className='btn btn-sm btn-light-primary fw-bold px-4'
+                        className='btn btn-light-primary fw-bold px-6'
                         onClick={handleRefresh}
                         disabled={isLoading}
                     >
-                        <i className='bi bi-arrow-clockwise me-2'></i>Refresh
+                        <i className='bi bi-arrow-clockwise me-2'></i>รีเฟรช
                     </button>
                     <button
-                        className='btn btn-sm btn-primary fw-bold px-5 shadow-sm'
+                        className='btn btn-primary fw-bold px-6 shadow-sm'
                         onClick={() => navigate('/workorder/workorders_list')}
                     >
                         <i className='bi bi-list-task me-2'></i>ดูทั้งหมด
@@ -537,60 +536,6 @@ const WorkorderDashboard: React.FC = () => {
                                 )}
                             </tbody>
                         </table>
-                    </div>
-                </div>
-            </div>
-
-            {/* ==================== QUICK ACTIONS ==================== */}
-            <div className='row g-5 g-xl-8'>
-                <div className='col-md-6'>
-                    <div
-                        className='card card-flush shadow-sm border-0 cursor-pointer hover-elevate-up'
-                        style={{
-                            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                            background: 'linear-gradient(135deg, #009EF7 0%, #0078c4 100%)',
-                        }}
-                        onClick={() => navigate('/workorder/workorders_list')}
-                    >
-                        <div className='card-body d-flex align-items-center py-8 px-8'>
-                            <div className='symbol symbol-60px me-5'>
-                                <span className='symbol-label bg-white bg-opacity-20 rounded-circle'>
-                                    <i className='bi bi-plus-lg text-white fs-2x'></i>
-                                </span>
-                            </div>
-                            <div className='d-flex flex-column'>
-                                <span className='text-white fw-bold fs-3'>สร้างใบสั่งผลิตใหม่</span>
-                                <span className='text-white text-opacity-75 fw-semibold fs-7'>
-                                    เปิดใบสั่งผลิตและกำหนดขั้นตอนการผลิต
-                                </span>
-                            </div>
-                            <i className='bi bi-chevron-right text-white fs-2x ms-auto'></i>
-                        </div>
-                    </div>
-                </div>
-                <div className='col-md-6'>
-                    <div
-                        className='card card-flush shadow-sm border-0 cursor-pointer hover-elevate-up'
-                        style={{
-                            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                            background: 'linear-gradient(135deg, #50CD89 0%, #3ba76d 100%)',
-                        }}
-                        onClick={() => navigate('/workorder/workorders_list')}
-                    >
-                        <div className='card-body d-flex align-items-center py-8 px-8'>
-                            <div className='symbol symbol-60px me-5'>
-                                <span className='symbol-label bg-white bg-opacity-20 rounded-circle'>
-                                    <i className='bi bi-clipboard2-check text-white fs-2x'></i>
-                                </span>
-                            </div>
-                            <div className='d-flex flex-column'>
-                                <span className='text-white fw-bold fs-3'>ดูใบสั่งผลิตทั้งหมด</span>
-                                <span className='text-white text-opacity-75 fw-semibold fs-7'>
-                                    จัดการ ค้นหา และติดตามใบสั่งผลิตทุกรายการ
-                                </span>
-                            </div>
-                            <i className='bi bi-chevron-right text-white fs-2x ms-auto'></i>
-                        </div>
                     </div>
                 </div>
             </div>

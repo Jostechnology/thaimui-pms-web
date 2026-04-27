@@ -58,6 +58,14 @@ export interface TestResultSourceAllocation {
     qty: number;
 }
 
+export interface SalesItemTestResult {
+    test_result_id: number;
+    doc_num: string | null;
+    work_run_id: number | null;
+    failed_item_qty: number;
+    created_date: string | null;
+}
+
 export const getSalesItemTestResults = async (salesItemId: number): Promise<APIResponse> => {
     try {
         const response = await front_api(

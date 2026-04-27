@@ -70,7 +70,7 @@ const PhaseTemplateList: React.FC = () => {
         <Content>
             <div className="d-flex align-items-center justify-content-between mb-6">
                 <div>
-                    <h3 className="fw-bolder mb-1">Phase Template</h3>
+                    <h3 className="text-gray-900 fw-bold fs-2qx mb-1">Phase Template</h3>
                     <span className="text-muted fs-7">จัดการ Template สำหรับ Phase การผลิต</span>
                 </div>
                 {permissions.create && (

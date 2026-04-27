@@ -9,11 +9,29 @@ const MachineDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
 
     const [isLoading, setIsLoading] = useState<boolean>(true);
-    const [machine, setMachine] = useState({
+    const [machine, setMachine] = useState<{
+        machine_code: string;
+        machine_name: string;
+        manufacturer: string;
+        purchase_date: string;
+        purchase_price: number | null;
+        useful_life_years: number | null;
+        working_hours_per_day: number | null;
+        status: string;
+        machine_description: string;
+        machine_type_name: string;
+        created_by: string;
+        created_date: string;
+        updated_by: string;
+        updated_date: string;
+    }>({
         machine_code: '',
         machine_name: '',
         manufacturer: '',
         purchase_date: '',
+        purchase_price: null,
+        useful_life_years: null,
+        working_hours_per_day: null,
         status: 'IDLE',
         machine_description: '',
         machine_type_name: '',
@@ -46,6 +64,9 @@ const MachineDetail: React.FC = () => {
                     machine_name: data.machine_name || '',
                     manufacturer: data.manufacturer || '',
                     purchase_date: formattedDate,
+                    purchase_price: data.purchase_price ?? null,
+                    useful_life_years: data.useful_life_years ?? null,
+                    working_hours_per_day: data.working_hours_per_day ?? null,
                     status: data.status || 'IDLE',
                     machine_description: data.machine_description || '',
                     machine_type_name: data.machine_type?.type_name || '',
@@ -158,6 +179,28 @@ const MachineDetail: React.FC = () => {
                                         ) : (
                                             '— (ไม่ระบุ)'
                                         )}
+                                    </div>
+                                </div>
+
+                                <div className="col-md-6">
+                                    <label className="fs-6 fw-semibold mb-2 text-muted">ราคาเครื่องจักร</label>
+                                    <div className="form-control form-control-solid ">
+                                        <span className="fw-bold text-dark">{machine.purchase_price || '-'}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="row mt-6">
+                                <div className="col-md-6 mb-6 mb-md-0">
+                                    <label className="fs-6 fw-semibold mb-2 text-muted">อายุการใช้งาน</label>
+                                    <div className="form-control form-control-solid">
+                                        <span className="fw-bold text-dark">{machine.useful_life_years || '-'}</span>
+                                    </div>
+                                </div>
+                                <div className="col-md-6">
+                                    <label className="fs-6 fw-semibold mb-2 text-muted">จำนวนชั่วโมงที่เครื่องทำงานต่อวัน</label>
+                                    <div className="form-control form-control-solid">
+                                        <span className="fw-bold text-dark">{machine.working_hours_per_day || '-'}</span>
                                     </div>
                                 </div>
                             </div>

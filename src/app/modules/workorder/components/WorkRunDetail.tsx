@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from 'react-bootstrap';
@@ -24,7 +24,96 @@ import {
 import type { MaterialSourceEntry } from '../../../services/workRunService';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
-import type { WorkRunDetail as WorkRunDetailType, WorkRunRequiredItem } from '../../../type_interface/WorkOrderType';
+import type { WorkRunDetail as WorkRunDetailType, WorkRunRequiredItem, WorkRunBreak } from '../../../type_interface/WorkOrderType';
+import './WorkorderView.css';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+// --- Timeline & status helpers (shared with WorkorderView) ---
+const getRunStatusColor = (status: string) => {
+    switch (status?.toUpperCase()) {
+        case 'INPROGRESS': return '#0d6efd'; case 'COMPLETED': return '#198754';
+        case 'PAUSED': return '#fd7e14'; case 'PENDING': return '#6c757d';
+        default: return '#adb5bd';
+    }
+};
+const getRunStatusBg = (status: string) => {
+    switch (status?.toUpperCase()) {
+        case 'INPROGRESS': return '#e7f1ff'; case 'COMPLETED': return '#d1e7dd';
+        case 'PAUSED': return '#fff3e0'; case 'PENDING': return '#f8f9fa';
+        default: return '#f8f9fa';
+    }
+};
+const getRunStatusLabel = (status: string) => {
+    switch (status?.toUpperCase()) {
+        case 'INPROGRESS': return 'กำลังดำเนินการ'; case 'COMPLETED': return 'เสร็จสิ้น';
+        case 'PAUSED': return 'หยุดชั่วคราว'; case 'PENDING': return 'รอดำเนินการ';
+        default: return status;
+    }
+};
+const calcTotalBreakMs = (breaks?: WorkRunBreak[]): number => {
+    if (!breaks?.length) return 0;
+    return breaks.reduce((t, b) => {
+        const s = new Date(b.break_start).getTime();
+        const e = b.break_end ? new Date(b.break_end).getTime() : Date.now();
+        return t + Math.max(0, e - s);
+    }, 0);
+};
+const formatDateTimeTL = (dateStr: string | null) => {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' +
+        d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+};
+const formatTimeTL = (dateStr: string | null) => {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+};
+const getFullDayBounds = (date: Date) => {
+    const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date); dayEnd.setHours(24, 0, 0, 0);
+    return { dayStart, dayEnd };
+};
+const timeToPercent = (time: Date, s: Date, e: Date): number => {
+    const total = e.getTime() - s.getTime();
+    if (total === 0) return 0;
+    return Math.max(0, Math.min(100, ((time.getTime() - s.getTime()) / total) * 100));
+};
+const pickIntervalMin = (rangeMs: number): number => {
+    const h = rangeMs / 3600000;
+    if (h <= 0.5) return 5; if (h <= 1) return 10; if (h <= 2) return 15;
+    if (h <= 4) return 30; if (h <= 8) return 60; if (h <= 16) return 120;
+    return 180;
+};
+const buildTimelineLabels = (boundsStart: Date, boundsEnd: Date) => {
+    const rangeMs = boundsEnd.getTime() - boundsStart.getTime();
+    const intervalMs = pickIntervalMin(rangeMs) * 60000;
+    const labels: { label: string; percent: number }[] = [];
+    const firstTick = new Date(Math.ceil(boundsStart.getTime() / intervalMs) * intervalMs);
+    for (let t = firstTick; t <= boundsEnd; t = new Date(t.getTime() + intervalMs)) {
+        const pct = ((t.getTime() - boundsStart.getTime()) / rangeMs) * 100;
+        if (pct < 0 || pct > 100) continue;
+        labels.push({ label: t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }), percent: pct });
+    }
+    return labels;
+};
+const WorkRunLiveTimer: React.FC<{ workRun: WorkRunDetailType | null }> = ({ workRun }) => {
+    const [elapsed, setElapsed] = useState('00:00:00');
+    useEffect(() => {
+        if (!workRun?.start_date) { setElapsed('00:00:00'); return; }
+        const status = workRun.status?.toUpperCase();
+        if (status === 'PENDING') { setElapsed('00:00:00'); return; }
+        const startMs = new Date(workRun.start_date).getTime();
+        const calc = () => {
+            const now = workRun.end_date ? new Date(workRun.end_date).getTime() : Date.now();
+            const workMs = Math.max(0, now - startMs - calcTotalBreakMs(workRun.breaks));
+            const s = Math.floor(workMs / 1000);
+            setElapsed(`${Math.floor(s / 3600).toString().padStart(2, '0')}:${Math.floor((s % 3600) / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`);
+        };
+        calc();
+        if (status === 'INPROGRESS') { const iv = setInterval(calc, 1000); return () => clearInterval(iv); }
+    }, [workRun]);
+    return <span className="wo-timer-value">{elapsed}</span>;
+};
 import type { Machine } from '../../../type_interface/MachineType';
 import { formatIntegerInput } from '../../../utils/input_format_utils';
 import { validateRequired, validatePositiveNumber } from '../../../utils/validate_utils';
@@ -87,6 +176,19 @@ const WorkRunDetail: React.FC = () => {
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
 
+    const [costTick, setCostTick] = useState(0);
+
+    // Timeline state
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [autoZoom, setAutoZoom] = useState(true);
+    type ActivePopover =
+        | { type: 'run'; centerPct: number }
+        | { type: 'machine'; machineId: number; centerPct: number }
+        | { type: 'employee'; assignmentId: number; centerPct: number }
+        | null;
+    const [activePopover, setActivePopover] = useState<ActivePopover>(null);
+    const popoverRef = useRef<HTMLDivElement>(null);
+
     const normalizeKey = (s?: string | null) => (s ? s.toString().toUpperCase().replace(/\s+/g, '_') : '');
 
     const workRunStatusThaiMap: Record<string, string> = {
@@ -125,11 +227,19 @@ const WorkRunDetail: React.FC = () => {
 
     useEffect(() => { fetchWorkRun(); }, [workRunId]);
 
+    useEffect(() => {
+        const hasActiveMachine = workRun?.machines?.some(m => m.to_time === null) ?? false;
+        const hasActiveEmployee = workRun?.assignments?.some(a => a.to_time === null) ?? false;
+        if (!hasActiveMachine && !hasActiveEmployee) return;
+        const interval = setInterval(() => setCostTick(t => t + 1), 1000);
+        return () => clearInterval(interval);
+    }, [workRun]);
+
     // Fetch employees when modal opens
     useEffect(() => {
         if (showAssignEmpModal && allEmployees.length === 0) {
             setEmpLoading(true);
-            getEmployeeList(1,10,'').then(res => {
+            getEmployeeList(1, 10, '').then(res => {
                 setAllEmployees(res?.success && Array.isArray(res.data?.items) ? res.data.items : []);
             }).catch(() => setAllEmployees([])).finally(() => setEmpLoading(false));
         }
@@ -165,6 +275,107 @@ const WorkRunDetail: React.FC = () => {
         }
     }, [showStartModal]);
 
+    // sync selectedDate กับ start_date ของ work run เมื่อโหลด
+    useEffect(() => {
+        if (workRun?.start_date) setSelectedDate(new Date(workRun.start_date));
+    }, [workRun?.start_date]);
+
+    // ปิด popover เมื่อ click outside
+    useEffect(() => {
+        if (!activePopover) return;
+        const handler = (e: MouseEvent) => {
+            if (popoverRef.current && !popoverRef.current.contains(e.target as Node))
+                setActivePopover(null);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [activePopover]);
+
+    const handlePrevDate = () => setSelectedDate(prev => { const d = new Date(prev); d.setDate(d.getDate() - 1); return d; });
+    const handleNextDate = () => setSelectedDate(prev => { const d = new Date(prev); d.setDate(d.getDate() + 1); return d; });
+    const handleToday = useCallback(() => setSelectedDate(new Date()), []);
+
+    const activeAssignments = useMemo(() => workRun?.assignments?.filter(a => a.to_time === null) ?? [], [workRun]);
+    const allAssignmentsTL = useMemo(() => workRun?.assignments ?? [], [workRun]);
+    const activeMachines = useMemo(() => workRun?.machines?.filter(m => m.to_time === null) ?? [], [workRun]);
+
+    const timelineBounds = useMemo(() => {
+        const { dayStart, dayEnd } = getFullDayBounds(selectedDate);
+        if (!autoZoom || !workRun?.start_date) return { start: dayStart, end: dayEnd };
+        const times: number[] = [];
+        const runStart = new Date(workRun.start_date).getTime();
+        const runEnd = workRun.end_date ? new Date(workRun.end_date).getTime() : Date.now();
+        times.push(runStart, runEnd);
+        workRun.machines?.forEach(m => {
+            times.push(new Date(m.from_time).getTime());
+            times.push(m.to_time ? new Date(m.to_time).getTime() : Date.now());
+        });
+        const dayTimes = times.filter(t => t >= dayStart.getTime() && t <= dayEnd.getTime());
+        if (dayTimes.length === 0) return { start: dayStart, end: dayEnd };
+        const PAD = 20 * 60 * 1000;
+        return {
+            start: new Date(Math.max(dayStart.getTime(), Math.min(...dayTimes) - PAD)),
+            end: new Date(Math.min(dayEnd.getTime(), Math.max(...dayTimes) + PAD)),
+        };
+    }, [autoZoom, workRun, selectedDate]);
+
+    const timelineLabels = useMemo(() => buildTimelineLabels(timelineBounds.start, timelineBounds.end), [timelineBounds]);
+
+    const runBarInfo = useMemo(() => {
+        if (!workRun?.start_date) return null;
+        const { start, end } = timelineBounds;
+        const runStart = new Date(workRun.start_date);
+        const runEnd = workRun.end_date ? new Date(workRun.end_date) : new Date();
+        if (runEnd < start || runStart > end) return null;
+        const cs = new Date(Math.max(runStart.getTime(), start.getTime()));
+        const ce = new Date(Math.min(runEnd.getTime(), end.getTime()));
+        return { leftPercent: timeToPercent(cs, start, end), widthPercent: Math.max(2, timeToPercent(ce, start, end) - timeToPercent(cs, start, end)) };
+    }, [workRun, timelineBounds]);
+
+    const breakBars = useMemo(() => {
+        if (!workRun?.breaks) return [];
+        const { start, end } = timelineBounds;
+        return (workRun.breaks as WorkRunBreak[]).map(b => {
+            const bS = new Date(b.break_start); const bE = b.break_end ? new Date(b.break_end) : new Date();
+            if (bE < start || bS > end) return null;
+            const cs = new Date(Math.max(bS.getTime(), start.getTime()));
+            const ce = new Date(Math.min(bE.getTime(), end.getTime()));
+            return { break_id: b.break_id, leftPercent: timeToPercent(cs, start, end), widthPercent: Math.max(0.5, timeToPercent(ce, start, end) - timeToPercent(cs, start, end)), break_type: b.break_type };
+        }).filter(Boolean) as { break_id: number; leftPercent: number; widthPercent: number; break_type: string }[];
+    }, [workRun, timelineBounds]);
+
+    const machineBars = useMemo(() => {
+        if (!workRun?.machines) return [];
+        const { start, end } = timelineBounds;
+        return workRun.machines.map(m => {
+            const mS = new Date(m.from_time); const mE = m.to_time ? new Date(m.to_time) : new Date();
+            if (mE < start || mS > end) return null;
+            const cs = new Date(Math.max(mS.getTime(), start.getTime()));
+            const ce = new Date(Math.min(mE.getTime(), end.getTime()));
+            const l = timeToPercent(cs, start, end); const r = timeToPercent(ce, start, end);
+            return { work_run_machine_id: m.work_run_machine_id, machine_id: m.machine_id, machine_name: m.machine?.machine_name ?? `Machine #${m.machine_id}`, isActive: m.to_time === null, leftPercent: l, widthPercent: Math.max(2, r - l) };
+        }).filter(Boolean) as { work_run_machine_id: number; machine_id: number; machine_name: string; isActive: boolean; leftPercent: number; widthPercent: number }[];
+    }, [workRun, timelineBounds]);
+
+    const employeeRows = useMemo(() => {
+        if (!workRun?.assignments) return [];
+        const { start, end } = timelineBounds;
+        const grouped = new Map<number, { employee_id: number; name: string; bars: { assignment_id: number; leftPercent: number; widthPercent: number; isActive: boolean; from_time: string; to_time: string | null }[] }>();
+        workRun.assignments.forEach(a => {
+            const aS = new Date(a.from_time); const aE = a.to_time ? new Date(a.to_time) : new Date();
+            if (aE < start || aS > end) return;
+            const cs = new Date(Math.max(aS.getTime(), start.getTime()));
+            const ce = new Date(Math.min(aE.getTime(), end.getTime()));
+            const l = timeToPercent(cs, start, end); const r = timeToPercent(ce, start, end);
+            if (!grouped.has(a.employee_id)) {
+                const fn = a.employee?.employee_first_name ?? ''; const ln = a.employee?.employee_last_name ?? '';
+                grouped.set(a.employee_id, { employee_id: a.employee_id, name: `${fn} ${ln}`.trim() || `Emp #${a.employee_id}`, bars: [] });
+            }
+            grouped.get(a.employee_id)!.bars.push({ assignment_id: a.work_run_assignment_id, leftPercent: l, widthPercent: Math.max(2, r - l), isActive: a.to_time === null, from_time: a.from_time, to_time: a.to_time });
+        });
+        return Array.from(grouped.values());
+    }, [workRun, timelineBounds]);
+
     const filteredEmployees = React.useMemo(() => {
         if (!empSearch) return allEmployees;
         const q = empSearch.toLowerCase();
@@ -180,11 +391,47 @@ const WorkRunDetail: React.FC = () => {
         return allMachines.filter(m => m.machine_name.toLowerCase().includes(q) || m.machine_code.toLowerCase().includes(q));
     }, [allMachines, machineSearch]);
 
-    // Active assignments (to_time === null means currently assigned)
-    const activeAssignments = workRun?.assignments?.filter(a => a.to_time === null) ?? [];
-    const pastAssignments = workRun?.assignments?.filter(a => a.to_time !== null) ?? [];
-    const activeMachines = workRun?.machines?.filter(m => m.to_time === null) ?? [];
-    const pastMachines = workRun?.machines?.filter(m => m.to_time !== null) ?? [];
+    const pastAssignments = useMemo(() => workRun?.assignments?.filter(a => a.to_time !== null) ?? [], [workRun]);
+    const pastMachines = useMemo(() => workRun?.machines?.filter(m => m.to_time !== null) ?? [], [workRun]);
+
+    const calcElapsedSeconds = (entry: { from_time: string; to_time: string | null }, breaks: WorkRunBreak[]): number => {
+        const start = new Date(entry.from_time).getTime();
+        const end = entry.to_time ? new Date(entry.to_time).getTime() : Date.now();
+        const breakOverlapMs = (breaks ?? []).reduce((sum, b) => {
+            const bStart = new Date(b.break_start).getTime();
+            const bEnd = b.break_end ? new Date(b.break_end).getTime() : Date.now();
+            return sum + Math.max(0, Math.min(end, bEnd) - Math.max(start, bStart));
+        }, 0);
+        return Math.max(0, end - start - breakOverlapMs) / 1000;
+    };
+
+    const laborBreakdown = React.useMemo(() => {
+        if (!workRun?.assignments) return [];
+        const breaks = workRun.breaks ?? [];
+        return workRun.assignments.map(a => {
+            const seconds = calcElapsedSeconds(a, breaks);
+            const isWorking = a.to_time === null;
+            const salary = a.employee?.salary_base ?? 0;
+            const hourlyRate = salary / 30 / 8;
+            const cost = hourlyRate * seconds / 3600;
+            return { ...a, seconds, hourlyRate, cost, isWorking };
+        });
+    }, [workRun, costTick]);
+
+    const totalLaborCost = React.useMemo(
+        () => laborBreakdown.reduce((s, a) => s + a.cost, 0),
+        [laborBreakdown]
+    );
+
+    const totalMaterialCost = useMemo(() => {
+        if (!workRun?.required_items?.length) return workRun?.work_order?.sales_item?.cost_price ?? 0;
+        return workRun.required_items.reduce((sum, item) => {
+            const batchQty = item.material_list?.quantity ?? 0;
+            const batchCost = item.material_list?.cost_price ?? 0;
+            const cpu = batchQty > 0 ? (item.material_list?.cost_per_unit ?? batchCost / batchQty) : 0;
+            return sum + cpu * item.quantity;
+        }, 0);
+    }, [workRun]);
 
     const status = normalizeKey(workRun?.status);
     const isCompleted = status === 'COMPLETED';
@@ -473,6 +720,96 @@ const WorkRunDetail: React.FC = () => {
         finally { setUnLoading(); }
     };
 
+    // --- Machine cost (rate จาก backend, คำนวณ real-time ที่ frontend) ---
+    const formatDurationMs = (ms: number): string => {
+        const totalSec = Math.floor(ms / 1000);
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        return h > 0 ? `${h} ชม. ${m} นาที` : `${m} นาที`;
+    };
+
+    const machineCostActual = useMemo(() => {
+        if (!workRun?.machines) return [];
+        return workRun.machines.map(m => {
+            const isRunning = m.to_time === null;
+            const elapsed = calcElapsedSeconds(m, workRun.breaks ?? []);
+            const cost = m.cost;
+
+            const depreciationCost = isRunning
+                ? (cost?.depreciation_per_second ?? 0) * elapsed
+                : (cost?.depreciation_cost ?? 0);
+
+            const maintenanceCost = isRunning
+                ? (cost?.maintenance_rate_per_second ?? 0) * elapsed
+                : (cost?.maintenance_cost ?? 0);
+
+            return {
+                ...m,
+                depreciationCost,
+                maintenanceCost,
+                totalCost: depreciationCost + maintenanceCost,
+                seconds: elapsed,
+                isRunning,
+                noRate: !cost,
+            };
+        });
+    }, [workRun, costTick]);
+
+    const costChartData = useMemo(() => {
+        if (!workRun?.start_date) return [];
+        const startMs = new Date(workRun.start_date).getTime();
+        const endMs = workRun.end_date ? new Date(workRun.end_date).getTime() : Date.now();
+        const totalMs = endMs - startMs;
+        if (totalMs <= 0) return [];
+
+        const POINTS = 60;
+        const step = totalMs / POINTS;
+        const breaks = workRun.breaks ?? [];
+
+        const effectiveSec = (entry: { from_time: string; to_time: string | null }, atMs: number) => {
+            const eStart = new Date(entry.from_time).getTime();
+            const eEnd = entry.to_time ? new Date(entry.to_time).getTime() : atMs;
+            const activeEnd = Math.min(eEnd, atMs);
+            if (eStart >= activeEnd) return 0;
+            const overlapBreak = breaks.reduce((sum, b) => {
+                const bS = new Date(b.break_start).getTime();
+                const bE = b.break_end ? new Date(b.break_end).getTime() : atMs;
+                return sum + Math.max(0, Math.min(activeEnd, bE) - Math.max(eStart, bS));
+            }, 0);
+            return Math.max(0, activeEnd - eStart - overlapBreak) / 1000;
+        };
+
+        const data = [];
+        for (let i = 0; i <= POINTS; i++) {
+            const t = startMs + i * step;
+            let depreciation = 0;
+            let maintenance = 0;
+            (workRun.machines ?? []).forEach(m => {
+                const sec = effectiveSec(m, t);
+                depreciation += (m.cost?.depreciation_per_second ?? 0) * sec;
+                maintenance += (m.cost?.maintenance_rate_per_second ?? 0) * sec;
+            });
+            let labor = 0;
+            (workRun.assignments ?? []).forEach(a => {
+                const sec = effectiveSec(a, t);
+                const salary = a.employee?.salary_base ?? 0;
+                labor += (salary / 30 / 8 / 3600) * sec;
+            });
+            const elapsedMin = Math.round((t - startMs) / 60000);
+            const hh = Math.floor(elapsedMin / 60).toString().padStart(2, '0');
+            const mm = (elapsedMin % 60).toString().padStart(2, '0');
+            data.push({
+                elapsedMin,
+                label: `${hh}:${mm}`,
+                ค่าเสื่อมราคา: parseFloat(depreciation.toFixed(4)),
+                ค่าซ่อมบำรุง: parseFloat(maintenance.toFixed(4)),
+                ค่าพนักงาน: parseFloat(labor.toFixed(4)),
+                รวม: parseFloat((depreciation + maintenance + labor).toFixed(4)),
+            });
+        }
+        return data;
+    }, [workRun, costTick]);
+
     return (
         <Content>
             {/* Header */}
@@ -493,6 +830,12 @@ const WorkRunDetail: React.FC = () => {
                             )}
                             {workRun && (
                                 <span className='text-muted fw-semibold fs-8'>จำนวน: {workRun.quantity}</span>
+                            )}
+                            {workRun?.created_date && (
+                                <span className='text-muted fs-8'>
+                                    <i className='bi bi-calendar3 me-1'></i>
+                                    สร้างเมื่อ {new Date(workRun.created_date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </span>
                             )}
                         </div>
                     </div>
@@ -557,6 +900,353 @@ const WorkRunDetail: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* KPI Cards */}
+            <div className="row g-5 mb-8">
+                {/* Live Timer */}
+                <div className="col-md-4">
+                    <div className="wo-kpi-card">
+                        <div className="wo-kpi-header">
+                            <span className="wo-kpi-label">ระยะเวลาดำเนินการ (LIVE)</span>
+                            {workRun?.status?.toUpperCase() === 'INPROGRESS' && <span className="wo-live-dot" />}
+                            {workRun?.status?.toUpperCase() === 'PAUSED' && <span className="wo-live-dot" style={{ background: '#fd7e14' }} />}
+                        </div>
+                        <WorkRunLiveTimer workRun={workRun} />
+                        <div className="wo-kpi-sub mt-2">
+                            <small className="text-muted">เริ่ม: {workRun?.start_date ? new Date(workRun.start_date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date(workRun.start_date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}</small>
+                            {workRun?.status?.toUpperCase() === 'PAUSED' && (
+                                <small className="text-warning ms-2">⏸ พักชั่วคราว</small>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Active Employees */}
+                <div className="col-md-4">
+                    <div className="wo-kpi-card">
+                        <div className="wo-kpi-header">
+                            <span className="wo-kpi-label">พนักงานที่ปฏิบัติงาน (ACTIVE)</span>
+                        </div>
+                        <div className="d-flex align-items-baseline gap-2">
+                            <span className="wo-kpi-big">{activeAssignments.length}</span>
+                            <span className="text-muted fs-6">/ {workRun?.assignments?.length ?? 0} คน</span>
+                        </div>
+                        <div className="wo-avatar-stack mt-3">
+                            {activeAssignments.slice(0, 4).map(a => (
+                                <div key={a.work_run_assignment_id} className="wo-avatar" title={`${a.employee?.employee_first_name} ${a.employee?.employee_last_name}`}>
+                                    {a.employee?.employee_first_name?.charAt(0) ?? '?'}
+                                </div>
+                            ))}
+                            {activeAssignments.length > 4 && <div className="wo-avatar wo-avatar-more">+{activeAssignments.length - 4}</div>}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Machines */}
+                <div className="col-md-4">
+                    <div className="wo-kpi-card">
+                        <div className="wo-kpi-header">
+                            <span className="wo-kpi-label">เครื่องจักรที่ใช้งาน</span>
+                        </div>
+                        <div className="d-flex align-items-baseline gap-2">
+                            <span className="wo-kpi-big">{activeMachines.length}</span>
+                            <span className="text-muted fs-6">/ {workRun?.machines?.length ?? 0} เครื่อง</span>
+                        </div>
+                        <div className="wo-progress-bar mt-3">
+                            <div className="wo-progress-fill wo-progress-blue" style={{ width: `${workRun?.status?.toUpperCase() === 'COMPLETED' ? 100 : activeMachines.length > 0 ? 60 : 0}%` }} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Workforce + Timeline */}
+            <div className="row g-5 mb-8">
+                {/* Workforce */}
+                <div className="col-lg-4">
+                    <div className="wo-card h-100">
+                        <div className="wo-card-header">
+                            <h3 className="wo-card-title">การจัดการแรงงาน</h3>
+                            <span className="badge badge-light-primary">{activeAssignments.length} คน</span>
+                        </div>
+                        <div className="wo-card-body">
+                            {activeAssignments.length > 0 ? (
+                                <div className="wo-employee-list">
+                                    {activeAssignments.map(a => (
+                                        <div key={a.work_run_assignment_id} className="wo-employee-item">
+                                            <div className="wo-employee-avatar">
+                                                {a.employee?.employee_first_name?.charAt(0) ?? '?'}
+                                            </div>
+                                            <div className="wo-employee-info">
+                                                <div className="wo-employee-name">
+                                                    {a.employee?.employee_first_name} {a.employee?.employee_last_name}
+                                                </div>
+                                                <div className="wo-employee-role">
+                                                    เริ่ม {a.from_time ? new Date(a.from_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                                                </div>
+                                            </div>
+                                            <span className="wo-emp-status wo-emp-active">ACTIVE</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center text-muted py-10">
+                                    <i className="bi bi-people fs-3x text-gray-300 mb-3 d-block" />
+                                    ยังไม่มีพนักงาน
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Timeline */}
+                <div className="col-lg-8">
+                    <div className="wo-card h-100">
+                        <div className="wo-card-header">
+                            <h3 className="wo-card-title">ไทม์ไลน์การผลิต (Production Timeline)</h3>
+                            <div className="d-flex align-items-center gap-2 flex-wrap">
+                                <button
+                                    className={`btn btn-sm fw-bold ${autoZoom ? 'btn-primary' : 'btn-light'}`}
+                                    title={autoZoom ? 'แสดงเฉพาะช่วงที่มีกิจกรรม' : 'แสดงทั้งวัน (0–24 น.)'}
+                                    onClick={() => setAutoZoom(v => !v)}
+                                >
+                                    <i className={`bi ${autoZoom ? 'bi-zoom-in' : 'bi-zoom-out'} me-1`} />
+                                    {autoZoom ? 'ซูมอัตโนมัติ' : 'ทั้งวัน'}
+                                </button>
+                                <div className="d-flex align-items-center gap-2 ms-2">
+                                    <button className="btn btn-sm btn-icon btn-light" onClick={handlePrevDate}><i className="bi bi-chevron-left" /></button>
+                                    <span className="fw-semibold text-gray-700" style={{ cursor: 'pointer', minWidth: 110, textAlign: 'center' }} onClick={handleToday}>
+                                        {selectedDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                    </span>
+                                    <button className="btn btn-sm btn-icon btn-light" onClick={handleNextDate}><i className="bi bi-chevron-right" /></button>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="wo-card-body">
+                            {workRun?.start_date ? (
+                                <div className="wo-timeline-container">
+                                    <div className="wo-timeline-header">
+                                        <div className="wo-timeline-label-col"></div>
+                                        <div className="wo-timeline-bar-col">
+                                            <div className="wo-timeline-hours" style={{ position: 'relative', height: 20 }}>
+                                                {timelineLabels.map(({ label, percent }) => (
+                                                    <span key={label} style={{ position: 'absolute', left: `${percent}%`, transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>
+                                                        {label}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Work Run row */}
+                                    <div className="wo-timeline-row">
+                                        <div className="wo-timeline-label-col">
+                                            <div className="wo-phase-label">
+                                                <span className="wo-phase-dot" style={{ backgroundColor: getRunStatusColor(workRun.status) }} />
+                                                <span className="wo-phase-name" title={workRun.lot_number || `Run #${workRun.work_run_id}`}>
+                                                    {workRun.lot_number || `Run #${workRun.work_run_id}`}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="wo-timeline-bar-col">
+                                            <div className="wo-timeline-track" style={{ position: 'relative' }}>
+                                                {runBarInfo ? (
+                                                    <>
+                                                        <div
+                                                            className="wo-timeline-bar"
+                                                            style={{ backgroundColor: getRunStatusColor(workRun.status), left: `${runBarInfo.leftPercent}%`, width: `${runBarInfo.widthPercent}%` }}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const centerPct = runBarInfo.leftPercent + runBarInfo.widthPercent / 2;
+                                                                setActivePopover(prev => prev?.type === 'run' ? null : { type: 'run', centerPct });
+                                                            }}
+                                                        >
+                                                            {runBarInfo.widthPercent >= 8 && (
+                                                                <span className="wo-bar-text">{getRunStatusLabel(workRun.status)}</span>
+                                                            )}
+                                                        </div>
+                                                        {breakBars.map(bb => (
+                                                            <div key={bb.break_id} style={{ position: 'absolute', top: 0, bottom: 0, left: `${bb.leftPercent}%`, width: `${bb.widthPercent}%`, backgroundColor: '#fd7e14', opacity: 0.75, borderRadius: 3, zIndex: 2 }} title={`พัก: ${bb.break_type}`} />
+                                                        ))}
+                                                        {activePopover?.type === 'run' && (
+                                                            <div ref={popoverRef} className="wo-timeline-popover" style={{ left: `${Math.min(Math.max(activePopover.centerPct, 15), 85)}%`, transform: 'translateX(-50%)', '--arrow-left': 'calc(50% - 6px)' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
+                                                                <div className="wo-timeline-popover-header">
+                                                                    <span className="fw-bold text-gray-800" style={{ fontSize: 13 }}>{workRun.lot_number || `Run #${workRun.work_run_id}`}</span>
+                                                                    <span className="wo-emp-status" style={{ backgroundColor: getRunStatusBg(workRun.status), color: getRunStatusColor(workRun.status) }}>{getRunStatusLabel(workRun.status)}</span>
+                                                                </div>
+                                                                <div className="wo-timeline-popover-list">
+                                                                    <div className="text-muted fw-semibold mb-1" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                                                                        <i className="bi bi-people-fill me-1" />พนักงาน ({activeAssignments.length} คน)
+                                                                    </div>
+                                                                    {activeAssignments.length === 0 ? (
+                                                                        <div className="text-muted" style={{ fontSize: 12 }}>ยังไม่มีพนักงาน</div>
+                                                                    ) : (
+                                                                        activeAssignments.map(a => (
+                                                                            <div key={a.work_run_assignment_id} className="wo-timeline-popover-emp">
+                                                                                <div className="wo-popover-avatar">{a.employee?.employee_first_name?.charAt(0) ?? '?'}</div>
+                                                                                <span className="flex-1">{a.employee?.employee_first_name} {a.employee?.employee_last_name}</span>
+                                                                                <span className="text-muted ms-auto" style={{ fontSize: 11 }}>{a.from_time ? new Date(a.from_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}</span>
+                                                                            </div>
+                                                                        ))
+                                                                    )}
+                                                                </div>
+                                                                {workRun.breaks && workRun.breaks.length > 0 && (
+                                                                    <div className="wo-timeline-popover-footer">
+                                                                        <div className="text-muted fw-semibold mb-1" style={{ fontSize: 11, textTransform: 'uppercase' }}>
+                                                                            <i className="bi bi-clock-history me-1 text-warning" />
+                                                                            พัก {workRun.breaks.length} ครั้ง • {formatDurationMs(calcTotalBreakMs(workRun.breaks))}
+                                                                        </div>
+                                                                        {workRun.breaks.map(b => (
+                                                                            <div key={b.break_id} style={{ fontSize: 11, color: '#7e8299', paddingBottom: 2 }}>
+                                                                                <span className="fw-semibold text-gray-700">{b.break_type}</span>
+                                                                                <span className="ms-2">{formatTimeTL(b.break_start)} – {b.break_end ? formatTimeTL(b.break_end) : 'กำลังพัก...'}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <div className="wo-timeline-bar-empty"><span className="text-muted" style={{ fontSize: 11 }}>ไม่มีกิจกรรมวันนี้</span></div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Employee rows */}
+                                    {employeeRows.length > 0 && (
+                                        <>
+                                            <div style={{ borderTop: '1px dashed #e4e6ef', margin: '6px 0 2px' }} />
+                                            {employeeRows.map(row => (
+                                                <div key={row.employee_id} className="wo-timeline-row">
+                                                    <div className="wo-timeline-label-col">
+                                                        <div className="wo-phase-label">
+                                                            <span className="wo-phase-dot" style={{ backgroundColor: row.bars.some(b => b.isActive) ? '#50cd89' : '#a1a5b7' }} />
+                                                            <span className="wo-phase-name" title={row.name}>
+                                                                <i className="bi bi-person-fill me-1" style={{ fontSize: 10, color: '#50cd89' }} />{row.name}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="wo-timeline-bar-col">
+                                                        <div className="wo-timeline-track" style={{ position: 'relative' }}>
+                                                            {row.bars.map(bar => (
+                                                                <React.Fragment key={bar.assignment_id}>
+                                                                    <div
+                                                                        className="wo-timeline-bar"
+                                                                        style={{ backgroundColor: bar.isActive ? '#50cd89' : '#a1a5b7', left: `${bar.leftPercent}%`, width: `${bar.widthPercent}%` }}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const centerPct = bar.leftPercent + bar.widthPercent / 2;
+                                                                            setActivePopover(prev => prev?.type === 'employee' && prev.assignmentId === bar.assignment_id ? null : { type: 'employee', assignmentId: bar.assignment_id, centerPct });
+                                                                        }}
+                                                                    >
+                                                                        {bar.widthPercent >= 8 && <span className="wo-bar-text">{bar.isActive ? 'กำลังทำงาน' : 'เสร็จแล้ว'}</span>}
+                                                                    </div>
+                                                                    {activePopover?.type === 'employee' && activePopover.assignmentId === bar.assignment_id && (() => {
+                                                                        const durationMs = bar.to_time ? new Date(bar.to_time).getTime() - new Date(bar.from_time).getTime() : Date.now() - new Date(bar.from_time).getTime();
+                                                                        return (
+                                                                            <div ref={popoverRef} className="wo-timeline-popover" style={{ left: `${Math.min(Math.max(activePopover.centerPct, 15), 85)}%`, transform: 'translateX(-50%)', '--arrow-left': 'calc(50% - 6px)' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
+                                                                                <div className="wo-timeline-popover-header">
+                                                                                    <span className="fw-bold text-gray-800" style={{ fontSize: 13 }}><i className="bi bi-person-fill me-1" style={{ color: '#50cd89' }} />{row.name}</span>
+                                                                                    <span className="wo-emp-status" style={{ backgroundColor: bar.isActive ? '#e8fff3' : '#f1f1f4', color: bar.isActive ? '#198754' : '#6c757d' }}>{bar.isActive ? 'กำลังทำงาน' : 'เสร็จแล้ว'}</span>
+                                                                                </div>
+                                                                                <div className="wo-timeline-popover-list">
+                                                                                    <div className="wo-timeline-popover-emp"><i className="bi bi-clock me-1 text-muted" style={{ fontSize: 12 }} /><span className="text-muted" style={{ fontSize: 12 }}>เริ่ม:</span><span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{formatTimeTL(bar.from_time)}</span></div>
+                                                                                    <div className="wo-timeline-popover-emp"><i className="bi bi-clock-history me-1 text-muted" style={{ fontSize: 12 }} /><span className="text-muted" style={{ fontSize: 12 }}>สิ้นสุด:</span><span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{bar.to_time ? formatTimeTL(bar.to_time) : 'กำลังทำงาน...'}</span></div>
+                                                                                </div>
+                                                                                <div className="wo-timeline-popover-footer"><span className="text-muted fw-semibold" style={{ fontSize: 11 }}><i className="bi bi-stopwatch me-1" />ระยะเวลา: {formatDurationMs(durationMs)}</span></div>
+                                                                            </div>
+                                                                        );
+                                                                    })()}
+                                                                </React.Fragment>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+
+                                    {/* Machine rows */}
+                                    {workRun.machines && workRun.machines.length > 0 && (
+                                        <>
+                                            <div style={{ borderTop: '1px dashed #e4e6ef', margin: '6px 0 2px' }} />
+                                            {workRun.machines.map(m => {
+                                                const bar = machineBars.find(mb => mb.work_run_machine_id === m.work_run_machine_id);
+                                                return (
+                                                    <div key={m.work_run_machine_id} className="wo-timeline-row">
+                                                        <div className="wo-timeline-label-col">
+                                                            <div className="wo-phase-label">
+                                                                <span className="wo-phase-dot" style={{ backgroundColor: m.to_time === null ? '#17a2b8' : '#6c757d' }} />
+                                                                <span className="wo-phase-name" title={m.machine?.machine_name ?? `Machine #${m.machine_id}`}>
+                                                                    <i className="bi bi-gear-fill me-1" style={{ fontSize: 10, color: '#17a2b8' }} />{m.machine?.machine_name ?? `Machine #${m.machine_id}`}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="wo-timeline-bar-col">
+                                                            <div className="wo-timeline-track" style={{ position: 'relative' }}>
+                                                                {bar ? (
+                                                                    <>
+                                                                        <div
+                                                                            className="wo-timeline-bar"
+                                                                            style={{ backgroundColor: m.to_time === null ? '#17a2b8' : '#6c757d', left: `${bar.leftPercent}%`, width: `${bar.widthPercent}%` }}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const centerPct = bar.leftPercent + bar.widthPercent / 2;
+                                                                                setActivePopover(prev => prev?.type === 'machine' && prev.machineId === m.machine_id ? null : { type: 'machine', machineId: m.machine_id, centerPct });
+                                                                            }}
+                                                                        >
+                                                                            {bar.widthPercent >= 8 && <span className="wo-bar-text">{m.to_time === null ? 'กำลังใช้งาน' : 'เสร็จแล้ว'}</span>}
+                                                                        </div>
+                                                                        {activePopover?.type === 'machine' && activePopover.machineId === m.machine_id && (() => {
+                                                                            const durationMs = m.to_time ? new Date(m.to_time).getTime() - new Date(m.from_time).getTime() : Date.now() - new Date(m.from_time).getTime();
+                                                                            return (
+                                                                                <div ref={popoverRef} className="wo-timeline-popover" style={{ left: `${Math.min(Math.max(activePopover.centerPct, 15), 85)}%`, transform: 'translateX(-50%)', '--arrow-left': 'calc(50% - 6px)' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
+                                                                                    <div className="wo-timeline-popover-header">
+                                                                                        <span className="fw-bold text-gray-800" style={{ fontSize: 13 }}><i className="bi bi-gear-fill me-1" style={{ color: '#17a2b8' }} />{m.machine?.machine_name ?? `Machine #${m.machine_id}`}</span>
+                                                                                        <span className="wo-emp-status" style={{ backgroundColor: m.to_time === null ? '#e0f9ff' : '#f1f1f4', color: m.to_time === null ? '#17a2b8' : '#6c757d' }}>{m.to_time === null ? 'กำลังใช้งาน' : 'เสร็จแล้ว'}</span>
+                                                                                    </div>
+                                                                                    <div className="wo-timeline-popover-list">
+                                                                                        {m.machine?.machine_code && <div className="wo-timeline-popover-emp"><i className="bi bi-upc me-1 text-muted" style={{ fontSize: 12 }} /><span className="text-muted" style={{ fontSize: 12 }}>รหัส:</span><span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{m.machine.machine_code}</span></div>}
+                                                                                        <div className="wo-timeline-popover-emp"><i className="bi bi-clock me-1 text-muted" style={{ fontSize: 12 }} /><span className="text-muted" style={{ fontSize: 12 }}>เริ่ม:</span><span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{formatTimeTL(m.from_time)}</span></div>
+                                                                                        <div className="wo-timeline-popover-emp"><i className="bi bi-clock-history me-1 text-muted" style={{ fontSize: 12 }} /><span className="text-muted" style={{ fontSize: 12 }}>สิ้นสุด:</span><span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{m.to_time ? formatTimeTL(m.to_time) : 'กำลังใช้งาน...'}</span></div>
+                                                                                    </div>
+                                                                                    <div className="wo-timeline-popover-footer"><span className="text-muted fw-semibold" style={{ fontSize: 11 }}><i className="bi bi-stopwatch me-1" />ระยะเวลา: {formatDurationMs(durationMs)}</span></div>
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+                                                                    </>
+                                                                ) : (
+                                                                    <div className="wo-timeline-bar-empty"><span className="text-muted" style={{ fontSize: 11 }}>ไม่มีกิจกรรมวันนี้</span></div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </>
+                                    )}
+
+                                    {/* Legend */}
+                                    <div className="d-flex gap-4 mt-4 fs-8 text-muted flex-wrap">
+                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#0d6efd', marginRight: 4 }} />Work Run</span>
+                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#fd7e14', marginRight: 4 }} />พัก</span>
+                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#50cd89', marginRight: 4 }} />พนักงาน (กำลังทำงาน)</span>
+                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#a1a5b7', marginRight: 4 }} />พนักงาน (เสร็จแล้ว)</span>
+                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#17a2b8', marginRight: 4 }} />เครื่องจักร (กำลังใช้งาน)</span>
+                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#6c757d', marginRight: 4 }} />เครื่องจักร (เสร็จแล้ว)</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center text-muted py-10">
+                                    <i className="bi bi-clock-history fs-3x text-gray-300 mb-3 d-block" />
+                                    Work Run ยังไม่ได้เริ่มดำเนินการ
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             {/* Assigned Employees */}
             <div className='card shadow-sm mb-8'>
@@ -736,44 +1426,382 @@ const WorkRunDetail: React.FC = () => {
                                     <tr className='fw-bold text-muted text-uppercase fs-8'>
                                         <th>รหัสสินค้า</th>
                                         <th>ชื่อวัตถุดิบ</th>
-                                        <th>จำนวนที่ต้องใช้</th>
-                                        <th>จำนวนที่ใช้จริง</th>
+                                        <th className='text-center'>จำนวนที่ต้องใช้</th>
+                                        <th className='text-center'>จำนวนที่ใช้จริง</th>
                                         <th>หน่วย</th>
+                                        <th className='text-end'>ต้นทุน/หน่วย</th>
+                                        <th className='text-end'>ต้นทุนรวม</th>
                                         {!isCompleted && <th className='text-end'>จัดการ</th>}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {workRun.required_items.map(item => (
-                                        <tr key={item.id}>
-                                            <td><span className='text-muted fw-semibold fs-7'>{item.item_code}</span></td>
-                                            <td><span className='fw-bold text-gray-800 fs-7'>{item.item_name} (SO-Line : {item.material_list.order_line_num})</span></td>
-
-                                            <td><span className='fw-semibold text-gray-700 fs-7'>{item.quantity}</span></td>
-                                            <td>
-                                                {item.qty_consumed_actual != null
-                                                    ? <span className='fw-semibold text-gray-700 fs-7'>{item.qty_consumed_actual}</span>
-                                                    : <span className='text-muted fs-7'>-</span>
-                                                }
-                                            </td>
-                                            <td><span className='text-muted fs-7'>{item.unit}</span></td>
-                                            {!isCompleted && (
-                                                <td className='text-end'>
-                                                    <button className='btn btn-sm btn-icon btn-light-primary me-1' onClick={() => openEditRequiredItem(item)}>
-                                                        <i className='bi bi-pencil fs-6'></i>
-                                                    </button>
-                                                    <button className='btn btn-sm btn-icon btn-light-danger' onClick={() => handleDeleteRequiredItem(item)}>
-                                                        <i className='bi bi-trash fs-6'></i>
-                                                    </button>
+                                    {workRun.required_items.map(item => {
+                                        const batchQty = item.material_list?.quantity ?? 0;
+                                        const batchCost = item.material_list?.cost_price ?? 0;
+                                        const costPerUnit = batchQty > 0
+                                            ? (item.material_list?.cost_per_unit ?? batchCost / batchQty)
+                                            : 0;
+                                        const lineCost = costPerUnit * item.quantity;
+                                        return (
+                                            <tr key={item.id}>
+                                                <td><span className='text-muted fw-semibold fs-7'>{item.item_code}</span></td>
+                                                <td><span className='fw-bold text-gray-800 fs-7'>{item.item_name} <span className='text-muted fw-normal'>(SO-Line: {item.material_list.order_line_num})</span></span></td>
+                                                <td className='text-center'><span className='fw-semibold text-gray-700 fs-7'>{item.quantity}</span></td>
+                                                <td className='text-center'>
+                                                    {item.qty_consumed_actual != null
+                                                        ? <span className='fw-semibold text-gray-700 fs-7'>{item.qty_consumed_actual}</span>
+                                                        : <span className='text-muted fs-7'>-</span>
+                                                    }
                                                 </td>
-                                            )}
-                                        </tr>
-                                    ))}
+                                                <td><span className='text-muted fs-7'>{item.unit}</span></td>
+                                                <td className='text-end'>
+                                                    <span className='text-muted fs-8'>
+                                                        {costPerUnit > 0 ? `฿${costPerUnit.toFixed(4)}` : '-'}
+                                                    </span>
+                                                </td>
+                                                <td className='text-end'>
+                                                    <span className='fw-semibold text-gray-800 fs-7'>
+                                                        {lineCost > 0 ? `฿${lineCost.toFixed(2)}` : '-'}
+                                                    </span>
+                                                </td>
+                                                {!isCompleted && (
+                                                    <td className='text-end'>
+                                                        <button className='btn btn-sm btn-icon btn-light-primary me-1' onClick={() => openEditRequiredItem(item)}>
+                                                            <i className='bi bi-pencil fs-6'></i>
+                                                        </button>
+                                                        <button className='btn btn-sm btn-icon btn-light-danger' onClick={() => handleDeleteRequiredItem(item)}>
+                                                            <i className='bi bi-trash fs-6'></i>
+                                                        </button>
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
+                                <tfoot>
+                                    <tr className='fw-bold border-top'>
+                                        <td colSpan={6} className='text-end pt-3'>
+                                            <span className='text-gray-600 fs-7'>ต้นทุนวัตถุดิบรวม (Run นี้)</span>
+                                        </td>
+                                        <td className='text-end pt-3'>
+                                            <span className='fw-bolder text-primary fs-6'>
+                                                ฿{workRun.required_items.reduce((sum, item) => {
+                                                    const batchQty = item.material_list?.quantity ?? 0;
+                                                    const batchCost = item.material_list?.cost_price ?? 0;
+                                                    const cpu = batchQty > 0 ? (item.material_list?.cost_per_unit ?? batchCost / batchQty) : 0;
+                                                    return sum + cpu * item.quantity;
+                                                }, 0).toFixed(2)}
+                                            </span>
+                                        </td>
+                                        {!isCompleted && <td />}
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* สรุปต้นทุน */}
+            <div className="card shadow-sm mb-8">
+                <div className="card-header border-0 pt-5">
+                    <div className="card-title">
+                        <span className="card-label fw-bold text-gray-900 fs-5">
+                            <i className="bi bi-calculator me-2 text-primary"></i>สรุปต้นทุน
+                        </span>
+                    </div>
+                </div>
+                <div className="card-body pt-3">
+                    <div className="row g-5">
+                        {/* ── ฝั่งซ้าย: รายละเอียดเครื่องจักร + พนักงาน ── */}
+                        <div className="col-lg-7 d-flex flex-column gap-5">
+
+                            {/* ── เครื่องจักร ── */}
+                            <div>
+                                <div className="d-flex align-items-center gap-2 mb-3">
+                                    <span className="symbol symbol-30px">
+                                        <span className="symbol-label bg-light-primary">
+                                            <i className="bi bi-gear-fill text-primary fs-7"></i>
+                                        </span>
+                                    </span>
+                                    <span className="fs-7 fw-bold text-gray-700">รายละเอียดค่าเครื่องจักร</span>
+                                    <span className="badge badge-light-primary fs-9">{machineCostActual.length} เครื่อง</span>
+                                </div>
+                                {machineCostActual.length === 0 ? (
+                                    <div className="text-muted fs-8 py-3 ps-2">ยังไม่มีเครื่องจักรที่ใช้งาน</div>
+                                ) : (
+                                    <div className="d-flex flex-column gap-2">
+                                        {machineCostActual.map(m => (
+                                            <div key={m.work_run_machine_id}
+                                                className="d-flex align-items-center justify-content-between rounded px-4 py-3"
+                                                style={{ background: m.isRunning ? '#fffbeb' : '#f9fafb', border: `1px solid ${m.isRunning ? '#fde68a' : '#e5e7eb'}` }}>
+                                                <div className="d-flex align-items-center gap-3">
+                                                    <div className="symbol symbol-35px">
+                                                        <span className={`symbol-label ${m.isRunning ? 'bg-warning' : 'bg-light'}`}>
+                                                            <i className={`bi bi-gear fs-6 ${m.isRunning ? 'text-white' : 'text-gray-500'}`}></i>
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <div className="d-flex align-items-center gap-2 mb-1">
+                                                            {m.machine?.is_second_hand && (
+                                                                <span className="badge badge-sm badge-light-warning">มือสอง</span>
+                                                            )}
+                                                            <span className="fw-semibold text-gray-800 fs-7">
+                                                                {m.machine?.machine_name ?? `Machine #${m.machine_id}`}
+                                                            </span>
+                                                            <span className="text-muted fs-8">{formatDurationMs(m.seconds * 1000)}</span>
+                                                        </div>
+                                                        <div className="d-flex gap-3 fs-8 text-muted">
+                                                            <span>
+                                                                <i className="bi bi-graph-down-arrow me-1 text-primary" />
+                                                                {m.noRate ? <span className="text-warning">ยังไม่มี rate</span> : `฿${m.depreciationCost.toFixed(4)}`}
+                                                            </span>
+                                                            <span>
+                                                                <i className="bi bi-wrench me-1 text-warning" />
+                                                                {m.isRunning
+                                                                    ? <span className="text-warning">~฿{m.maintenanceCost.toFixed(4)}</span>
+                                                                    : `฿${m.maintenanceCost.toFixed(4)}`}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <span className={`fw-bolder fs-7 ${m.isRunning ? 'text-warning' : 'text-gray-800'}`}>
+                                                    {m.isRunning ? '~' : ''}฿{m.totalCost.toFixed(4)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* ── พนักงาน ── */}
+                            <div>
+                                <div className="d-flex align-items-center gap-2 mb-3">
+                                    <span className="symbol symbol-30px">
+                                        <span className="symbol-label bg-light-success">
+                                            <i className="bi bi-people-fill text-success fs-7"></i>
+                                        </span>
+                                    </span>
+                                    <span className="fs-7 fw-bold text-gray-700">รายละเอียดค่าพนักงาน</span>
+                                    <span className="badge badge-light-success fs-9">{laborBreakdown.length} คน</span>
+                                </div>
+                                {laborBreakdown.length === 0 ? (
+                                    <div className="text-muted fs-8 py-3 ps-2">ยังไม่มีพนักงานที่ถูก assign</div>
+                                ) : (
+                                    <div className="d-flex flex-column gap-2">
+                                        {laborBreakdown.map(a => (
+                                            <div key={a.work_run_assignment_id}
+                                                className="d-flex align-items-center justify-content-between rounded px-4 py-3"
+                                                style={{ background: a.isWorking ? '#f0fdf4' : '#f9fafb', border: `1px solid ${a.isWorking ? '#bbf7d0' : '#e5e7eb'}` }}>
+                                                <div className="d-flex align-items-center gap-3">
+                                                    <div className="symbol symbol-35px">
+                                                        <span className={`symbol-label ${a.isWorking ? 'bg-success' : 'bg-light'}`}>
+                                                            <i className={`bi bi-person-fill fs-6 ${a.isWorking ? 'text-white' : 'text-gray-500'}`}></i>
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <div className="d-flex align-items-center gap-2 mb-1">
+                                                            <span className="fw-semibold text-gray-800 fs-7">
+                                                                {a.employee?.employee_first_name} {a.employee?.employee_last_name}
+                                                            </span>
+                                                            <span className="text-muted fs-8">{formatDurationMs(a.seconds * 1000)}</span>
+                                                        </div>
+                                                        <div className="d-flex gap-3 fs-8 text-muted">
+                                                            <span>
+                                                                <i className="bi bi-cash-stack me-1 text-success" />
+                                                                {a.employee?.salary_base
+                                                                    ? `฿${a.employee.salary_base.toLocaleString()}/เดือน`
+                                                                    : <span className="fst-italic">ไม่มีเงินเดือน</span>}
+                                                            </span>
+                                                            <span>
+                                                                <i className="bi bi-clock me-1" />
+                                                                {a.hourlyRate > 0 ? `฿${a.hourlyRate.toFixed(2)}/ชม.` : '—'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <span className={`fw-bolder fs-7 ${a.isWorking ? 'text-success' : 'text-gray-800'}`}>
+                                                    {a.isWorking ? '~' : ''}฿{a.cost.toFixed(2)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                        </div>
+
+                        {/* ── ฝั่งขวา: ตารางสรุปรวม ── */}
+                        <div className="col-lg-5">
+                            <div className="fs-7 fw-bold text-gray-600 mb-3">ต้นทุนรวม</div>
+                            <div className="bg-light rounded p-4">
+                                {/* ค่าวัตถุดิบ */}
+                                <div className="d-flex justify-content-between align-items-center mb-3">
+                                    <div className="d-flex align-items-center gap-2">
+                                        <span className="symbol symbol-25px">
+                                            <span className="symbol-label bg-light-info">
+                                                <i className="bi bi-box-seam text-info fs-8"></i>
+                                            </span>
+                                        </span>
+                                        <span className="text-gray-600 fs-7">ค่าวัตถุดิบ</span>
+                                    </div>
+                                    {totalMaterialCost > 0
+                                        ? <span className="fw-semibold text-gray-800 fs-7">฿{totalMaterialCost.toFixed(2)}</span>
+                                        : <span className="text-muted fs-8 fst-italic">ไม่มีข้อมูล</span>
+                                    }
+                                </div>
+
+                                {/* ค่าเสื่อมราคาเครื่องจักร */}
+                                <div className="d-flex justify-content-between align-items-center mb-3">
+                                    <div className="d-flex align-items-center gap-2">
+                                        <span className="symbol symbol-25px">
+                                            <span className="symbol-label bg-light-primary">
+                                                <i className="bi bi-graph-down-arrow text-primary fs-8"></i>
+                                            </span>
+                                        </span>
+                                        <span className="text-gray-600 fs-7">ค่าเสื่อมราคาเครื่องจักร</span>
+                                    </div>
+                                    <span className="fw-semibold text-gray-800 fs-7">
+                                        ฿{machineCostActual.reduce((s, m) => s + m.depreciationCost, 0).toFixed(4)}
+                                    </span>
+                                </div>
+
+                                {/* ค่าซ่อมเครื่องจักร — real-time */}
+                                <div className="d-flex justify-content-between align-items-center mb-3">
+                                    <div className="d-flex align-items-center gap-2">
+                                        <span className="symbol symbol-25px">
+                                            <span className="symbol-label bg-light-warning">
+                                                <i className="bi bi-wrench text-warning fs-8"></i>
+                                            </span>
+                                        </span>
+                                        <div>
+                                            <span className="text-gray-600 fs-7">ค่าซ่อมเครื่องจักร</span>
+                                            {machineCostActual.some(m => m.isRunning) && (
+                                                <span className="ms-1 text-warning fs-9 fst-italic">(ประมาณการ)</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <span className={`fw-semibold fs-7 ${machineCostActual.some(m => m.isRunning) ? 'text-warning' : 'text-gray-800'}`}>
+                                        ฿{machineCostActual.reduce((s, m) => s + m.maintenanceCost, 0).toFixed(4)}
+                                    </span>
+                                </div>
+
+                                {/* ค่าพนักงาน */}
+                                <div className="d-flex justify-content-between align-items-center mb-4">
+                                    <div className="d-flex align-items-center gap-2">
+                                        <span className="symbol symbol-25px">
+                                            <span className="symbol-label bg-light-success">
+                                                <i className="bi bi-people text-success fs-8"></i>
+                                            </span>
+                                        </span>
+                                        <span className="text-gray-600 fs-7">ค่าพนักงาน</span>
+                                    </div>
+                                    <span className="fw-semibold text-gray-800 fs-7">฿{totalLaborCost.toFixed(2)}</span>
+                                </div>
+
+                                <div className="separator separator-dashed mb-4"></div>
+
+                                {/* รวมต้นทุน */}
+                                <div className="d-flex justify-content-between align-items-center">
+                                    <span className="fw-bold text-gray-800 fs-6">รวมต้นทุน</span>
+                                    <span className="fw-bolder text-primary fs-4">
+                                        ฿{(
+                                            totalMaterialCost +
+                                            machineCostActual.reduce((s, m) => s + m.depreciationCost, 0) +
+                                            machineCostActual.reduce((s, m) => s + m.maintenanceCost, 0) +
+                                            totalLaborCost
+                                        ).toFixed(2)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Cost Over Time Chart */}
+            {costChartData.length > 1 && (
+                <div className="card shadow-sm mb-8">
+                    <div className="card-header border-0 pt-5">
+                        <div className="card-title">
+                            <span className="card-label fw-bold text-gray-900 fs-5">
+                                <i className="bi bi-graph-up me-2 text-primary"></i>ต้นทุนสะสมตามช่วงเวลา
+                            </span>
+                        </div>
+                        <div className="card-toolbar">
+                            <span className="text-muted fs-8">แกน X = เวลาที่ผ่านไป (ชม:นาที) &nbsp;|&nbsp; แกน Y = บาท</span>
+                        </div>
+                    </div>
+                    <div className="card-body pt-3 pb-6">
+                        {/* Legend chips */}
+                        <div className="d-flex flex-wrap gap-3 mb-5">
+                            {[
+                                { label: 'ค่าเสื่อมราคา', color: '#0d6efd' },
+                                { label: 'ค่าซ่อมบำรุง', color: '#fd7e14' },
+                                { label: 'ค่าพนักงาน', color: '#198754' },
+                                { label: 'รวม', color: '#6f42c1', dashed: true },
+                            ].map(item => (
+                                <span key={item.label} className="d-flex align-items-center gap-1 fs-8 text-gray-700 fw-semibold">
+                                    <svg width="22" height="10">
+                                        <line x1="0" y1="5" x2="22" y2="5"
+                                            stroke={item.color} strokeWidth="2.5"
+                                            strokeDasharray={item.dashed ? '4 3' : undefined} />
+                                    </svg>
+                                    {item.label}
+                                </span>
+                            ))}
+                        </div>
+
+                        <ResponsiveContainer width="100%" height={320}>
+                            <LineChart data={costChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                <XAxis
+                                    dataKey="label"
+                                    tick={{ fontSize: 11, fill: '#6c757d' }}
+                                    tickLine={false}
+                                    interval={Math.floor(costChartData.length / 8)}
+                                    label={{ value: 'เวลาที่ผ่านไป', position: 'insideBottomRight', offset: -10, fontSize: 11, fill: '#6c757d' }}
+                                />
+                                <YAxis
+                                    tick={{ fontSize: 11, fill: '#6c757d' }}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(v: number) => v >= 1 ? `฿${v.toFixed(2)}` : `฿${v.toFixed(4)}`}
+                                    width={80}
+                                />
+                                <Tooltip
+                                    contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }}
+                                    formatter={(value: number, name: string) => [`฿${value.toFixed(4)}`, name]}
+                                    labelFormatter={(label: string) => `เวลา ${label}`}
+                                />
+                                <Line type="monotone" dataKey="ค่าเสื่อมราคา" stroke="#0d6efd" strokeWidth={2} dot={false} />
+                                <Line type="monotone" dataKey="ค่าซ่อมบำรุง" stroke="#fd7e14" strokeWidth={2} dot={false} />
+                                <Line type="monotone" dataKey="ค่าพนักงาน" stroke="#198754" strokeWidth={2} dot={false} />
+                                <Line type="monotone" dataKey="รวม" stroke="#6f42c1" strokeWidth={2.5} strokeDasharray="5 4" dot={false} />
+                            </LineChart>
+                        </ResponsiveContainer>
+
+                        {/* Summary row */}
+                        <div className="d-flex flex-wrap justify-content-center gap-5 mt-4 pt-4 border-top border-dashed">
+                            {[
+                                { label: 'ค่าเสื่อมราคา', key: 'ค่าเสื่อมราคา', color: '#0d6efd', bg: '#e7f1ff' },
+                                { label: 'ค่าซ่อมบำรุง', key: 'ค่าซ่อมบำรุง', color: '#fd7e14', bg: '#fff3e0' },
+                                { label: 'ค่าพนักงาน', key: 'ค่าพนักงาน', color: '#198754', bg: '#d1e7dd' },
+                                { label: 'รวม', key: 'รวม', color: '#6f42c1', bg: '#f0ebff' },
+                            ].map(item => {
+                                const last = costChartData[costChartData.length - 1];
+                                const val = last ? (last as unknown as Record<string, number>)[item.key] : 0;
+                                return (
+                                    <div key={item.key} className="d-flex flex-column align-items-center px-4 py-2 rounded" style={{ backgroundColor: item.bg, minWidth: 120 }}>
+                                        <span className="fs-8 fw-semibold mb-1" style={{ color: item.color }}>{item.label}</span>
+                                        <span className="fw-bolder fs-6" style={{ color: item.color }}>฿{val.toFixed(4)}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Required Item Add/Edit Modal */}
             <Modal show={showRequiredItemModal} onHide={closeRequiredItemModal} centered size={editingRequiredItem ? undefined : 'lg'}>

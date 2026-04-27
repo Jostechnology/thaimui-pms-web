@@ -26,8 +26,14 @@ export type Machine = {
     machine_description: string | null;
     manufacturer: string | null;
     purchase_date: string | null;
+    purchase_price: number | null;
+    useful_life_years: number | null;
+    working_hours_per_day: number | null;
+    remaining_maintenance_cost: number | null;
     status: string; // เช่น 'IDLE', 'RUNNING', 'DOWN'
     is_active: boolean;
+    is_second_hand: boolean;
+    accumulated_hours: number | null;
     machine_type_id: number | null;
     machine_type: {
         machine_type_id: number;

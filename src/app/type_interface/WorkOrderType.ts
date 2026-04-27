@@ -29,13 +29,23 @@ export interface WorkRunAssignment {
     employee: Employee;
 }
 
+export interface MachineCost {
+    depreciation_per_second: number;
+    depreciation_cost: number | null;
+    maintenance_rate_per_second: number;
+    maintenance_cost: number | null;
+    total_cost: number | null;
+}
+
 export interface WorkRunMachineEntry {
     work_run_machine_id: number;
     work_run_id: number;
     machine_id: number;
     from_time: string;
     to_time: string | null;
+    allocated_maintenance_cost: number | null;
     machine: Machine;
+    cost: MachineCost | null;
 }
 
 export interface WorkRunBreak {
@@ -69,12 +79,24 @@ export interface WorkRunRequiredItem {
     material_list : Material
 }
 
+export interface WorkRunCost {
+    cost_id: number;
+    work_run_id: number;
+    material_cost: number | null;
+    depreciation_cost: number | null;
+    maintenance_cost: number | null;
+    labor_cost: number | null;
+    total_cost: number | null;
+}
+
 // Full WorkRun display — returned from GET /api/work_run/:id (WorkRunDisplaySchema)
 export interface WorkRunDetail extends WorkRun {
     assignments: WorkRunAssignment[];
     machines: WorkRunMachineEntry[];
     breaks: WorkRunBreak[];
     required_items: WorkRunRequiredItem[];
+    work_order: WorkOrder | null;
+    cost: WorkRunCost | null;
 }
 
 export interface SalesItemTestResult {
@@ -101,6 +123,7 @@ export interface ComponentMaterialUsage {
         remaining_num: number;
         cost_price: number;
         unit_price: number;
+        cost_per_unit?: number;
     };
 }
 
@@ -234,11 +257,14 @@ export interface WorkRunEmployeeBreakdown {
 }
 
 export interface WorkRunMachineBreakdown {
+    work_run_machine_id: number;
     machine_id: number;
     machine_name: string | null;
+    machine_code: string | null;
+    is_second_hand: boolean;
     from_time: string | null;
     to_time: string | null;
-    time_spent_seconds: number;
+    cost: MachineCost;
 }
 
 export interface WorkRunCostDetailData {
