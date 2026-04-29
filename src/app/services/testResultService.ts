@@ -172,3 +172,63 @@ export const deleteTestResult = async (testResultId: number): Promise<APIRespons
         return { success: false, message: "เกิดข้อผิดพลาดในการลบผลการทดสอบ" };
     }
 };
+
+export const assignEmployeeToTestResult = async (testResultId: number, employeeId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api("POST", `/test_result/${testResultId}/assign_employee`, { employee_id: employeeId }, { wrapData: false });
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("assignEmployeeToTestResult Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการเพิ่มพนักงาน" };
+    }
+};
+
+export const unassignEmployeeFromTestResult = async (testResultId: number, employeeId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api("POST", `/test_result/${testResultId}/unassign_employee`, { employee_id: employeeId }, { wrapData: false });
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("unassignEmployeeFromTestResult Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการนำพนักงานออก" };
+    }
+};
+
+export const assignMachineToTestResult = async (testResultId: number, machineId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api("POST", `/test_result/${testResultId}/assign_machine`, { machine_id: machineId }, { wrapData: false });
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("assignMachineToTestResult Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการเพิ่มเครื่องจักร" };
+    }
+};
+
+export const unassignMachineFromTestResult = async (testResultId: number, machineId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api("POST", `/test_result/${testResultId}/unassign_machine`, { machine_id: machineId }, { wrapData: false });
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("unassignMachineFromTestResult Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการนำเครื่องจักรออก" };
+    }
+};
+
+export const pauseTestResult = async (testResultId: number, payload: { break_type: string }): Promise<APIResponse> => {
+    try {
+        const response = await front_api("POST", `/test_result/${testResultId}/pause`, payload, { wrapData: false });
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("pauseTestResult Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการพักทดสอบ" };
+    }
+};
+
+export const resumeTestResult = async (testResultId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api("POST", `/test_result/${testResultId}/resume`, {}, { wrapData: false });
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("resumeTestResult Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการทดสอบต่อ" };
+    }
+};

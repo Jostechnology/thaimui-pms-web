@@ -8,14 +8,15 @@ import { qcWorkData } from "../../../libs/defaultFormData";
 import { formatThaiDate } from "../../../helpers/dataHelpers";
 import TestResultSection from "./TestResultSection";
 import Swal from "sweetalert2";
+import "../../workorder/components/WorkorderView.css";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 const getStatusInfo = (status: string) => {
     const s = status?.toUpperCase();
-    if (s === "PASSED")    return { cls: "badge-light-success", label: "ผ่าน QC",         icon: "bi-patch-check-fill",  dot: "#17c653" };
-    if (s === "INPROGRESS") return { cls: "badge-light-warning", label: "กำลังดำเนินการ", icon: "bi-hourglass-split",   dot: "#f6c000" };
-    if (s === "PENDING")   return { cls: "badge-light-primary",  label: "รอดำเนินการ",    icon: "bi-clock-fill",        dot: "#1b84ff" };
+    if (s === "PASSED") return { cls: "badge-light-success", label: "ผ่าน QC", icon: "bi-patch-check-fill", dot: "#17c653" };
+    if (s === "INPROGRESS") return { cls: "badge-light-warning", label: "กำลังดำเนินการ", icon: "bi-hourglass-split", dot: "#f6c000" };
+    if (s === "PENDING") return { cls: "badge-light-primary", label: "รอดำเนินการ", icon: "bi-clock-fill", dot: "#1b84ff" };
     return { cls: "badge-light-secondary", label: status || "-", icon: "bi-circle", dot: "#99a1b7" };
 };
 
@@ -53,9 +54,9 @@ const ViewQCWorkOrder: React.FC = () => {
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState<QCWorkOrderData>(qcWorkData);
-    const [rawData,  setRawData]  = useState<any>(null);
+    const [rawData, setRawData] = useState<any>(null);
     const [testResults, setTestResults] = useState<any[]>([]);
-    const [loading,    setLoading]    = useState(false);
+    const [loading, setLoading] = useState(false);
     const [pdfLoading, setPdfLoading] = useState(false);
 
     useEffect(() => { if (qc_workorder_id) loadData(qc_workorder_id); }, [qc_workorder_id]);
@@ -71,60 +72,60 @@ const ViewQCWorkOrder: React.FC = () => {
             const raw = result.data;
             setRawData(raw);
             setTestResults(raw.test_results ?? []);
-            const form  = raw.qc_form || {};
+            const form = raw.qc_form || {};
             const items: QCWorkOrderItem[] = (raw.qc_items || []).map((item: any) => {
                 const ml = item.material_list ?? {};
-                
+
                 return {
-                    id:              String(item.qc_item_id),
-                    code:            ml.item_code  ?? item.item_code  ?? "",
-                    description:     ml.item_name  ?? item.description ?? "",
-                    wll:             item.wll       ?? "",
-                    quantity:        item.quantity  ?? "",
-                    serialNo:        item.serial_no ?? "",
-                    remark:          item.item_remark ?? "",
-                    unit_name:       ml.unit_name   ?? "",
+                    id: String(item.qc_item_id),
+                    code: ml.item_code ?? item.item_code ?? "",
+                    description: ml.item_name ?? item.description ?? "",
+                    wll: item.wll ?? "",
+                    quantity: item.quantity ?? "",
+                    serialNo: item.serial_no ?? "",
+                    remark: item.item_remark ?? "",
+                    unit_name: ml.unit_name ?? "",
                     material_list_id: item.material_list_id ?? undefined,
-                    material_list : item.material_list
+                    material_list: item.material_list
                 };
             });
 
             const so = raw.sales_order ?? {};
             setFormData({
                 ...qcWorkData,
-                work_order_id:       raw.work_order_id,
-                ptt:                 form.std_ptt        ?? false,
-                chevron:             form.std_chevron    ?? false,
-                valeur:              form.std_valeur     ?? false,
-                ophir:               form.std_ophir      ?? false,
-                threeSpec:           form.std_three_spec ?? false,
-                standardOthers:      form.std_others     ?? false,
-                standardOthersText:  form.std_others_text ?? "",
-                inHouse:             form.cert_inhouse    ?? false,
-                thirdParty:          form.cert_third_party ?? false,
-                ndt:                 form.cert_ndt        ?? false,
-                testingOthers:       form.cert_others     ?? false,
-                testingOthersText:   form.cert_others_text ?? "",
-                serialTag:           form.serial_tag      ?? false,
-                serialImprint:       form.serial_imprint  ?? false,
-                continueSerial:      form.serial_continue ?? false,
-                serialOthers:        form.serial_others   ?? false,
-                serialOthersText:    form.serial_others_text ?? "",
-                generalRemark:       form.general_remark  ?? "",
-                details:             form.details         ?? "",
+                work_order_id: raw.work_order_id,
+                ptt: form.std_ptt ?? false,
+                chevron: form.std_chevron ?? false,
+                valeur: form.std_valeur ?? false,
+                ophir: form.std_ophir ?? false,
+                threeSpec: form.std_three_spec ?? false,
+                standardOthers: form.std_others ?? false,
+                standardOthersText: form.std_others_text ?? "",
+                inHouse: form.cert_inhouse ?? false,
+                thirdParty: form.cert_third_party ?? false,
+                ndt: form.cert_ndt ?? false,
+                testingOthers: form.cert_others ?? false,
+                testingOthersText: form.cert_others_text ?? "",
+                serialTag: form.serial_tag ?? false,
+                serialImprint: form.serial_imprint ?? false,
+                continueSerial: form.serial_continue ?? false,
+                serialOthers: form.serial_others ?? false,
+                serialOthersText: form.serial_others_text ?? "",
+                generalRemark: form.general_remark ?? "",
+                details: form.details ?? "",
                 customerReceiptNumber: form.customer_receipt_number ?? "",
-                docEntry:            raw.doc_entry        ?? "",
-                salesItemId:         raw.sales_item_id    ?? undefined,
-                salesItemCode:       raw.sales_item_code  ?? "",
-                quantity:            raw.quantity         ?? 1,
+                docEntry: raw.doc_entry ?? "",
+                salesItemId: raw.sales_item_id ?? undefined,
+                salesItemCode: raw.sales_item_code ?? "",
+                quantity: raw.quantity ?? 1,
                 items,
-                customerCode:        so.card_code         ?? "",
-                customerName:        so.card_name         ?? "",
-                docNum:              so.doc_num           ?? "",
-                salesCode:           so.slp_code          ?? "",
-                salesName:           so.slp_name          ?? "",
-                teamCode:            so.group_code        ?? "",
-                teamName:            so.group_name        ?? "",
+                customerCode: so.card_code ?? "",
+                customerName: so.card_name ?? "",
+                docNum: so.doc_num ?? "",
+                salesCode: so.slp_code ?? "",
+                salesName: so.slp_name ?? "",
+                teamCode: so.group_code ?? "",
+                teamName: so.group_name ?? "",
             });
         } catch (err) {
             console.error(err);
@@ -162,85 +163,55 @@ const ViewQCWorkOrder: React.FC = () => {
     return (
         <Content>
 
-            {/* ═══════════════════════════════════════════════════════════
-                HERO HEADER CARD
-            ═══════════════════════════════════════════════════════════ */}
-            <div className="card card-flush border-0 shadow-sm mb-7">
-                <div className="card-body py-6 px-7">
-                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-4">
-
-                        {/* Left: back + title + status */}
-                        <div className="d-flex align-items-center gap-4">
-                            <button
-                                className="btn btn-sm btn-icon btn-light rounded-circle flex-shrink-0"
-                                onClick={() => navigate("/quality_control/qc_workorders_list")}
-                                title="ย้อนกลับ"
-                            >
-                                <i className="bi bi-arrow-left fs-5"></i>
-                            </button>
-
-                            <div className="d-flex flex-column">
-                                <div className="d-flex align-items-center gap-3 flex-wrap">
-                                    <h2 className="fw-bold text-gray-900 mb-0 fs-2x">
-                                        {rawData?.qc_work_order_code || "ใบสั่งเทส"}
-                                    </h2>
-                                    {rawData?.status && (
-                                        <span className={`badge ${statusInfo.cls} fw-bold px-4 py-2 fs-7`}>
-                                            <i className={`bi ${statusInfo.icon} me-2`}></i>{statusInfo.label}
-                                        </span>
-                                    )}
-                                </div>
-                                {/* meta row */}
-                                <div className="d-flex align-items-center gap-4 mt-2 flex-wrap">
-                                    {rawData?.created_date && (
-                                        <span className="text-muted fs-7">
-                                            <i className="bi bi-calendar3 me-1"></i>
-                                            สร้างเมื่อ {formatThaiDate(rawData.created_date)}
-                                        </span>
-                                    )}
-                                    {formData.docNum && (
-                                        <span className="text-muted fs-7">
-                                            <i className="bi bi-receipt me-1"></i>
-                                            SO #{formData.docNum}
-                                        </span>
-                                    )}
-                                    {formData.customerName && (
-                                        <span className="text-muted fs-7">
-                                            <i className="bi bi-person me-1"></i>
-                                            {formData.customerName}
-                                        </span>
-                                    )}
-                                    {formData.quantity > 0 && (
-                                        <span className="text-muted fs-7">
-                                            <i className="bi bi-box-seam me-1"></i>
-                                            {formData.quantity} ชิ้น
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
+            {/* Header */}
+            <div className="wo-page-header mb-6">
+                <div className="wo-page-header-left">
+                    <button className="wo-back-btn" onClick={() => navigate("/quality_control/qc_workorders_list")}>
+                        <i className="bi bi-chevron-left"></i>
+                    </button>
+                    <div className="wo-header-vdivider" />
+                    <span className="wo-header-title">QC <strong>{rawData?.qc_work_order_code || "ใบสั่งเทส"}</strong></span>
+                    {formData.customerName && (
+                        <>
+                            <div className="wo-header-vdivider" />
+                            <span className="wo-header-info">
+                                <i className="bi bi-person me-1" />ลูกค้า: {formData.customerName}
+                            </span>
+                        </>
+                    )}
+                    {formData.docNum && (
+                        <>
+                            <div className="wo-header-vdivider" />
+                            <span className="wo-header-info">
+                                <i className="bi bi-receipt me-1" />SO #{formData.docNum}
+                            </span>
+                        </>
+                    )}
+                    {formData.quantity > 0 && (
+                        <>
+                            <div className="wo-header-vdivider" />
+                            <span className="wo-header-info">
+                                <i className="bi bi-box-seam me-1" />{formData.quantity} ชิ้น
+                            </span>
+                        </>
+                    )}
+                </div>
+                <div className="wo-page-header-right">
+                    {rawData?.status && (
+                        <div className={`wo-status-pill${rawData.status.toUpperCase() === "PASSED" ? " wo-status-pill-green" : rawData.status.toUpperCase() === "PENDING" ? " wo-status-pill-grey" : ""}`}>
+                            <span className="wo-status-dot" style={rawData.status.toUpperCase() === "PASSED" ? { background: "#22c55e", animation: "none" } : rawData.status.toUpperCase() === "PENDING" ? { animation: "none" } : undefined} />
+                            {statusInfo.label}
                         </div>
-
-                        {/* Right: actions */}
-                        <div className="d-flex align-items-center gap-2 flex-shrink-0">
-                            <button
-                                className="btn btn-light fw-semibold"
-                                onClick={handleExportPDF}
-                                disabled={pdfLoading}
-                            >
-                                {pdfLoading
-                                    ? <><span className="spinner-border spinner-border-sm me-2" />กำลัง Export...</>
-                                    : <><i className="bi bi-file-earmark-pdf me-2 text-danger"></i>Export PDF</>
-                                }
-                            </button>
-                            <button
-                                className="btn btn-primary fw-semibold"
-                                onClick={() => navigate(`/quality_control/qc_workorders_list/edit/${qc_workorder_id}`)}
-                            >
-                                <i className="bi bi-pencil-square me-2"></i>แก้ไข
-                            </button>
-                        </div>
-
-                    </div>
+                    )}
+                    <button className="btn btn-primary" onClick={handleExportPDF} disabled={pdfLoading}>
+                        {pdfLoading
+                            ? <><span className="spinner-border spinner-border-sm me-1" />กำลัง Export...</>
+                            : <><i className="bi bi-file-earmark-pdf me-1" />Export PDF</>
+                        }
+                    </button>
+                    <button className="btn bg-primary text-white" onClick={() => navigate(`/quality_control/qc_workorders_list/edit/${qc_workorder_id}`)}>
+                        <i className="bi bi-pencil-square text-white me-1" />แก้ไข
+                    </button>
                 </div>
             </div>
 
@@ -301,11 +272,11 @@ const ViewQCWorkOrder: React.FC = () => {
                             <div>
                                 <span className="text-muted fs-8 fw-bold text-uppercase d-block mb-2">มาตรฐาน</span>
                                 <div className="d-flex flex-wrap gap-1">
-                                    <CheckBadge checked={formData.ptt}           label="PTT" />
-                                    <CheckBadge checked={formData.chevron}       label="Chevron" />
-                                    <CheckBadge checked={formData.valeur}        label="Valeur" />
-                                    <CheckBadge checked={formData.ophir}         label="Ophir" />
-                                    <CheckBadge checked={formData.threeSpec}     label="3Spec" />
+                                    <CheckBadge checked={formData.ptt} label="PTT" />
+                                    <CheckBadge checked={formData.chevron} label="Chevron" />
+                                    <CheckBadge checked={formData.valeur} label="Valeur" />
+                                    <CheckBadge checked={formData.ophir} label="Ophir" />
+                                    <CheckBadge checked={formData.threeSpec} label="3Spec" />
                                     <CheckBadge checked={formData.standardOthers} label={`Others${formData.standardOthersText ? `: ${formData.standardOthersText}` : ""}`} />
                                     {!formData.ptt && !formData.chevron && !formData.valeur && !formData.ophir && !formData.threeSpec && !formData.standardOthers && (
                                         <span className="text-muted fs-7">ไม่ระบุ</span>
@@ -315,9 +286,9 @@ const ViewQCWorkOrder: React.FC = () => {
                             <div>
                                 <span className="text-muted fs-8 fw-bold text-uppercase d-block mb-2">ใบรับรอง</span>
                                 <div className="d-flex flex-wrap gap-1">
-                                    <CheckBadge checked={formData.inHouse}       label="In-house" />
-                                    <CheckBadge checked={formData.thirdParty}    label="Third Party" />
-                                    <CheckBadge checked={formData.ndt}           label="NDT" />
+                                    <CheckBadge checked={formData.inHouse} label="In-house" />
+                                    <CheckBadge checked={formData.thirdParty} label="Third Party" />
+                                    <CheckBadge checked={formData.ndt} label="NDT" />
                                     <CheckBadge checked={formData.testingOthers} label={`Others${formData.testingOthersText ? `: ${formData.testingOthersText}` : ""}`} />
                                     {!formData.inHouse && !formData.thirdParty && !formData.ndt && !formData.testingOthers && (
                                         <span className="text-muted fs-7">ไม่ระบุ</span>
@@ -328,9 +299,9 @@ const ViewQCWorkOrder: React.FC = () => {
                                 <span className="text-muted fs-8 fw-bold text-uppercase d-block mb-2">Serial Number</span>
                                 <div className="d-flex flex-wrap gap-1">
                                     <CheckBadge checked={formData.continueSerial} label="คล้องวางแห" />
-                                    <CheckBadge checked={formData.serialImprint}  label="ตอกที่ตัวสินค้า" />
-                                    <CheckBadge checked={formData.serialTag}      label="คล้องแท็ก" />
-                                    <CheckBadge checked={formData.serialOthers}   label={`Others${formData.serialOthersText ? `: ${formData.serialOthersText}` : ""}`} />
+                                    <CheckBadge checked={formData.serialImprint} label="ตอกที่ตัวสินค้า" />
+                                    <CheckBadge checked={formData.serialTag} label="คล้องแท็ก" />
+                                    <CheckBadge checked={formData.serialOthers} label={`Others${formData.serialOthersText ? `: ${formData.serialOthersText}` : ""}`} />
                                     {!formData.continueSerial && !formData.serialImprint && !formData.serialTag && !formData.serialOthers && (
                                         <span className="text-muted fs-7">ไม่ระบุ</span>
                                     )}
@@ -399,22 +370,6 @@ const ViewQCWorkOrder: React.FC = () => {
                         </CardSection>
                     )}
 
-                    {/* Test Results — full width under details */}
-                    {qc_workorder_id && (
-                        <TestResultSection
-                            qcWorkOrderId={Number(qc_workorder_id)}
-                            quantity={formData.quantity ?? 1}
-                            salesItemDescription={formData.salesItemCode}
-                            salesItemId={formData.salesItemId}
-                            testResultsPre={testResults}
-                            qcItems={formData.items}
-                        />
-                    )}
-
-                </div>
-
-                {/* ── RIGHT 40% — Testing Dashboard ───────────────────────── */}
-                <div className="col-12 col-xl-5">
                     <div
                         style={{
                             position: "sticky",
@@ -543,58 +498,27 @@ const ViewQCWorkOrder: React.FC = () => {
                                 })()}
                             </div>
                         </div>
-
-                        {/* Recent Sessions Timeline */}
-                        {testResults.length > 0 && (
-                            <div className="card card-flush border-0 shadow-sm mb-5">
-                                <div className="card-header min-h-50px border-bottom border-gray-100 py-0">
-                                    <div className="card-title d-flex align-items-center gap-2">
-                                        <i className="bi bi-clock-history text-primary fs-5"></i>
-                                        <span className="fw-bold text-gray-800 fs-6">Sessions ล่าสุด</span>
-                                    </div>
-                                </div>
-                                <div className="card-body py-5 px-6">
-                                    <div className="timeline">
-                                        {testResults.slice(0, 5).map((tr: any, idx: number) => {
-                                            const isCompleted = tr.session_status === "COMPLETED";
-                                            const isInProgress = tr.session_status === "INPROGRESS";
-                                            const dotColor = isCompleted
-                                                ? (tr.overall_status === "PASSED" ? "bg-success" : "bg-danger")
-                                                : isInProgress ? "bg-warning" : "bg-secondary";
-
-                                            return (
-                                                <div key={tr.test_result_id} className={`d-flex align-items-start gap-3 ${idx < Math.min(testResults.length, 5) - 1 ? 'mb-5 pb-5 border-bottom border-gray-100' : ''}`}>
-                                                    <div className={`rounded-circle ${dotColor} flex-shrink-0 mt-1`} style={{ width: 10, height: 10 }} />
-                                                    <div className="flex-grow-1">
-                                                        <div className="d-flex justify-content-between align-items-center">
-                                                            <span className="fw-bold text-gray-800 fs-7">
-                                                                {tr.test_result_code || `Session #${idx + 1}`}
-                                                            </span>
-                                                            <span className={`badge fw-bold fs-9 ${
-                                                                isCompleted ? (tr.overall_status === "PASSED" ? "badge-light-success" : "badge-light-danger")
-                                                                : isInProgress ? "badge-light-warning" : "badge-light-secondary"
-                                                            }`}>
-                                                                {isCompleted ? tr.overall_status : tr.session_status}
-                                                            </span>
-                                                        </div>
-                                                        <div className="d-flex gap-3 mt-1 text-muted fs-8">
-                                                            <span><i className="bi bi-box-seam me-1"></i>{tr.claimed_qty ?? 0} ชิ้น</span>
-                                                            {tr.test_date && <span><i className="bi bi-calendar3 me-1"></i>{tr.test_date.split("T")[0]}</span>}
-                                                            {tr.tested_by && <span><i className="bi bi-person me-1"></i>{tr.tested_by}</span>}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
+
+                </div>
+
+                {/* ── RIGHT 40% — Testing Dashboard ───────────────────────── */}
+                <div className="col-12 col-xl-5">
+                    {/* Test Results — full width under details */}
+                    {qc_workorder_id && (
+                        <TestResultSection
+                            qcWorkOrderId={Number(qc_workorder_id)}
+                            quantity={formData.quantity ?? 1}
+                            salesItemDescription={formData.salesItemCode}
+                            salesItemId={formData.salesItemId}
+                            testResultsPre={testResults}
+                            qcItems={formData.items}
+                        />
+                    )}
                 </div>
 
             </div>
-        </Content>
+        </Content >
     );
 };
 

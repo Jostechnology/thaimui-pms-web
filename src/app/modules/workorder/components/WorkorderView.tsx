@@ -9,7 +9,7 @@ import './WorkorderView.css';
 import { type WorkOrder, type WorkRun, type WorkRunDetail as WorkRunDetailType, type WorkRunBreak, type WorkRunCost } from '../../../type_interface/WorkOrderType';
 import { formatIntegerInput } from '../../../utils/input_format_utils';
 import Swal from "sweetalert2";
-import { createWorkRun, getSalesItemTestResults, getWorkRunById } from '../../../services/workRunService';
+import { createWorkRun, getSalesItemTestResults, getWorkRunsCostByWorkOrder } from '../../../services/workRunService';
 import type { WorkRunSourceAllocation, TestResultSourceAllocation, SalesItemTestResult } from '../../../services/workRunService';
 
 const getStatusBadgeClass = (status: string) => {
@@ -101,17 +101,14 @@ const WorkorderView: React.FC = () => {
                 const runs: WorkRun[] = result.data.work_runs || [];
                 setWorkRuns(runs);
 
-                // fetch all work run details in parallel for cost calculation
-                const startedRuns = runs.filter(r => r.start_date !== null);
-                if (startedRuns.length > 0) {
+                // fetch cost data for all started work runs in a single call
+                if (runs.some(r => r.start_date !== null)) {
                     setCostLoading(true);
-                    Promise.all(startedRuns.map(r => getWorkRunById(r.work_run_id)))
-                        .then(results => {
-                            setWorkRunDetails(
-                                results
-                                    .filter(d => d?.success && d.data)
-                                    .map(d => d.data as WorkRunDetailType)
-                            );
+                    getWorkRunsCostByWorkOrder(Number(id))
+                        .then(result => {
+                            if (result?.success && result.data) {
+                                setWorkRunDetails(result.data as WorkRunDetailType[]);
+                            }
                         })
                         .catch(() => {})
                         .finally(() => setCostLoading(false));
@@ -334,7 +331,7 @@ const WorkorderView: React.FC = () => {
             <div className="wo-page-header mb-6">
                 <div className="wo-page-header-left">
                     <button className="wo-back-btn" onClick={() => navigate('/workorder/workorders_list')}>
-                        <i className="bi bi-arrow-left" />
+                        <i className="bi bi-chevron-left"></i>
                     </button>
                     <div className="wo-header-vdivider" />
                     <span className="wo-header-title">การผลิต <strong>#{workOrder.doc_num}</strong></span>
@@ -515,15 +512,14 @@ const WorkorderView: React.FC = () => {
                                         <div
                                             key={run.work_run_id}
                                             className="border rounded p-4 cursor-pointer"
-                                            style={{ backgroundColor: '#f9fafb', transition: 'box-shadow 0.15s, background 0.15s' }}
-                                            onClick={() => navigate(`/workorder/work_run/${run.work_run_id}`)}
+z                                           onClick={() => navigate(`/workorder/work_run/${run.work_run_id}`)}
                                             onMouseEnter={e => {
                                                 (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 12px rgba(0,0,0,0.10)';
                                                 (e.currentTarget as HTMLDivElement).style.backgroundColor = '#f0f4ff';
                                             }}
                                             onMouseLeave={e => {
                                                 (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
-                                                (e.currentTarget as HTMLDivElement).style.backgroundColor = '#f9fafb';
+                                                (e.currentTarget as HTMLDivElement).style.backgroundColor = '';
                                             }}
                                         >
                                             <div className="d-flex align-items-center justify-content-between">
