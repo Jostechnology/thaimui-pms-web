@@ -47,6 +47,22 @@ const formatDateTime = (dateStr: string | null) => {
         ' ' + d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 };
 
+
+const formatTimer = (ms: number): string => {
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
+
+const EMP_AVATAR_COLORS = [
+    'linear-gradient(135deg, #50cd89, #1a9c58)',
+    'linear-gradient(135deg, #3699ff, #0d6efd)',
+    'linear-gradient(135deg, #7239ea, #5014d0)',
+    'linear-gradient(135deg, #181c32, #3f4254)',
+];
+
 // --- Main Component ---
 const WorkorderView: React.FC = () => {
     const navigate = useNavigate();
@@ -59,6 +75,8 @@ const WorkorderView: React.FC = () => {
     const [dataLoading, setDataLoading] = useState(true);
     const [workRunDetails, setWorkRunDetails] = useState<WorkRunDetailType[]>([]);
     const [costLoading, setCostLoading] = useState(false);
+    const [now, setNow] = useState(Date.now());
+    const [activePage, setActivePage] = useState(0);
 
     const [createRunQty, setCreateRunQty] = useState<number>(1);
     const [createRunMode, setCreateRunMode] = useState<'none' | 'from_runs' | 'from_test_results'>('none');
@@ -116,6 +134,11 @@ const WorkorderView: React.FC = () => {
         fetchWorkOrder();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
+
+    useEffect(() => {
+        const timer = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     const handleAllocationChange = (workRunId: number, value: number, maxQty: number) => {
         setSourceAllocations(prev => ({ ...prev, [workRunId]: Math.min(Math.max(0, value), maxQty) }));
@@ -261,6 +284,25 @@ const WorkorderView: React.FC = () => {
             { material: 0, depreciation: 0, maintenance: 0, labor: 0, total: 0 }
         ), [runCosts]);
 
+    const calcElapsedMs = (fromTime: string, toTime: string | null, breaks: WorkRunBreak[]): number => {
+        const s = new Date(fromTime).getTime();
+        const e = toTime ? new Date(toTime).getTime() : now;
+        const brkMs = breaks.reduce((sum, b) => {
+            const bS = new Date(b.break_start).getTime();
+            const bE = b.break_end ? new Date(b.break_end).getTime() : now;
+            return sum + Math.max(0, Math.min(e, bE) - Math.max(s, bS));
+        }, 0);
+        return Math.max(0, e - s - brkMs);
+    };
+
+    const activeRunDetails = workRunDetails.filter(wr => wr.status?.toUpperCase() === 'INPROGRESS');
+    const ACTIVE_RUNS_PER_PAGE = 3;
+    const totalActivePages = Math.ceil(activeRunDetails.length / ACTIVE_RUNS_PER_PAGE);
+    const pagedActiveRuns = activeRunDetails.slice(
+        activePage * ACTIVE_RUNS_PER_PAGE,
+        (activePage + 1) * ACTIVE_RUNS_PER_PAGE,
+    );
+
     if (dataLoading) {
         return (
             <Content>
@@ -289,28 +331,169 @@ const WorkorderView: React.FC = () => {
     return (
         <Content>
             {/* Header */}
-            <div className="d-flex flex-wrap justify-content-between align-items-start mb-8">
-                <div>
-                    <div className="d-flex align-items-center gap-3 mb-2">
-                        <button className="btn btn-sm btn-icon btn-light" onClick={() => navigate('/workorder/workorders_list')}>
-                            <i className="bi bi-arrow-left fs-4" />
-                        </button>
-                        <h1 className="fw-bolder text-gray-900 fs-2qx mb-0">การผลิต #{workOrder.doc_num}</h1>
-                    </div>
-                    <p className="text-muted fs-6 ms-11">
-                        {workOrder.sales_item
-                            ? `สินค้า: ${workOrder.sales_item.item_name}${workOrder.sales_item.item_group ? ` [${workOrder.sales_item.item_group}]` : ''} • ${workOrder.sales_item.item_description ?? "ไม่มีรายละเอียด"}`
-                            : "ไม่พบข้อมูลสินค้า"}
-                    </p>
-                    <p className="text-muted fs-6 ms-11">{`ใบสั่งผลิต: ${workOrder.work_order_code}`}</p>
+            <div className="wo-page-header mb-6">
+                <div className="wo-page-header-left">
+                    <button className="wo-back-btn" onClick={() => navigate('/workorder/workorders_list')}>
+                        <i className="bi bi-arrow-left" />
+                    </button>
+                    <div className="wo-header-vdivider" />
+                    <span className="wo-header-title">การผลิต <strong>#{workOrder.doc_num}</strong></span>
+                    <div className="wo-header-vdivider" />
+                    <span className="wo-header-info">
+                        <i className="bi bi-box-seam me-1" />สินค้า: {workOrder.sales_item?.item_name || '-'}
+                    </span>
+                    <div className="wo-header-vdivider" />
+                    <span className="wo-header-info">
+                        <i className="bi bi-file-text me-1" />ใบสั่งผลิต: {workOrder.work_order_code}
+                    </span>
                 </div>
-                <div className="d-flex gap-3 mt-3 mt-md-0">
-                    <span className={`wo-status-badge ${getStatusBadgeClass(workOrder.status)}`}>{workOrder.status}</span>
-                    <button className="btn btn-light-primary fw-bold px-5" onClick={openCreateRunModal}>
-                        <i className="bi bi-pencil-square me-2" /> สร้าง Work Run
+                <div className="wo-page-header-right">
+                    <div className={`wo-status-pill${workOrder.status?.toUpperCase() === 'COMPLETED' ? ' wo-status-pill-green' : workOrder.status?.toUpperCase() === 'PENDING' ? ' wo-status-pill-grey' : ''}`}>
+                        <span className="wo-status-dot" />
+                        {workOrder.status?.toUpperCase() === 'INPROGRESS' ? 'IN PROGRESS' :
+                         workOrder.status?.toUpperCase() === 'COMPLETED' ? 'COMPLETED' :
+                         workOrder.status?.toUpperCase() === 'PENDING' ? 'PENDING' : workOrder.status}
+                    </div>
+                    <button className="wo-create-btn bg-primary" onClick={openCreateRunModal}>
+                        <i className="bi bi-pencil-square text-white" />
+                        สร้าง Work Run
                     </button>
                 </div>
             </div>
+
+            {/* Active Runs — Live Monitoring Cards */}
+            {activeRunDetails.length > 0 && (
+                <div className="mb-8">
+
+                    {/* Section header */}
+                    <div className="d-flex align-items-center gap-3 mb-5">
+                        <div className="wo-pulse-blue" />
+                        <span className="fw-bold text-gray-900 fs-5">กำลังดำเนินการอยู่</span>
+                        <span className="badge badge-light-primary fw-bold">{activeRunDetails.length} Work Run</span>
+                        {totalActivePages > 1 && (
+                            <div className="ms-auto d-flex align-items-center gap-2">
+                                <button
+                                    className="wo-page-btn"
+                                    disabled={activePage === 0}
+                                    onClick={() => setActivePage(p => Math.max(0, p - 1))}
+                                >
+                                    <i className="bi bi-chevron-left" />
+                                </button>
+                                <span className="text-muted fs-8 fw-semibold" style={{ minWidth: 40, textAlign: 'center' }}>
+                                    {activePage + 1} / {totalActivePages}
+                                </span>
+                                <button
+                                    className="wo-page-btn"
+                                    disabled={activePage >= totalActivePages - 1}
+                                    onClick={() => setActivePage(p => Math.min(totalActivePages - 1, p + 1))}
+                                >
+                                    <i className="bi bi-chevron-right" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Cards grid — paginated, 3 per page */}
+                    <div className="row g-4 wo-lmc-fade" key={activePage}>
+                        {pagedActiveRuns.map(wr => {
+                            const activeAssignments = wr.assignments.filter(a => a.to_time === null);
+                            const activeMachines    = wr.machines.filter(m => m.to_time === null);
+                            const runElapsed = wr.start_date ? calcElapsedMs(wr.start_date, wr.end_date, wr.breaks) : 0;
+
+                            return (
+                                <div key={wr.work_run_id} className="col-12 col-lg-6 col-xl-4">
+                                    <div
+                                        className="wo-lmc-card"
+                                        onClick={() => navigate(`/workorder/work_run/${wr.work_run_id}`)}
+                                    >
+                                        <div className="p-5">
+
+                                            {/* Top row: Lot Number (left) + RUNNING (right) */}
+                                            <div className="d-flex align-items-start justify-content-between mb-3">
+                                                <div>
+                                                    <span className="wo-card-lot-label">Lot Number</span>
+                                                    <span className="wo-card-lot-number">{wr.lot_number || `WR-${wr.work_run_id}`}</span>
+                                                    <div className="mt-2">
+                                                        <span className="badge badge-light-primary fw-bold fs-8">
+                                                            <i className="bi bi-box-seam me-1" style={{ fontSize: 10 }} />
+                                                            {wr.quantity} ชิ้น
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="d-flex align-items-center gap-2 mt-1">
+                                                    <div className="wo-pulse-blue" />
+                                                    <span className="text-primary fw-bold fs-8">RUNNING</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="separator separator-dashed mb-4" />
+
+                                            {/* Bottom row: Staff + Machine (left) | Timer (right) */}
+                                            <div className="d-flex align-items-end justify-content-between gap-4">
+                                                <div style={{ minWidth: 0 }}>
+                                                    {/* Staff */}
+                                                    <div className="mb-3">
+                                                        {activeAssignments.length === 0 ? (
+                                                            <div className="d-flex align-items-center gap-2">
+                                                                <i className="bi bi-person text-muted fs-7" />
+                                                                <span className="text-muted fs-8 fst-italic">ยังไม่มีพนักงาน</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="d-flex align-items-center gap-2">
+                                                                <div className="symbol symbol-30px flex-shrink-0">
+                                                                    <span className="symbol-label bg-light-primary text-primary fw-bold fs-8">
+                                                                        {activeAssignments[0].employee?.employee_first_name?.[0] ?? '?'}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="fw-semibold text-gray-800 fs-7 text-truncate">
+                                                                    {activeAssignments[0].employee?.employee_first_name} {activeAssignments[0].employee?.employee_last_name}
+                                                                    {activeAssignments.length > 1 && (
+                                                                        <span className="text-muted ms-1 fs-8">+{activeAssignments.length - 1} คน</span>
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {/* Machine */}
+                                                    <div>
+                                                        {activeMachines.length === 0 ? (
+                                                            <div className="d-flex align-items-center gap-2">
+                                                                <i className="bi bi-gear text-muted fs-7" />
+                                                                <span className="text-muted fs-8 fst-italic">ยังไม่มีเครื่องจักร</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="d-flex align-items-center gap-2">
+                                                                <div className="symbol symbol-30px flex-shrink-0">
+                                                                    <span className="symbol-label bg-light-info text-info fw-bold fs-8">
+                                                                        <i className="bi bi-gear-fill" />
+                                                                    </span>
+                                                                </div>
+                                                                <span className="fw-semibold text-gray-800 fs-7 text-truncate">
+                                                                    {activeMachines[0].machine?.machine_name || activeMachines[0].machine?.machine_code || `#${activeMachines[0].machine_id}`}
+                                                                    {activeMachines.length > 1 && (
+                                                                        <span className="text-muted ms-1 fs-8">+{activeMachines.length - 1}</span>
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Timer — right side */}
+                                                <div className="flex-shrink-0">
+                                                    <div className="wo-lmc-timer-large">{formatTimer(runElapsed)}</div>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                </div>
+            )}
 
             <div className="row g-5 mb-8">
                 {/* Work Runs List */}
@@ -512,7 +695,7 @@ const WorkorderView: React.FC = () => {
                     <div className="row g-4 mb-6">
                         {[
                             { label: 'ค่าวัตถุดิบ', value: totalCosts.material, icon: 'bi-box-seam', color: 'info', bg: '#e0f9ff' },
-                            { label: 'ค่าเสื่อมราคา', value: totalCosts.depreciation, icon: 'bi-graph-down-arrow', color: 'primary', bg: '#e7f1ff' },
+                            { label: 'ค่าเสื่อมราคา', value: totalCosts.depreciation, icon: 'bi-graph-down-arrow', color: '', bg: '#e7f1ff' },
                             { label: 'ค่าซ่อมบำรุง', value: totalCosts.maintenance, icon: 'bi-wrench', color: 'warning', bg: '#fff3e0' },
                             { label: 'ค่าพนักงาน', value: totalCosts.labor, icon: 'bi-people-fill', color: 'success', bg: '#d1f5e4' },
                             { label: 'รวมทั้งหมด', value: totalCosts.total, icon: 'bi-cash-stack', color: 'danger', bg: '#fde8e8', bold: true },
