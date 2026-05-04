@@ -1,5 +1,12 @@
 import { front_api } from "./apiConfig";
 
+const getHeaders = () => {
+    const activeBranchId = localStorage.getItem('activeBranchId');
+    return {
+        "X-Branch-ID": activeBranchId || ''
+    };
+};
+
 export const getEmployeeList = async (page: number = 1, per_page: number = 10, search: string = "", status: string = "") => {
     try {
         const params = new URLSearchParams();
@@ -12,7 +19,7 @@ export const getEmployeeList = async (page: number = 1, per_page: number = 10, s
             "GET",
             `/get_employee_list?${params.toString()}`,
             {},
-            { wrapData: false }
+            { wrapData: false, headers: getHeaders() }
         );
 
         if (!response) return { success: false, data: [] };
@@ -141,5 +148,20 @@ export const updateEmployeeSalary = async (employee_id: number, payload: { new_s
         return await response.json();
     } catch (error) {
         return { success: false };
+    }
+};
+
+// to count employee
+export const getEmployeeTotalCount = async (): Promise<number> => {
+    try {
+        const response = await getEmployeeList(1, 1);
+
+        if (response && response.success) {
+            return response.pagination?.total || 0;
+        }
+        return 0;
+    } catch (error) {
+        console.error("getEmployeeTotalCount Error:", error);
+        return 0;
     }
 };

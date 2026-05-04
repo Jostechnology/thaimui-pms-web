@@ -64,8 +64,6 @@ export interface TestResultConsumption {
         test_result_code: string;
         session_status: string;
         overall_status: string | null;
-        tested_by: string | null;
-        test_date: string | null;
     };
 }
 

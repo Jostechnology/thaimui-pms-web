@@ -117,3 +117,20 @@ export const deleteMachine = async (id: number | string): Promise<APIResponse> =
         return { success: false, message: "เกิดข้อผิดพลาดในการลบข้อมูลเครื่องจักร" };
     }
 };
+
+
+// to count machine
+export const getMachineTotalCount = async (): Promise<number> => {
+    try {
+        // ส่ง per_page เป็น 1 เพื่อความรวดเร็ว
+        const response = await getMachineList(1, 1);
+        if (response.success && response.data) {
+            // เช็คโครงสร้างข้อมูลของคุณ ปกติจะเป็น data.total หรือ data.total_count
+            return response.data.total || 0;
+        }
+        return 0;
+    } catch (error) {
+        console.error("getMachineTotalCount Error:", error);
+        return 0;
+    }
+};

@@ -29,8 +29,6 @@ interface TestResult {
     session_status: string;
     claimed_qty: number | null;
     overall_status: string | null;
-    test_date: string | null;
-    tested_by: string | null;
     created_date: string | null;
 }
 
@@ -285,8 +283,6 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
                                                                         <th>สถานะ Session</th>
                                                                         <th>จำนวน</th>
                                                                         <th>ผลรวม</th>
-                                                                        <th>ผู้ทดสอบ</th>
-                                                                        <th>วันที่ทดสอบ</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
@@ -309,8 +305,6 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
                                                                                     <span className="text-muted">-</span>
                                                                                 )}
                                                                             </td>
-                                                                            <td className="text-gray-700">{tr.tested_by || '-'}</td>
-                                                                            <td className="text-muted">{tr.test_date ? formatThaiDate(tr.test_date) : '-'}</td>
                                                                         </tr>
                                                                     ))}
                                                                 </tbody>

@@ -286,15 +286,7 @@ const CreateTestCertificate: React.FC = () => {
                                                             checked={isSelected}
                                                         />
                                                     </div>
-                                                    <span className="fw-bold text-gray-800">
-                                                        {tr.test_date ? tr.test_date.split("T")[0] : "-"}
-                                                    </span>
                                                     <StatusBadge status={tr.overall_status} />
-                                                    {tr.tested_by && (
-                                                        <span className="text-muted fs-7">
-                                                            <i className="bi bi-person me-1"></i>{tr.tested_by}
-                                                        </span>
-                                                    )}
                                                     {tr.test_method && (
                                                         <span className="text-muted fs-7">{tr.test_method}</span>
                                                     )}

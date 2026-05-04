@@ -293,15 +293,6 @@ export const subRoutesConfig: SubRouteType[] = [
         display : true
     },
     {
-        module_code: "MACHINE_CREATE",
-        main_module_code: "MACHINE",
-        path: "/machine/machine_create",
-        title: "เพิ่มข้อมูลเครื่องจักน",
-        permission: [],
-        display : true,
-        allBranchBlock: true
-    },
-    {
         module_code: "MACHINE_TYPE_LIST",
         main_module_code: "MACHINE",
         path: "/machine/machine_type_list",

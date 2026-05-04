@@ -6,6 +6,7 @@ export interface QCWorkOrderItem {
   description: string;
   wll: string;
   quantity: string;
+  required_qty?: number;
   serialNo: string;
   remark: string;
   unit_name?: string;

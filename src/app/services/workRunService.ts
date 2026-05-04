@@ -48,6 +48,20 @@ export const getWorkRunsByWorkOrder = async (workOrderId: number): Promise<APIRe
     }
 };
 
+export const getWorkRunsCostByWorkOrder = async (workOrderId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "GET",
+            `/work_order/${workOrderId}/work_runs_cost`,
+            {},
+            { wrapData: false }
+        );
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
 export interface WorkRunSourceAllocation {
     source_work_run_id: number;
     qty: number;

@@ -3,8 +3,8 @@ import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from 'react-bootstrap';
 import Swal from "sweetalert2";
-import { getEmployeeList } from '../../../services/employee';
-import { getMachineList } from '../../../services/machineService';
+import { getEmployeeList, getEmployeeTotalCount } from '../../../services/employee';
+import { getMachineList, getMachineTotalCount } from '../../../services/machineService';
 import {
     getWorkRunById,
     completeWorkRun,
@@ -58,12 +58,12 @@ const calcTotalBreakMs = (breaks?: WorkRunBreak[]): number => {
         return t + Math.max(0, e - s);
     }, 0);
 };
-const formatDateTimeTL = (dateStr: string | null) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' +
-        d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-};
+// const formatDateTimeTL = (dateStr: string | null) => {
+//     if (!dateStr) return '-';
+//     const d = new Date(dateStr);
+//     return d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' +
+//         d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+// };
 const formatTimeTL = (dateStr: string | null) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
@@ -133,6 +133,7 @@ const WorkRunDetail: React.FC = () => {
     const navigate = useNavigate();
     const { workRunId } = useParams<{ workRunId: string }>();
 
+    const [now, setNow] = useState(new Date());
     const [workRun, setWorkRun] = useState<WorkRunDetailType | null>(null);
 
     // Employee assign modal
@@ -146,6 +147,10 @@ const WorkRunDetail: React.FC = () => {
     const [machineLoading, setMachineLoading] = useState(false);
     const [machineSearch, setMachineSearch] = useState('');
     const [showAssignMachineModal, setShowAssignMachineModal] = useState(false);
+
+    // History modals
+    const [showEmpHistoryModal, setShowEmpHistoryModal] = useState(false);
+    const [showMachineHistoryModal, setShowMachineHistoryModal] = useState(false);
 
     // Complete modal
     const [showCompleteModal, setShowCompleteModal] = useState(false);
@@ -181,6 +186,9 @@ const WorkRunDetail: React.FC = () => {
     // Timeline state
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [autoZoom, setAutoZoom] = useState(true);
+
+    // to count
+    const [totalCounts, setTotalCounts] = useState({ emp: 0, mach: 0 });
     type ActivePopover =
         | { type: 'run'; centerPct: number }
         | { type: 'machine'; machineId: number; centerPct: number }
@@ -275,11 +283,6 @@ const WorkRunDetail: React.FC = () => {
         }
     }, [showStartModal]);
 
-    // sync selectedDate กับ start_date ของ work run เมื่อโหลด
-    useEffect(() => {
-        if (workRun?.start_date) setSelectedDate(new Date(workRun.start_date));
-    }, [workRun?.start_date]);
-
     // ปิด popover เมื่อ click outside
     useEffect(() => {
         if (!activePopover) return;
@@ -291,6 +294,34 @@ const WorkRunDetail: React.FC = () => {
         return () => document.removeEventListener('mousedown', handler);
     }, [activePopover]);
 
+    // for realtime Timeline
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setNow(new Date());
+        }, 30000); // update every 30 s.
+
+        return () => clearInterval(timer);
+    }, []);
+
+    // สำหรับเลื่อนวันที่ไปหาวันที่จบงาน (เฉพาะกรณีงานเก่าที่เสร็จแล้ว)
+    useEffect(() => {
+        if (workRun && workRun.end_date) {
+            const endDate = new Date(workRun.end_date);
+            const today = new Date();
+
+            // ถ้าวันที่งานจบ "เก่ากว่าวันนี้" (เช่นจบเมื่อวาน) ให้ดีดหน้าจอไปวันนั้น
+            // แต่ถ้างานยังไม่จบ หรือเพิ่งจบวันนี้ มันจะไม่ทำอะไร (หน้าจอจะค้างที่ "วันนี้" ตามค่าเริ่มต้น)
+            if (endDate.toDateString() !== today.toDateString() && endDate < today) {
+                setSelectedDate(endDate);
+            }
+        }
+    }, [workRun]);
+
+    //to count
+    useEffect(() => {
+        loadCounts(); // เรียกใช้ตอนโหลดหน้า ข้อมูลจะไม่หายเมื่อ Reload
+    }, []);
+
     const handlePrevDate = () => setSelectedDate(prev => { const d = new Date(prev); d.setDate(d.getDate() - 1); return d; });
     const handleNextDate = () => setSelectedDate(prev => { const d = new Date(prev); d.setDate(d.getDate() + 1); return d; });
     const handleToday = useCallback(() => setSelectedDate(new Date()), []);
@@ -298,6 +329,10 @@ const WorkRunDetail: React.FC = () => {
     const activeAssignments = useMemo(() => workRun?.assignments?.filter(a => a.to_time === null) ?? [], [workRun]);
     const allAssignmentsTL = useMemo(() => workRun?.assignments ?? [], [workRun]);
     const activeMachines = useMemo(() => workRun?.machines?.filter(m => m.to_time === null) ?? [], [workRun]);
+
+    const machineUsageRatio = allMachines?.length > 0
+        ? (activeMachines.length / allMachines.length) * 100
+        : 0;
 
     const timelineBounds = useMemo(() => {
         const { dayStart, dayEnd } = getFullDayBounds(selectedDate);
@@ -332,6 +367,61 @@ const WorkRunDetail: React.FC = () => {
         return { leftPercent: timeToPercent(cs, start, end), widthPercent: Math.max(2, timeToPercent(ce, start, end) - timeToPercent(cs, start, end)) };
     }, [workRun, timelineBounds]);
 
+    const runBars = useMemo(() => {
+        if (!workRun?.start_date) return [];
+        const { start, end } = timelineBounds;
+        const breaks = workRun.breaks || [];
+
+        const rS = new Date(workRun.start_date).getTime();
+        const rE = workRun.end_date ? new Date(workRun.end_date).getTime() : new Date().getTime();
+
+        // 1. สร้างช่วงเวลาที่ 'น่าจะ' มีการทำงาน (ตั้งแต่เริ่มจนถึงปัจจุบัน/จบงาน)
+        let intervals = [{ s: rS, e: rE }];
+
+        // 2. เจาะรูช่วงพัก (หั่นก้อนงานออกเมื่อเจอช่วงพัก)
+        breaks.forEach(brk => {
+            const bS = new Date(brk.break_start).getTime();
+            const bE = brk.break_end ? new Date(brk.break_end).getTime() : new Date().getTime();
+
+            let nextIntervals = [];
+            intervals.forEach(interval => {
+                // ถ้าช่วงพักทับซ้อนกับช่วงงานที่เรามี
+                if (bS < interval.e && bE > interval.s) {
+                    // เก็บเฉพาะส่วนที่ "ไม่อยู่" ในช่วงพัก
+                    if (bS > interval.s) nextIntervals.push({ s: interval.s, e: bS });
+                    if (bE < interval.e) nextIntervals.push({ s: bE, e: interval.e });
+                } else {
+                    nextIntervals.push(interval);
+                }
+            });
+            intervals = nextIntervals;
+        });
+
+        // 3. กรองและวาดเฉพาะก้อนที่อยู่ในหน้าจอปัจจุบัน (Crucial Step!)
+        return intervals
+            .map((interval, idx) => {
+                // เช็คว่าก้อนนี้อยู่ในช่วง Timeline ที่เรากำลังมองอยู่ (start - end) หรือไม่
+                if (interval.e <= start.getTime() || interval.s >= end.getTime()) return null;
+
+                const cs = new Date(Math.max(interval.s, start.getTime()));
+                const ce = new Date(Math.min(interval.e, end.getTime()));
+
+                const l = timeToPercent(cs, start, end);
+                const r = timeToPercent(ce, start, end);
+
+                // ป้องกันแท่งที่กว้างติดลบหรือ 0
+                if (r <= l) return null;
+
+                return {
+                    id: `run-bar-${idx}`,
+                    leftPercent: l,
+                    widthPercent: r - l,
+                    isCurrent: !workRun.end_date && interval.e >= new Date().getTime() - 2000
+                };
+            })
+            .filter((bar): bar is any => bar !== null && bar.widthPercent > 0);
+    }, [workRun, timelineBounds, now]);
+
     const breakBars = useMemo(() => {
         if (!workRun?.breaks) return [];
         const { start, end } = timelineBounds;
@@ -360,21 +450,151 @@ const WorkRunDetail: React.FC = () => {
     const employeeRows = useMemo(() => {
         if (!workRun?.assignments) return [];
         const { start, end } = timelineBounds;
-        const grouped = new Map<number, { employee_id: number; name: string; bars: { assignment_id: number; leftPercent: number; widthPercent: number; isActive: boolean; from_time: string; to_time: string | null }[] }>();
+        const breaks = workRun.breaks || []; // ดึงช่วงเวลาพักทั้งหมดมา
+
+        const grouped = new Map();
+
         workRun.assignments.forEach(a => {
-            const aS = new Date(a.from_time); const aE = a.to_time ? new Date(a.to_time) : new Date();
-            if (aE < start || aS > end) return;
-            const cs = new Date(Math.max(aS.getTime(), start.getTime()));
-            const ce = new Date(Math.min(aE.getTime(), end.getTime()));
-            const l = timeToPercent(cs, start, end); const r = timeToPercent(ce, start, end);
+            let aS = new Date(a.from_time).getTime();
+            let aE = a.to_time ? new Date(a.to_time).getTime() : new Date().getTime();
+
+            // สร้างช่วงเวลาทำงานเบื้องต้น (แบบยังไม่หักพัก)
+            let workIntervals = [{ s: aS, e: aE }];
+
+            // --- Logic การ "เจาะรู" ช่วงเวลาพัก ---
+            breaks.forEach(brk => {
+                const bS = new Date(brk.break_start).getTime();
+                const bE = brk.break_end ? new Date(brk.break_end).getTime() : new Date().getTime();
+
+                let nextIntervals = [];
+                workIntervals.forEach(interval => {
+                    // ถ้าช่วงพักทับซ้อนกับช่วงงาน
+                    if (bS < interval.e && bE > interval.s) {
+                        // ส่วนก่อนพัก (ถ้ามี)
+                        if (bS > interval.s) {
+                            nextIntervals.push({ s: interval.s, e: bS });
+                        }
+                        // ส่วนหลังพัก (ถ้ามี)
+                        if (bE < interval.e) {
+                            nextIntervals.push({ s: bE, e: interval.e });
+                        }
+                    } else {
+                        // ไม่ทับกัน เก็บช่วงงานเดิมไว้
+                        nextIntervals.push(interval);
+                    }
+                });
+                workIntervals = nextIntervals;
+            });
+            // ------------------------------------
+
             if (!grouped.has(a.employee_id)) {
-                const fn = a.employee?.employee_first_name ?? ''; const ln = a.employee?.employee_last_name ?? '';
-                grouped.set(a.employee_id, { employee_id: a.employee_id, name: `${fn} ${ln}`.trim() || `Emp #${a.employee_id}`, bars: [] });
+                const fn = a.employee?.employee_first_name ?? '';
+                const ln = a.employee?.employee_last_name ?? '';
+                grouped.set(a.employee_id, {
+                    employee_id: a.employee_id,
+                    name: `${fn} ${ln}`.trim() || `Emp #${a.employee_id}`,
+                    bars: []
+                });
             }
-            grouped.get(a.employee_id)!.bars.push({ assignment_id: a.work_run_assignment_id, leftPercent: l, widthPercent: Math.max(2, r - l), isActive: a.to_time === null, from_time: a.from_time, to_time: a.to_time });
+
+            // นำช่วงเวลาที่ถูกตัดแบ่งแล้วมาสร้างเป็นแท่งกราฟ (Bars)
+            workIntervals.forEach((interval, idx) => {
+                if (interval.e < start.getTime() || interval.s > end.getTime()) return;
+
+                const cs = new Date(Math.max(interval.s, start.getTime()));
+                const ce = new Date(Math.min(interval.e, end.getTime()));
+                const l = timeToPercent(cs, start, end);
+                const r = timeToPercent(ce, start, end);
+
+                grouped.get(a.employee_id).bars.push({
+                    assignment_id: `${a.work_run_assignment_id}-${idx}`, // ป้องกัน key ซ้ำ
+                    leftPercent: l,
+                    widthPercent: Math.max(0.5, r - l),
+                    isActive: a.to_time === null && interval.e >= new Date().getTime() - 1000,
+                    from_time: new Date(interval.s).toISOString(),
+                    to_time: a.to_time && interval.e === aE ? a.to_time : new Date(interval.e).toISOString()
+                });
+            });
         });
+
         return Array.from(grouped.values());
-    }, [workRun, timelineBounds]);
+    }, [workRun, timelineBounds, now]);
+
+    const machineRows = useMemo(() => {
+        if (!workRun?.machines) return [];
+        const { start, end } = timelineBounds;
+        const breaks = workRun.breaks || [];
+
+        // ใช้ Map เพื่อ Group ตาม machine_id (เพื่อให้เครื่องเดิมอยู่บรรทัดเดียวกัน)
+        const grouped = new Map();
+
+        workRun.machines.forEach(m => {
+            const mS = new Date(m.from_time).getTime();
+            const mE = m.to_time ? new Date(m.to_time).getTime() : new Date().getTime();
+
+            // --- เริ่มต้น Logic การตัดแบ่งช่วงเวลาด้วย Break ---
+            let workIntervals = [{ s: mS, e: mE }];
+
+            breaks.forEach(brk => {
+                const bS = new Date(brk.break_start).getTime();
+                const bE = brk.break_end ? new Date(brk.break_end).getTime() : new Date().getTime();
+
+                let nextIntervals = [];
+                workIntervals.forEach(interval => {
+                    // เช็คว่าช่วงพัก (bS-bE) ทับซ้อนกับช่วงงาน (interval) หรือไม่
+                    if (bS < interval.e && bE > interval.s) {
+                        // ส่วนของงาน "ก่อน" เริ่มพัก
+                        if (bS > interval.s) {
+                            nextIntervals.push({ s: interval.s, e: bS });
+                        }
+                        // ส่วนของงาน "หลัง" จบพัก
+                        if (bE < interval.e) {
+                            nextIntervals.push({ s: bE, e: interval.e });
+                        }
+                    } else {
+                        // ไม่มีการทับซ้อน เก็บช่วงงานนี้ไว้เหมือนเดิม
+                        nextIntervals.push(interval);
+                    }
+                });
+                workIntervals = nextIntervals;
+            });
+            // ---------------------------------------------
+
+            // ตรวจสอบ/สร้างกลุ่มเครื่องจักรใน Map
+            if (!grouped.has(m.machine_id)) {
+                grouped.set(m.machine_id, {
+                    machine_id: m.machine_id,
+                    name: m.machine?.machine_name || `Machine #${m.machine_id}`,
+                    machine_code: m.machine?.machine_code,
+                    bars: []
+                });
+            }
+
+            // แปลงช่วงเวลาที่ตัดแบ่งแล้ว (workIntervals) ให้เป็นก้อน Bar สำหรับวาดบน Timeline
+            workIntervals.forEach((interval, idx) => {
+                // ถ้าช่วงย่อยนี้อยู่นอกขอบเขต Timeline ที่แสดงผล ให้ข้ามไป
+                if (interval.e < start.getTime() || interval.s > end.getTime()) return;
+
+                const cs = new Date(Math.max(interval.s, start.getTime()));
+                const ce = new Date(Math.min(interval.e, end.getTime()));
+
+                const l = timeToPercent(cs, start, end);
+                const r = timeToPercent(ce, start, end);
+
+                grouped.get(m.machine_id).bars.push({
+                    // ใช้ composite key เพื่อไม่ให้ key ซ้ำกันใน React loop
+                    work_run_machine_id: `${m.work_run_machine_id}-${idx}`,
+                    leftPercent: l,
+                    widthPercent: Math.max(0.5, r - l), // กำหนดความกว้างขั้นต่ำนิดหน่อยให้พอมองเห็น
+                    isActive: m.to_time === null && interval.e >= new Date().getTime() - 2000,
+                    from_time: new Date(interval.s).toISOString(),
+                    to_time: m.to_time && interval.e === mE ? m.to_time : new Date(interval.e).toISOString()
+                });
+            });
+        });
+
+        return Array.from(grouped.values());
+    }, [workRun, timelineBounds, now]);
 
     const filteredEmployees = React.useMemo(() => {
         if (!empSearch) return allEmployees;
@@ -408,14 +628,27 @@ const WorkRunDetail: React.FC = () => {
     const laborBreakdown = React.useMemo(() => {
         if (!workRun?.assignments) return [];
         const breaks = workRun.breaks ?? [];
-        return workRun.assignments.map(a => {
+        type LaborEntry = { employee_id: number; employee: typeof workRun.assignments[0]['employee']; seconds: number; hourlyRate: number; cost: number; isWorking: boolean };
+        const map = new Map<number, LaborEntry>();
+        for (const a of workRun.assignments) {
             const seconds = calcElapsedSeconds(a, breaks);
             const isWorking = a.to_time === null;
             const salary = a.employee?.salary_base ?? 0;
             const hourlyRate = salary / 30 / 8;
             const cost = hourlyRate * seconds / 3600;
-            return { ...a, seconds, hourlyRate, cost, isWorking };
-        });
+            if (map.has(a.employee_id)) {
+                const existing = map.get(a.employee_id)!;
+                map.set(a.employee_id, {
+                    ...existing,
+                    seconds: existing.seconds + seconds,
+                    cost: existing.cost + cost,
+                    isWorking: existing.isWorking || isWorking,
+                });
+            } else {
+                map.set(a.employee_id, { employee_id: a.employee_id, employee: a.employee, seconds, hourlyRate, cost, isWorking });
+            }
+        }
+        return Array.from(map.values());
     }, [workRun, costTick]);
 
     const totalLaborCost = React.useMemo(
@@ -423,14 +656,21 @@ const WorkRunDetail: React.FC = () => {
         [laborBreakdown]
     );
 
-    const totalMaterialCost = useMemo(() => {
-        if (!workRun?.required_items?.length) return workRun?.work_order?.sales_item?.cost_price ?? 0;
-        return workRun.required_items.reduce((sum, item) => {
-            const batchQty = item.material_list?.quantity ?? 0;
-            const batchCost = item.material_list?.cost_price ?? 0;
-            const cpu = batchQty > 0 ? (item.material_list?.cost_per_unit ?? batchCost / batchQty) : 0;
-            return sum + cpu * item.quantity;
-        }, 0);
+    const finalMaterialCost = useMemo(() => {
+        // For completed runs, use the stored actual material cost for accuracy.
+        if (workRun?.status?.toUpperCase() === 'COMPLETED' && workRun.cost?.material_cost != null) {
+            return workRun.cost.material_cost;
+        }
+        // For active runs or runs without a stored cost, calculate from required items.
+        if (workRun?.required_items?.length) {
+            return workRun.required_items.reduce((sum, item) => {
+                const batchQty = item.material_list?.quantity ?? 0;
+                const batchCost = item.material_list?.cost_price ?? 0;
+                const cpu = batchQty > 0 ? (item.material_list?.cost_per_unit ?? batchCost / batchQty) : 0;
+                return sum + cpu * item.quantity;
+            }, 0);
+        }
+        return 0;
     }, [workRun]);
 
     const status = normalizeKey(workRun?.status);
@@ -603,6 +843,14 @@ const WorkRunDetail: React.FC = () => {
         finally { setUnLoading(); }
     };
 
+    const loadCounts = async () => {
+        const [empCount, machCount] = await Promise.all([
+            getEmployeeTotalCount(),
+            getMachineTotalCount()
+        ]);
+        setTotalCounts({ emp: empCount, mach: machCount });
+    };
+
     // --- Required Items ---
     const openAddRequiredItem = () => {
         setEditingRequiredItem(null);
@@ -730,29 +978,47 @@ const WorkRunDetail: React.FC = () => {
 
     const machineCostActual = useMemo(() => {
         if (!workRun?.machines) return [];
-        return workRun.machines.map(m => {
+        const breaks = workRun.breaks ?? [];
+        const map = new Map<number, {
+            machine_id: number; machine: typeof workRun.machines[0]['machine'];
+            depreciationCost: number; maintenanceCost: number; totalCost: number;
+            seconds: number; isRunning: boolean; noRate: boolean;
+        }>();
+        for (const m of workRun.machines) {
             const isRunning = m.to_time === null;
-            const elapsed = calcElapsedSeconds(m, workRun.breaks ?? []);
+            const elapsed = calcElapsedSeconds(m, breaks);
             const cost = m.cost;
-
             const depreciationCost = isRunning
                 ? (cost?.depreciation_per_second ?? 0) * elapsed
                 : (cost?.depreciation_cost ?? 0);
-
             const maintenanceCost = isRunning
                 ? (cost?.maintenance_rate_per_second ?? 0) * elapsed
                 : (cost?.maintenance_cost ?? 0);
-
-            return {
-                ...m,
-                depreciationCost,
-                maintenanceCost,
-                totalCost: depreciationCost + maintenanceCost,
-                seconds: elapsed,
-                isRunning,
-                noRate: !cost,
-            };
-        });
+            if (map.has(m.machine_id)) {
+                const ex = map.get(m.machine_id)!;
+                map.set(m.machine_id, {
+                    ...ex,
+                    seconds: ex.seconds + elapsed,
+                    depreciationCost: ex.depreciationCost + depreciationCost,
+                    maintenanceCost: ex.maintenanceCost + maintenanceCost,
+                    totalCost: ex.totalCost + depreciationCost + maintenanceCost,
+                    isRunning: ex.isRunning || isRunning,
+                    noRate: ex.noRate && !cost,
+                });
+            } else {
+                map.set(m.machine_id, {
+                    machine_id: m.machine_id,
+                    machine: m.machine,
+                    depreciationCost,
+                    maintenanceCost,
+                    totalCost: depreciationCost + maintenanceCost,
+                    seconds: elapsed,
+                    isRunning,
+                    noRate: !cost,
+                });
+            }
+        }
+        return Array.from(map.values());
     }, [workRun, costTick]);
 
     const costChartData = useMemo(() => {
@@ -765,6 +1031,7 @@ const WorkRunDetail: React.FC = () => {
         const POINTS = 60;
         const step = totalMs / POINTS;
         const breaks = workRun.breaks ?? [];
+        const isCompleted = workRun.status?.toUpperCase() === 'COMPLETED';
 
         const effectiveSec = (entry: { from_time: string; to_time: string | null }, atMs: number) => {
             const eStart = new Date(entry.from_time).getTime();
@@ -779,22 +1046,57 @@ const WorkRunDetail: React.FC = () => {
             return Math.max(0, activeEnd - eStart - overlapBreak) / 1000;
         };
 
+        // For completed runs, calculate an effective overall labor rate to ensure the graph
+        // ends at the exact stored final cost.
+        let effectiveLaborRate = 0;
+        if (isCompleted && workRun.cost?.labor_cost != null) {
+            const totalLaborSec = (workRun.assignments ?? []).reduce((sum, a) => sum + calcElapsedSeconds(a, breaks), 0);
+            if (totalLaborSec > 0) {
+                effectiveLaborRate = workRun.cost.labor_cost / totalLaborSec;
+            }
+        }
+
         const data = [];
         for (let i = 0; i <= POINTS; i++) {
             const t = startMs + i * step;
             let depreciation = 0;
             let maintenance = 0;
             (workRun.machines ?? []).forEach(m => {
-                const sec = effectiveSec(m, t);
-                depreciation += (m.cost?.depreciation_per_second ?? 0) * sec;
-                maintenance += (m.cost?.maintenance_rate_per_second ?? 0) * sec;
+                const sec = effectiveSec(m, t); // duration up to time 't'
+                const isRunning = m.to_time === null;
+
+                let depreciationRate = 0;
+                let maintenanceRate = 0;
+
+                // Use live per-second rates for running machines or any machine if the run itself is not completed.
+                if (isRunning || !isCompleted) {
+                    depreciationRate = m.cost?.depreciation_per_second ?? 0;
+                    maintenanceRate = m.cost?.maintenance_rate_per_second ?? 0;
+                } else {
+                    // It's a completed machine usage. Calculate its effective rate.
+                    const totalSec = calcElapsedSeconds(m, breaks);
+                    if (totalSec > 0) {
+                        depreciationRate = (m.cost?.depreciation_cost ?? 0) / totalSec;
+                        maintenanceRate = (m.cost?.maintenance_cost ?? 0) / totalSec;
+                    }
+                }
+                depreciation += depreciationRate * sec;
+                maintenance += maintenanceRate * sec;
             });
             let labor = 0;
-            (workRun.assignments ?? []).forEach(a => {
-                const sec = effectiveSec(a, t);
-                const salary = a.employee?.salary_base ?? 0;
-                labor += (salary / 30 / 8 / 3600) * sec;
-            });
+            // If completed and we have an effective rate, use it for consistency.
+            if (isCompleted && effectiveLaborRate > 0) {
+                (workRun.assignments ?? []).forEach(a => {
+                    const sec = effectiveSec(a, t);
+                    labor += effectiveLaborRate * sec;
+                });
+            } else { // Otherwise, calculate live from salary.
+                (workRun.assignments ?? []).forEach(a => {
+                    const sec = effectiveSec(a, t);
+                    const salary = a.employee?.salary_base ?? 0;
+                    labor += (salary / 30 / 8 / 3600) * sec;
+                });
+            }
             const elapsedMin = Math.round((t - startMs) / 60000);
             const hh = Math.floor(elapsedMin / 60).toString().padStart(2, '0');
             const mm = (elapsedMin % 60).toString().padStart(2, '0');
@@ -804,19 +1106,19 @@ const WorkRunDetail: React.FC = () => {
                 ค่าเสื่อมราคา: parseFloat(depreciation.toFixed(4)),
                 ค่าซ่อมบำรุง: parseFloat(maintenance.toFixed(4)),
                 ค่าพนักงาน: parseFloat(labor.toFixed(4)),
-                รวม: parseFloat((depreciation + maintenance + labor).toFixed(4)),
+                รวม: parseFloat((finalMaterialCost + depreciation + maintenance + labor).toFixed(4)),
             });
         }
         return data;
-    }, [workRun, costTick]);
+    }, [workRun, costTick, finalMaterialCost]);
 
     return (
         <Content>
             {/* Header */}
-            <div className='d-flex flex-stack mb-10'>
+            <div className='d-flex flex-stack mb-10 bg-white p-5 rounded shadow-sm'>
                 <div className='d-flex align-items-center'>
-                    <button onClick={() => navigate(-1)} className='btn btn-sm btn-icon btn-light-primary me-3'>
-                        <i className='bi bi-arrow-left fs-3'></i>
+                    <button onClick={() => navigate(-1)} className='btn btn-sm btn-icon me-3'>
+                        <i className="bi bi-chevron-left"></i>
                     </button>
                     <div className='d-flex flex-column'>
                         <h1 className='text-gray-900 fw-bold fs-2 mb-0'>
@@ -829,11 +1131,15 @@ const WorkRunDetail: React.FC = () => {
                                 </span>
                             )}
                             {workRun && (
-                                <span className='text-muted fw-semibold fs-8'>จำนวน: {workRun.quantity}</span>
+
+                                <span className='text-muted fw-semibold fs-8'>
+                                    <div className="vr mx-3"></div>
+                                    จำนวน: {workRun.quantity}
+                                </span>
                             )}
                             {workRun?.created_date && (
                                 <span className='text-muted fs-8'>
-                                    <i className='bi bi-calendar3 me-1'></i>
+                                    <div className="vr mx-3"></div>
                                     สร้างเมื่อ {new Date(workRun.created_date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })}
                                 </span>
                             )}
@@ -870,6 +1176,7 @@ const WorkRunDetail: React.FC = () => {
                             <i className='bi bi-check-circle me-1'></i> ปิด Work Run
                         </button>
                     )}
+
                 </div>
             </div>
 
@@ -926,11 +1233,30 @@ const WorkRunDetail: React.FC = () => {
                     <div className="wo-kpi-card">
                         <div className="wo-kpi-header">
                             <span className="wo-kpi-label">พนักงานที่ปฏิบัติงาน (ACTIVE)</span>
+                            <div className="d-flex gap-1">
+                                {isActive && (
+                                    <button
+                                        className="btn btn-sm btn-icon btn-light-primary"
+                                        style={{ width: 28, height: 28 }}
+                                        title="เพิ่มพนักงาน"
+                                        onClick={() => setShowAssignEmpModal(true)}
+                                    >
+                                        <i className="bi bi-plus-lg fs-7"></i>
+                                    </button>
+                                )}
+                                <button
+                                    className="btn btn-sm btn-icon btn-light-secondary"
+                                    style={{ width: 28, height: 28 }}
+                                    title="ดูประวัติการมอบหมาย"
+                                    onClick={() => setShowEmpHistoryModal(true)}
+                                >
+                                    <i className="bi bi-eye fs-7"></i>
+                                </button>
+                            </div>
                         </div>
                         <div className="d-flex align-items-baseline gap-2">
                             <span className="wo-kpi-big">{activeAssignments.length}</span>
-                            <span className="text-muted fs-6">/ {workRun?.assignments?.length ?? 0} คน</span>
-                        </div>
+                            <span className="text-muted fs-6">/ {totalCounts.emp} คน</span>                        </div>
                         <div className="wo-avatar-stack mt-3">
                             {activeAssignments.slice(0, 4).map(a => (
                                 <div key={a.work_run_assignment_id} className="wo-avatar" title={`${a.employee?.employee_first_name} ${a.employee?.employee_last_name}`}>
@@ -947,51 +1273,116 @@ const WorkRunDetail: React.FC = () => {
                     <div className="wo-kpi-card">
                         <div className="wo-kpi-header">
                             <span className="wo-kpi-label">เครื่องจักรที่ใช้งาน</span>
+                            <div className="d-flex gap-1">
+                                {isActive && (
+                                    <button
+                                        className="btn btn-sm btn-icon btn-light-primary"
+                                        style={{ width: 28, height: 28 }}
+                                        title="เพิ่มเครื่องจักร"
+                                        onClick={() => setShowAssignMachineModal(true)}
+                                    >
+                                        <i className="bi bi-plus-lg fs-7"></i>
+                                    </button>
+                                )}
+                                <button
+                                    className="btn btn-sm btn-icon btn-light-secondary"
+                                    style={{ width: 28, height: 28 }}
+                                    title="ดูประวัติการใช้งาน"
+                                    onClick={() => setShowMachineHistoryModal(true)}
+                                >
+                                    <i className="bi bi-eye fs-7"></i>
+                                </button>
+                            </div>
                         </div>
                         <div className="d-flex align-items-baseline gap-2">
                             <span className="wo-kpi-big">{activeMachines.length}</span>
-                            <span className="text-muted fs-6">/ {workRun?.machines?.length ?? 0} เครื่อง</span>
+                            <span className="text-muted fs-6">/ {totalCounts.mach} เครื่อง</span>
                         </div>
                         <div className="wo-progress-bar mt-3">
-                            <div className="wo-progress-fill wo-progress-blue" style={{ width: `${workRun?.status?.toUpperCase() === 'COMPLETED' ? 100 : activeMachines.length > 0 ? 60 : 0}%` }} />
+                            <div
+                                className="wo-progress-fill wo-progress-blue"
+                                style={{
+                                    width: `${machineUsageRatio}%`,
+                                    transition: 'width 0.3s ease'
+                                }}
+                            />
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Workforce + Timeline */}
+            {/* Required Items (compact) + Timeline */}
             <div className="row g-5 mb-8">
-                {/* Workforce */}
+                {/* Required Items Quick Panel */}
                 <div className="col-lg-4">
                     <div className="wo-card h-100">
                         <div className="wo-card-header">
-                            <h3 className="wo-card-title">การจัดการแรงงาน</h3>
-                            <span className="badge badge-light-primary">{activeAssignments.length} คน</span>
+                            <h3 className="wo-card-title">
+                                <i className="bi bi-box-seam me-2 text-primary fs-6"></i>รายการวัตถุดิบที่ต้องใช้
+                            </h3>
+                            {!isCompleted && (
+                                <button
+                                    className="btn btn-sm btn-icon btn-light-primary"
+                                    style={{ width: 28, height: 28 }}
+                                    title="เพิ่มรายการวัตถุดิบ"
+                                    onClick={openAddRequiredItem}
+                                >
+                                    <i className="bi bi-plus-lg fs-7"></i>
+                                </button>
+                            )}
                         </div>
                         <div className="wo-card-body">
-                            {activeAssignments.length > 0 ? (
-                                <div className="wo-employee-list">
-                                    {activeAssignments.map(a => (
-                                        <div key={a.work_run_assignment_id} className="wo-employee-item">
-                                            <div className="wo-employee-avatar">
-                                                {a.employee?.employee_first_name?.charAt(0) ?? '?'}
-                                            </div>
-                                            <div className="wo-employee-info">
-                                                <div className="wo-employee-name">
-                                                    {a.employee?.employee_first_name} {a.employee?.employee_last_name}
-                                                </div>
-                                                <div className="wo-employee-role">
-                                                    เริ่ม {a.from_time ? new Date(a.from_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}
-                                                </div>
-                                            </div>
-                                            <span className="wo-emp-status wo-emp-active">ACTIVE</span>
-                                        </div>
-                                    ))}
+                            {(!workRun?.required_items || workRun.required_items.length === 0) ? (
+                                <div className="text-center text-muted py-10">
+                                    <i className="bi bi-box-seam fs-3x text-gray-300 mb-3 d-block" />
+                                    ยังไม่มีรายการวัตถุดิบ
                                 </div>
                             ) : (
-                                <div className="text-center text-muted py-10">
-                                    <i className="bi bi-people fs-3x text-gray-300 mb-3 d-block" />
-                                    ยังไม่มีพนักงาน
+                                <div className="d-flex flex-column gap-2">
+                                    {workRun.required_items.map(item => {
+                                        const batchQty = item.material_list?.quantity ?? 0;
+                                        const batchCost = item.material_list?.cost_price ?? 0;
+                                        const costPerUnit = batchQty > 0 ? (item.material_list?.cost_per_unit ?? batchCost / batchQty) : 0;
+                                        const lineCost = costPerUnit * item.quantity;
+                                        return (
+                                            <div
+                                                key={item.id}
+                                                className="d-flex align-items-center rounded px-3 py-2"
+                                                style={{ background: '#f8f9fa', border: '1px solid #e4e6ef', cursor: 'pointer' }}
+                                                onClick={() => openEditRequiredItem(item)}
+                                            >
+                                                <div className="flex-grow-1 me-2 min-w-0">
+                                                    <div className="fw-bold text-gray-800 fs-7 text-truncate">{item.item_name}</div>
+                                                    <div className="text-muted fs-8">{item.item_code} · {item.unit}</div>
+                                                </div>
+                                                <div className="text-end me-2">
+                                                    <div className="fw-semibold text-gray-700 fs-7">{item.quantity}</div>
+                                                    {lineCost > 0 && <div className="text-muted fs-8">฿{lineCost.toFixed(2)}</div>}
+                                                </div>
+                                                {!isCompleted && (
+                                                    <button
+                                                        className="btn btn-sm btn-icon btn-light-danger flex-shrink-0"
+                                                        style={{ width: 24, height: 24, padding: 0 }}
+                                                        title="ลบรายการ"
+                                                        onClick={e => { e.stopPropagation(); handleDeleteRequiredItem(item); }}
+                                                    >
+                                                        <i className="bi bi-trash fs-8"></i>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    <div className="d-flex justify-content-between pt-2 border-top fs-8 text-muted fw-bold mt-1">
+                                        <span>ต้นทุนวัตถุดิบรวม</span>
+                                        <span className="text-primary fw-bolder">
+                                            ฿{workRun.required_items.reduce((sum, item) => {
+                                                const bq = item.material_list?.quantity ?? 0;
+                                                const bc = item.material_list?.cost_price ?? 0;
+                                                const cpu = bq > 0 ? (item.material_list?.cost_per_unit ?? bc / bq) : 0;
+                                                return sum + cpu * item.quantity;
+                                            }, 0).toFixed(2)}
+                                        </span>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -1049,30 +1440,54 @@ const WorkRunDetail: React.FC = () => {
                                         </div>
                                         <div className="wo-timeline-bar-col">
                                             <div className="wo-timeline-track" style={{ position: 'relative' }}>
-                                                {runBarInfo ? (
+                                                {runBars.length > 0 ? (
                                                     <>
-                                                        <div
-                                                            className="wo-timeline-bar"
-                                                            style={{ backgroundColor: getRunStatusColor(workRun.status), left: `${runBarInfo.leftPercent}%`, width: `${runBarInfo.widthPercent}%` }}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                const centerPct = runBarInfo.leftPercent + runBarInfo.widthPercent / 2;
-                                                                setActivePopover(prev => prev?.type === 'run' ? null : { type: 'run', centerPct });
-                                                            }}
-                                                        >
-                                                            {runBarInfo.widthPercent >= 8 && (
-                                                                <span className="wo-bar-text">{getRunStatusLabel(workRun.status)}</span>
-                                                            )}
-                                                        </div>
-                                                        {breakBars.map(bb => (
-                                                            <div key={bb.break_id} style={{ position: 'absolute', top: 0, bottom: 0, left: `${bb.leftPercent}%`, width: `${bb.widthPercent}%`, backgroundColor: '#fd7e14', opacity: 0.75, borderRadius: 3, zIndex: 2 }} title={`พัก: ${bb.break_type}`} />
+                                                        {/* วาดแท่ง Work Run ที่ถูกตัดแบ่งแล้ว */}
+                                                        {runBars.map(bar => (
+                                                            <div
+                                                                key={bar.id}
+                                                                className="wo-timeline-bar"
+                                                                style={{
+                                                                    backgroundColor: getRunStatusColor(workRun.status),
+                                                                    left: `${bar.leftPercent}%`,
+                                                                    width: `${bar.widthPercent}%`
+                                                                }}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const centerPct = bar.leftPercent + bar.widthPercent / 2;
+                                                                    setActivePopover(prev => prev?.type === 'run' ? null : { type: 'run', centerPct });
+                                                                }}
+                                                            >
+                                                                {/* แสดงข้อความเฉพาะแท่งที่ยาวพอ */}
+                                                                {bar.widthPercent >= 8 && (
+                                                                    <span className="wo-bar-text">{getRunStatusLabel(workRun.status)}</span>
+                                                                )}
+                                                            </div>
                                                         ))}
+
                                                         {activePopover?.type === 'run' && (
-                                                            <div ref={popoverRef} className="wo-timeline-popover" style={{ left: `${Math.min(Math.max(activePopover.centerPct, 15), 85)}%`, transform: 'translateX(-50%)', '--arrow-left': 'calc(50% - 6px)' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
+                                                            <div
+                                                                ref={popoverRef}
+                                                                className="wo-timeline-popover"
+                                                                style={{
+                                                                    // คำนวณตำแหน่งให้อยู่ตรงกลางของแท่งที่คลิก โดยไม่ให้ล้นขอบซ้าย/ขวา (15% - 85%)
+                                                                    left: `${Math.min(Math.max(activePopover.centerPct, 15), 85)}%`,
+                                                                    transform: 'translateX(-50%)',
+                                                                    '--arrow-left': 'calc(50% - 6px)',
+                                                                    position: 'absolute',
+                                                                    zIndex: 100
+                                                                } as React.CSSProperties}
+                                                                onClick={e => e.stopPropagation()}
+                                                            >
                                                                 <div className="wo-timeline-popover-header">
-                                                                    <span className="fw-bold text-gray-800" style={{ fontSize: 13 }}>{workRun.lot_number || `Run #${workRun.work_run_id}`}</span>
-                                                                    <span className="wo-emp-status" style={{ backgroundColor: getRunStatusBg(workRun.status), color: getRunStatusColor(workRun.status) }}>{getRunStatusLabel(workRun.status)}</span>
+                                                                    <span className="fw-bold text-gray-800" style={{ fontSize: 13 }}>
+                                                                        {workRun.lot_number || `Run #${workRun.work_run_id}`}
+                                                                    </span>
+                                                                    <span className="wo-emp-status" style={{ backgroundColor: getRunStatusBg(workRun.status), color: getRunStatusColor(workRun.status) }}>
+                                                                        {getRunStatusLabel(workRun.status)}
+                                                                    </span>
                                                                 </div>
+
                                                                 <div className="wo-timeline-popover-list">
                                                                     <div className="text-muted fw-semibold mb-1" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
                                                                         <i className="bi bi-people-fill me-1" />พนักงาน ({activeAssignments.length} คน)
@@ -1084,11 +1499,15 @@ const WorkRunDetail: React.FC = () => {
                                                                             <div key={a.work_run_assignment_id} className="wo-timeline-popover-emp">
                                                                                 <div className="wo-popover-avatar">{a.employee?.employee_first_name?.charAt(0) ?? '?'}</div>
                                                                                 <span className="flex-1">{a.employee?.employee_first_name} {a.employee?.employee_last_name}</span>
-                                                                                <span className="text-muted ms-auto" style={{ fontSize: 11 }}>{a.from_time ? new Date(a.from_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}</span>
+                                                                                <span className="text-muted ms-auto" style={{ fontSize: 11 }}>
+                                                                                    {a.from_time ? new Date(a.from_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                                                                                </span>
                                                                             </div>
                                                                         ))
                                                                     )}
                                                                 </div>
+
+                                                                {/* ส่วนแสดงประวัติการพัก (Breaks) */}
                                                                 {workRun.breaks && workRun.breaks.length > 0 && (
                                                                     <div className="wo-timeline-popover-footer">
                                                                         <div className="text-muted fw-semibold mb-1" style={{ fontSize: 11, textTransform: 'uppercase' }}>
@@ -1107,7 +1526,9 @@ const WorkRunDetail: React.FC = () => {
                                                         )}
                                                     </>
                                                 ) : (
-                                                    <div className="wo-timeline-bar-empty"><span className="text-muted" style={{ fontSize: 11 }}>ไม่มีกิจกรรมวันนี้</span></div>
+                                                    <div className="wo-timeline-bar-empty">
+                                                        <span className="text-muted" style={{ fontSize: 11 }}>ไม่มีกิจกรรมวันนี้</span>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
@@ -1168,74 +1589,98 @@ const WorkRunDetail: React.FC = () => {
                                     )}
 
                                     {/* Machine rows */}
-                                    {workRun.machines && workRun.machines.length > 0 && (
-                                        <>
-                                            <div style={{ borderTop: '1px dashed #e4e6ef', margin: '6px 0 2px' }} />
-                                            {workRun.machines.map(m => {
-                                                const bar = machineBars.find(mb => mb.work_run_machine_id === m.work_run_machine_id);
-                                                return (
-                                                    <div key={m.work_run_machine_id} className="wo-timeline-row">
-                                                        <div className="wo-timeline-label-col">
-                                                            <div className="wo-phase-label">
-                                                                <span className="wo-phase-dot" style={{ backgroundColor: m.to_time === null ? '#17a2b8' : '#6c757d' }} />
-                                                                <span className="wo-phase-name" title={m.machine?.machine_name ?? `Machine #${m.machine_id}`}>
-                                                                    <i className="bi bi-gear-fill me-1" style={{ fontSize: 10, color: '#17a2b8' }} />{m.machine?.machine_name ?? `Machine #${m.machine_id}`}
-                                                                </span>
+                                    {machineRows.map(row => (
+                                        <div key={row.machine_id} className="wo-timeline-row">
+                                            <div className="wo-timeline-label-col">
+                                                <div className="wo-phase-label">
+                                                    <span className="wo-phase-dot" style={{ backgroundColor: row.bars.some(b => b.isActive) ? '#17a2b8' : '#a1a5b7' }} />
+                                                    <span className="wo-phase-name" title={row.name}>
+                                                        <i className="bi bi-gear-fill me-1" style={{ fontSize: 10, color: '#17a2b8' }} />{row.name}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="wo-timeline-bar-col">
+                                                <div className="wo-timeline-track" style={{ position: 'relative' }}>
+                                                    {row.bars.map(bar => (
+                                                        <React.Fragment key={bar.work_run_machine_id}>
+                                                            <div
+                                                                className="wo-timeline-bar"
+                                                                style={{
+                                                                    backgroundColor: bar.isActive ? '#17a2b8' : '#a1a5b7',
+                                                                    left: `${bar.leftPercent}%`,
+                                                                    width: `${bar.widthPercent}%`
+                                                                }}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const centerPct = bar.leftPercent + bar.widthPercent / 2;
+                                                                    // ปรับการเช็ค popover ให้รองรับ machineId และ barId
+                                                                    setActivePopover(prev =>
+                                                                        prev?.type === 'machine' && prev.barId === bar.work_run_machine_id
+                                                                            ? null
+                                                                            : { type: 'machine', machineId: row.machine_id, barId: bar.work_run_machine_id, centerPct }
+                                                                    );
+                                                                }}
+                                                            >
+                                                                {bar.widthPercent >= 8 && <span className="wo-bar-text">{bar.isActive ? 'กำลังใช้งาน' : 'เสร็จแล้ว'}</span>}
                                                             </div>
-                                                        </div>
-                                                        <div className="wo-timeline-bar-col">
-                                                            <div className="wo-timeline-track" style={{ position: 'relative' }}>
-                                                                {bar ? (
-                                                                    <>
-                                                                        <div
-                                                                            className="wo-timeline-bar"
-                                                                            style={{ backgroundColor: m.to_time === null ? '#17a2b8' : '#6c757d', left: `${bar.leftPercent}%`, width: `${bar.widthPercent}%` }}
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                const centerPct = bar.leftPercent + bar.widthPercent / 2;
-                                                                                setActivePopover(prev => prev?.type === 'machine' && prev.machineId === m.machine_id ? null : { type: 'machine', machineId: m.machine_id, centerPct });
-                                                                            }}
-                                                                        >
-                                                                            {bar.widthPercent >= 8 && <span className="wo-bar-text">{m.to_time === null ? 'กำลังใช้งาน' : 'เสร็จแล้ว'}</span>}
-                                                                        </div>
-                                                                        {activePopover?.type === 'machine' && activePopover.machineId === m.machine_id && (() => {
-                                                                            const durationMs = m.to_time ? new Date(m.to_time).getTime() - new Date(m.from_time).getTime() : Date.now() - new Date(m.from_time).getTime();
-                                                                            return (
-                                                                                <div ref={popoverRef} className="wo-timeline-popover" style={{ left: `${Math.min(Math.max(activePopover.centerPct, 15), 85)}%`, transform: 'translateX(-50%)', '--arrow-left': 'calc(50% - 6px)' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
-                                                                                    <div className="wo-timeline-popover-header">
-                                                                                        <span className="fw-bold text-gray-800" style={{ fontSize: 13 }}><i className="bi bi-gear-fill me-1" style={{ color: '#17a2b8' }} />{m.machine?.machine_name ?? `Machine #${m.machine_id}`}</span>
-                                                                                        <span className="wo-emp-status" style={{ backgroundColor: m.to_time === null ? '#e0f9ff' : '#f1f1f4', color: m.to_time === null ? '#17a2b8' : '#6c757d' }}>{m.to_time === null ? 'กำลังใช้งาน' : 'เสร็จแล้ว'}</span>
-                                                                                    </div>
-                                                                                    <div className="wo-timeline-popover-list">
-                                                                                        {m.machine?.machine_code && <div className="wo-timeline-popover-emp"><i className="bi bi-upc me-1 text-muted" style={{ fontSize: 12 }} /><span className="text-muted" style={{ fontSize: 12 }}>รหัส:</span><span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{m.machine.machine_code}</span></div>}
-                                                                                        <div className="wo-timeline-popover-emp"><i className="bi bi-clock me-1 text-muted" style={{ fontSize: 12 }} /><span className="text-muted" style={{ fontSize: 12 }}>เริ่ม:</span><span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{formatTimeTL(m.from_time)}</span></div>
-                                                                                        <div className="wo-timeline-popover-emp"><i className="bi bi-clock-history me-1 text-muted" style={{ fontSize: 12 }} /><span className="text-muted" style={{ fontSize: 12 }}>สิ้นสุด:</span><span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{m.to_time ? formatTimeTL(m.to_time) : 'กำลังใช้งาน...'}</span></div>
-                                                                                    </div>
-                                                                                    <div className="wo-timeline-popover-footer"><span className="text-muted fw-semibold" style={{ fontSize: 11 }}><i className="bi bi-stopwatch me-1" />ระยะเวลา: {formatDurationMs(durationMs)}</span></div>
-                                                                                </div>
-                                                                            );
-                                                                        })()}
-                                                                    </>
-                                                                ) : (
-                                                                    <div className="wo-timeline-bar-empty"><span className="text-muted" style={{ fontSize: 11 }}>ไม่มีกิจกรรมวันนี้</span></div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </>
-                                    )}
 
-                                    {/* Legend */}
-                                    <div className="d-flex gap-4 mt-4 fs-8 text-muted flex-wrap">
-                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#0d6efd', marginRight: 4 }} />Work Run</span>
-                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#fd7e14', marginRight: 4 }} />พัก</span>
-                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#50cd89', marginRight: 4 }} />พนักงาน (กำลังทำงาน)</span>
-                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#a1a5b7', marginRight: 4 }} />พนักงาน (เสร็จแล้ว)</span>
-                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#17a2b8', marginRight: 4 }} />เครื่องจักร (กำลังใช้งาน)</span>
-                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#6c757d', marginRight: 4 }} />เครื่องจักร (เสร็จแล้ว)</span>
-                                    </div>
+                                                            {/* Popover Logic สำหรับเครื่องจักร (ถอดแบบมาจากพนักงาน) */}
+                                                            {activePopover?.type === 'machine' && activePopover.barId === bar.work_run_machine_id && (() => {
+                                                                // คำนวณระยะเวลา (Duration)
+                                                                const durationMs = bar.to_time
+                                                                    ? new Date(bar.to_time).getTime() - new Date(bar.from_time).getTime()
+                                                                    : now.getTime() - new Date(bar.from_time).getTime();
+
+                                                                return (
+                                                                    <div
+                                                                        ref={popoverRef}
+                                                                        className="wo-timeline-popover"
+                                                                        style={{
+                                                                            left: `${Math.min(Math.max(activePopover.centerPct, 15), 85)}%`,
+                                                                            transform: 'translateX(-50%)',
+                                                                            '--arrow-left': 'calc(50% - 6px)'
+                                                                        } as React.CSSProperties}
+                                                                        onClick={e => e.stopPropagation()}
+                                                                    >
+                                                                        <div className="wo-timeline-popover-header">
+                                                                            <span className="fw-bold text-gray-800" style={{ fontSize: 13 }}>
+                                                                                <i className="bi bi-gear-fill me-1" style={{ color: '#17a2b8' }} />{row.name}
+                                                                            </span>
+                                                                            <span className="wo-emp-status" style={{
+                                                                                backgroundColor: bar.isActive ? '#e1f5fe' : '#f1f1f4',
+                                                                                color: bar.isActive ? '#0288d1' : '#6c757d'
+                                                                            }}>
+                                                                                {bar.isActive ? 'กำลังใช้งาน' : 'เสร็จแล้ว'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="wo-timeline-popover-list">
+                                                                            <div className="wo-timeline-popover-emp">
+                                                                                <i className="bi bi-clock me-1 text-muted" style={{ fontSize: 12 }} />
+                                                                                <span className="text-muted" style={{ fontSize: 12 }}>เริ่ม:</span>
+                                                                                <span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{formatTimeTL(bar.from_time)}</span>
+                                                                            </div>
+                                                                            <div className="wo-timeline-popover-emp">
+                                                                                <i className="bi bi-clock-history me-1 text-muted" style={{ fontSize: 12 }} />
+                                                                                <span className="text-muted" style={{ fontSize: 12 }}>สิ้นสุด:</span>
+                                                                                <span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>
+                                                                                    {bar.to_time ? formatTimeTL(bar.to_time) : 'กำลังใช้งาน...'}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="wo-timeline-popover-footer">
+                                                                            <span className="text-muted fw-semibold" style={{ fontSize: 11 }}>
+                                                                                <i className="bi bi-stopwatch me-1" />ระยะเวลา: {formatDurationMs(durationMs)}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </React.Fragment>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             ) : (
                                 <div className="text-center text-muted py-10">
@@ -1245,260 +1690,6 @@ const WorkRunDetail: React.FC = () => {
                             )}
                         </div>
                     </div>
-                </div>
-            </div>
-
-            {/* Assigned Employees */}
-            <div className='card shadow-sm mb-8'>
-                <div className='card-header border-0 pt-5'>
-                    <div className='card-title'>
-                        <span className='card-label fw-bold text-gray-900 fs-5'>
-                            <i className='bi bi-people me-2 text-primary'></i>พนักงานที่ได้รับมอบหมาย
-                        </span>
-                    </div>
-                    {isActive && (
-                        <div className='card-toolbar'>
-                            <button className='btn btn-sm btn-light-primary fw-bold' onClick={() => setShowAssignEmpModal(true)}>
-                                <i className='bi bi-person-plus me-1'></i> เพิ่มพนักงาน
-                            </button>
-                        </div>
-                    )}
-                </div>
-                <div className='card-body pt-3'>
-                    {activeAssignments.length === 0 ? (
-                        <span className='text-muted fs-7'>ยังไม่มีพนักงานที่ได้รับมอบหมาย</span>
-                    ) : (
-                        <div className='d-flex flex-wrap gap-3'>
-                            {activeAssignments.map(a => (
-                                <div key={a.work_run_assignment_id} className='d-flex align-items-center border border-gray-200 rounded px-4 py-3 bg-light-primary'>
-                                    <div className='symbol symbol-35px me-3'>
-                                        <span className='symbol-label bg-primary text-white fw-bold fs-7'>
-                                            {a.employee?.employee_first_name?.charAt(0) ?? '?'}
-                                        </span>
-                                    </div>
-                                    <div className='d-flex flex-column me-3'>
-                                        <span className='fw-bold text-gray-800 fs-7'>
-                                            {a.employee?.employee_first_name} {a.employee?.employee_last_name}
-                                        </span>
-                                        <span className='text-muted fs-8'>ID: {a.employee_id}</span>
-                                    </div>
-                                    {isActive && (
-                                        <i
-                                            className='bi bi-x-circle text-danger cursor-pointer fs-5'
-                                            onClick={() => handleUnassignEmployee(a.employee_id)}
-                                        ></i>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    {pastAssignments.length > 0 && (
-                        <div className='mt-6'>
-                            <span className='text-muted fs-8 fw-bold d-block mb-3'>ประวัติการมอบหมาย</span>
-                            <div className='table-responsive'>
-                                <table className='table table-row-dashed align-middle gs-0 gy-2'>
-                                    <thead>
-                                        <tr className='fw-bold text-muted text-uppercase fs-8'>
-                                            <th>พนักงาน</th>
-                                            <th>เวลาเริ่ม</th>
-                                            <th>เวลาสิ้นสุด</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {pastAssignments.map(a => (
-                                            <tr key={a.work_run_assignment_id}>
-                                                <td>
-                                                    <span className='fw-semibold text-gray-700 fs-7'>
-                                                        {a.employee?.employee_first_name} {a.employee?.employee_last_name}
-                                                    </span>
-                                                    <span className='text-muted fs-8 ms-2'>ID: {a.employee_id}</span>
-                                                </td>
-                                                <td><span className='text-gray-600 fs-8'>{a.from_time ? new Date(a.from_time).toLocaleString('th-TH') : '-'}</span></td>
-                                                <td><span className='text-gray-600 fs-8'>{a.to_time ? new Date(a.to_time).toLocaleString('th-TH') : '-'}</span></td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Assigned Machines */}
-            <div className='card shadow-sm mb-8'>
-                <div className='card-header border-0 pt-5'>
-                    <div className='card-title'>
-                        <span className='card-label fw-bold text-gray-900 fs-5'>
-                            <i className='bi bi-gear me-2 text-primary'></i>เครื่องจักรที่ใช้งาน
-                        </span>
-                    </div>
-                    {isActive && (
-                        <div className='card-toolbar'>
-                            <button className='btn btn-sm btn-light-primary fw-bold' onClick={() => setShowAssignMachineModal(true)}>
-                                <i className='bi bi-plus-lg me-1'></i> เพิ่มเครื่องจักร
-                            </button>
-                        </div>
-                    )}
-                </div>
-                <div className='card-body pt-3'>
-                    {activeMachines.length === 0 ? (
-                        <span className='text-muted fs-7'>ยังไม่มีเครื่องจักรที่กำหนด</span>
-                    ) : (
-                        <div className='d-flex flex-wrap gap-3'>
-                            {activeMachines.map(m => (
-                                <div key={m.work_run_machine_id} className='d-flex align-items-center border border-gray-200 rounded px-4 py-3 bg-light-info'>
-                                    <div className='symbol symbol-35px me-3'>
-                                        <span className='symbol-label bg-info text-white fw-bold fs-7'>
-                                            <i className='bi bi-gear-fill text-white'></i>
-                                        </span>
-                                    </div>
-                                    <div className='d-flex flex-column me-3'>
-                                        <span className='fw-bold text-gray-800 fs-7'>{m.machine?.machine_name ?? `Machine #${m.machine_id}`}</span>
-                                        <span className='text-muted fs-8'>{m.machine?.machine_code}</span>
-                                    </div>
-                                    {isActive && (
-                                        <i
-                                            className='bi bi-x-circle text-danger cursor-pointer fs-5'
-                                            onClick={() => handleUnassignMachine(m.machine_id)}
-                                        ></i>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    {pastMachines.length > 0 && (
-                        <div className='mt-6'>
-                            <span className='text-muted fs-8 fw-bold d-block mb-3'>ประวัติการใช้งานเครื่องจักร</span>
-                            <div className='table-responsive'>
-                                <table className='table table-row-dashed align-middle gs-0 gy-2'>
-                                    <thead>
-                                        <tr className='fw-bold text-muted text-uppercase fs-8'>
-                                            <th>เครื่องจักร</th>
-                                            <th>เวลาเริ่ม</th>
-                                            <th>เวลาสิ้นสุด</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {pastMachines.map(m => (
-                                            <tr key={m.work_run_machine_id}>
-                                                <td>
-                                                    <span className='fw-semibold text-gray-700 fs-7'>
-                                                        {m.machine?.machine_name ?? `Machine #${m.machine_id}`}
-                                                    </span>
-                                                    <span className='text-muted fs-8 ms-2'>{m.machine?.machine_code}</span>
-                                                </td>
-                                                <td><span className='text-gray-600 fs-8'>{m.from_time ? new Date(m.from_time).toLocaleString('th-TH') : '-'}</span></td>
-                                                <td><span className='text-gray-600 fs-8'>{m.to_time ? new Date(m.to_time).toLocaleString('th-TH') : '-'}</span></td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Required Items */}
-            <div className='card shadow-sm mb-8'>
-                <div className='card-header border-0 pt-5'>
-                    <div className='card-title'>
-                        <span className='card-label fw-bold text-gray-900 fs-5'>
-                            <i className='bi bi-box-seam me-2 text-primary'></i>รายการวัตถุดิบที่ต้องใช้
-                        </span>
-                    </div>
-                    {!isCompleted && (
-                        <div className='card-toolbar'>
-                            <button className='btn btn-sm btn-light-primary fw-bold' onClick={openAddRequiredItem}>
-                                <i className='bi bi-plus-lg me-1'></i> เพิ่มรายการ
-                            </button>
-                        </div>
-                    )}
-                </div>
-                <div className='card-body pt-3'>
-                    {(!workRun?.required_items || workRun.required_items.length === 0) ? (
-                        <span className='text-muted fs-7'>ยังไม่มีรายการวัตถุดิบ</span>
-                    ) : (
-                        <div className='table-responsive'>
-                            <table className='table table-row-dashed align-middle gs-0 gy-3'>
-                                <thead>
-                                    <tr className='fw-bold text-muted text-uppercase fs-8'>
-                                        <th>รหัสสินค้า</th>
-                                        <th>ชื่อวัตถุดิบ</th>
-                                        <th className='text-center'>จำนวนที่ต้องใช้</th>
-                                        <th className='text-center'>จำนวนที่ใช้จริง</th>
-                                        <th>หน่วย</th>
-                                        <th className='text-end'>ต้นทุน/หน่วย</th>
-                                        <th className='text-end'>ต้นทุนรวม</th>
-                                        {!isCompleted && <th className='text-end'>จัดการ</th>}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {workRun.required_items.map(item => {
-                                        const batchQty = item.material_list?.quantity ?? 0;
-                                        const batchCost = item.material_list?.cost_price ?? 0;
-                                        const costPerUnit = batchQty > 0
-                                            ? (item.material_list?.cost_per_unit ?? batchCost / batchQty)
-                                            : 0;
-                                        const lineCost = costPerUnit * item.quantity;
-                                        return (
-                                            <tr key={item.id}>
-                                                <td><span className='text-muted fw-semibold fs-7'>{item.item_code}</span></td>
-                                                <td><span className='fw-bold text-gray-800 fs-7'>{item.item_name} <span className='text-muted fw-normal'>(SO-Line: {item.material_list.order_line_num})</span></span></td>
-                                                <td className='text-center'><span className='fw-semibold text-gray-700 fs-7'>{item.quantity}</span></td>
-                                                <td className='text-center'>
-                                                    {item.qty_consumed_actual != null
-                                                        ? <span className='fw-semibold text-gray-700 fs-7'>{item.qty_consumed_actual}</span>
-                                                        : <span className='text-muted fs-7'>-</span>
-                                                    }
-                                                </td>
-                                                <td><span className='text-muted fs-7'>{item.unit}</span></td>
-                                                <td className='text-end'>
-                                                    <span className='text-muted fs-8'>
-                                                        {costPerUnit > 0 ? `฿${costPerUnit.toFixed(4)}` : '-'}
-                                                    </span>
-                                                </td>
-                                                <td className='text-end'>
-                                                    <span className='fw-semibold text-gray-800 fs-7'>
-                                                        {lineCost > 0 ? `฿${lineCost.toFixed(2)}` : '-'}
-                                                    </span>
-                                                </td>
-                                                {!isCompleted && (
-                                                    <td className='text-end'>
-                                                        <button className='btn btn-sm btn-icon btn-light-primary me-1' onClick={() => openEditRequiredItem(item)}>
-                                                            <i className='bi bi-pencil fs-6'></i>
-                                                        </button>
-                                                        <button className='btn btn-sm btn-icon btn-light-danger' onClick={() => handleDeleteRequiredItem(item)}>
-                                                            <i className='bi bi-trash fs-6'></i>
-                                                        </button>
-                                                    </td>
-                                                )}
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                                <tfoot>
-                                    <tr className='fw-bold border-top'>
-                                        <td colSpan={6} className='text-end pt-3'>
-                                            <span className='text-gray-600 fs-7'>ต้นทุนวัตถุดิบรวม (Run นี้)</span>
-                                        </td>
-                                        <td className='text-end pt-3'>
-                                            <span className='fw-bolder text-primary fs-6'>
-                                                ฿{workRun.required_items.reduce((sum, item) => {
-                                                    const batchQty = item.material_list?.quantity ?? 0;
-                                                    const batchCost = item.material_list?.cost_price ?? 0;
-                                                    const cpu = batchQty > 0 ? (item.material_list?.cost_per_unit ?? batchCost / batchQty) : 0;
-                                                    return sum + cpu * item.quantity;
-                                                }, 0).toFixed(2)}
-                                            </span>
-                                        </td>
-                                        {!isCompleted && <td />}
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    )}
                 </div>
             </div>
 
@@ -1532,7 +1723,7 @@ const WorkRunDetail: React.FC = () => {
                                 ) : (
                                     <div className="d-flex flex-column gap-2">
                                         {machineCostActual.map(m => (
-                                            <div key={m.work_run_machine_id}
+                                            <div key={m.machine_id}
                                                 className="d-flex align-items-center justify-content-between rounded px-4 py-3"
                                                 style={{ background: m.isRunning ? '#fffbeb' : '#f9fafb', border: `1px solid ${m.isRunning ? '#fde68a' : '#e5e7eb'}` }}>
                                                 <div className="d-flex align-items-center gap-3">
@@ -1590,7 +1781,7 @@ const WorkRunDetail: React.FC = () => {
                                 ) : (
                                     <div className="d-flex flex-column gap-2">
                                         {laborBreakdown.map(a => (
-                                            <div key={a.work_run_assignment_id}
+                                            <div key={a.employee_id}
                                                 className="d-flex align-items-center justify-content-between rounded px-4 py-3"
                                                 style={{ background: a.isWorking ? '#f0fdf4' : '#f9fafb', border: `1px solid ${a.isWorking ? '#bbf7d0' : '#e5e7eb'}` }}>
                                                 <div className="d-flex align-items-center gap-3">
@@ -1639,14 +1830,14 @@ const WorkRunDetail: React.FC = () => {
                                 <div className="d-flex justify-content-between align-items-center mb-3">
                                     <div className="d-flex align-items-center gap-2">
                                         <span className="symbol symbol-25px">
-                                            <span className="symbol-label bg-light-info">
-                                                <i className="bi bi-box-seam text-info fs-8"></i>
+                                            <span className="symbol-label">
+                                                <i className="bi bi-box-seam fs-8"></i>
                                             </span>
                                         </span>
                                         <span className="text-gray-600 fs-7">ค่าวัตถุดิบ</span>
                                     </div>
-                                    {totalMaterialCost > 0
-                                        ? <span className="fw-semibold text-gray-800 fs-7">฿{totalMaterialCost.toFixed(2)}</span>
+                                    {finalMaterialCost > 0
+                                        ? <span className="fw-semibold text-gray-800 fs-7">฿{finalMaterialCost.toFixed(2)}</span>
                                         : <span className="text-muted fs-8 fst-italic">ไม่มีข้อมูล</span>
                                     }
                                 </div>
@@ -1655,8 +1846,8 @@ const WorkRunDetail: React.FC = () => {
                                 <div className="d-flex justify-content-between align-items-center mb-3">
                                     <div className="d-flex align-items-center gap-2">
                                         <span className="symbol symbol-25px">
-                                            <span className="symbol-label bg-light-primary">
-                                                <i className="bi bi-graph-down-arrow text-primary fs-8"></i>
+                                            <span className="symbol-label">
+                                                <i className="bi bi-graph-down-arrow fs-8"></i>
                                             </span>
                                         </span>
                                         <span className="text-gray-600 fs-7">ค่าเสื่อมราคาเครื่องจักร</span>
@@ -1670,8 +1861,8 @@ const WorkRunDetail: React.FC = () => {
                                 <div className="d-flex justify-content-between align-items-center mb-3">
                                     <div className="d-flex align-items-center gap-2">
                                         <span className="symbol symbol-25px">
-                                            <span className="symbol-label bg-light-warning">
-                                                <i className="bi bi-wrench text-warning fs-8"></i>
+                                            <span className="symbol-label">
+                                                <i className="bi bi-wrench fs-8"></i>
                                             </span>
                                         </span>
                                         <div>
@@ -1690,8 +1881,8 @@ const WorkRunDetail: React.FC = () => {
                                 <div className="d-flex justify-content-between align-items-center mb-4">
                                     <div className="d-flex align-items-center gap-2">
                                         <span className="symbol symbol-25px">
-                                            <span className="symbol-label bg-light-success">
-                                                <i className="bi bi-people text-success fs-8"></i>
+                                            <span className="symbol-label">
+                                                <i className="bi bi-people fs-8"></i>
                                             </span>
                                         </span>
                                         <span className="text-gray-600 fs-7">ค่าพนักงาน</span>
@@ -1706,7 +1897,7 @@ const WorkRunDetail: React.FC = () => {
                                     <span className="fw-bold text-gray-800 fs-6">รวมต้นทุน</span>
                                     <span className="fw-bolder text-primary fs-4">
                                         ฿{(
-                                            totalMaterialCost +
+                                            finalMaterialCost +
                                             machineCostActual.reduce((s, m) => s + m.depreciationCost, 0) +
                                             machineCostActual.reduce((s, m) => s + m.maintenanceCost, 0) +
                                             totalLaborCost
@@ -1802,6 +1993,128 @@ const WorkRunDetail: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Employee History Modal (view-only) */}
+            <Modal show={showEmpHistoryModal} onHide={() => setShowEmpHistoryModal(false)} centered size="lg">
+                <Modal.Header closeButton>
+                    <Modal.Title className='fw-bold'>
+                        <i className='bi bi-clock-history me-2 text-primary'></i>ประวัติการมอบหมายพนักงาน
+                    </Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {(workRun?.assignments ?? []).length === 0 ? (
+                        <div className='text-center text-muted py-10'>
+                            <i className='bi bi-people fs-3x text-gray-300 mb-3 d-block' />
+                            ยังไม่มีประวัติการมอบหมาย
+                        </div>
+                    ) : (
+                        <div className='table-responsive'>
+                            <table className='table table-row-dashed align-middle gs-0 gy-3'>
+                                <thead>
+                                    <tr className='fw-bold text-muted text-uppercase fs-8'>
+                                        <th>พนักงาน</th>
+                                        <th>เวลาเริ่ม</th>
+                                        <th>เวลาสิ้นสุด</th>
+                                        <th>สถานะ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(workRun?.assignments ?? []).map(a => (
+                                        <tr key={a.work_run_assignment_id}>
+                                            <td>
+                                                <div className='d-flex align-items-center'>
+                                                    <div className='symbol symbol-35px me-3'>
+                                                        <span className='symbol-label bg-primary text-white fw-bold fs-7'>
+                                                            {a.employee?.employee_first_name?.charAt(0) ?? '?'}
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <div className='fw-bold text-gray-800 fs-7'>
+                                                            {a.employee?.employee_first_name} {a.employee?.employee_last_name}
+                                                        </div>
+                                                        <div className='text-muted fs-8'>ID: {a.employee_id}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td><span className='text-gray-600 fs-8'>{a.from_time ? new Date(a.from_time).toLocaleString('th-TH') : '-'}</span></td>
+                                            <td><span className='text-gray-600 fs-8'>{a.to_time ? new Date(a.to_time).toLocaleString('th-TH') : '-'}</span></td>
+                                            <td>
+                                                <span className={`badge ${a.to_time === null ? 'badge-light-success' : 'badge-light-secondary'}`}>
+                                                    {a.to_time === null ? 'กำลังทำงาน' : 'เสร็จแล้ว'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <button className='btn btn-light' onClick={() => setShowEmpHistoryModal(false)}>ปิด</button>
+                </Modal.Footer>
+            </Modal>
+
+            {/* Machine History Modal (view-only) */}
+            <Modal show={showMachineHistoryModal} onHide={() => setShowMachineHistoryModal(false)} centered size="lg">
+                <Modal.Header closeButton>
+                    <Modal.Title className='fw-bold'>
+                        <i className='bi bi-clock-history me-2 text-primary'></i>ประวัติการใช้งานเครื่องจักร
+                    </Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {(workRun?.machines ?? []).length === 0 ? (
+                        <div className='text-center text-muted py-10'>
+                            <i className='bi bi-gear fs-3x text-gray-300 mb-3 d-block' />
+                            ยังไม่มีประวัติการใช้งานเครื่องจักร
+                        </div>
+                    ) : (
+                        <div className='table-responsive'>
+                            <table className='table table-row-dashed align-middle gs-0 gy-3'>
+                                <thead>
+                                    <tr className='fw-bold text-muted text-uppercase fs-8'>
+                                        <th>เครื่องจักร</th>
+                                        <th>เวลาเริ่ม</th>
+                                        <th>เวลาสิ้นสุด</th>
+                                        <th>สถานะ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(workRun?.machines ?? []).map(m => (
+                                        <tr key={m.work_run_machine_id}>
+                                            <td>
+                                                <div className='d-flex align-items-center'>
+                                                    <div className='symbol symbol-35px me-3'>
+                                                        <span className='symbol-label bg-info text-white fw-bold fs-7'>
+                                                            <i className='bi bi-gear-fill'></i>
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <div className='fw-bold text-gray-800 fs-7'>
+                                                            {m.machine?.machine_name ?? `Machine #${m.machine_id}`}
+                                                        </div>
+                                                        <div className='text-muted fs-8'>{m.machine?.machine_code}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td><span className='text-gray-600 fs-8'>{m.from_time ? new Date(m.from_time).toLocaleString('th-TH') : '-'}</span></td>
+                                            <td><span className='text-gray-600 fs-8'>{m.to_time ? new Date(m.to_time).toLocaleString('th-TH') : '-'}</span></td>
+                                            <td>
+                                                <span className={`badge ${m.to_time === null ? 'badge-light-info' : 'badge-light-secondary'}`}>
+                                                    {m.to_time === null ? 'กำลังใช้งาน' : 'เสร็จแล้ว'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <button className='btn btn-light' onClick={() => setShowMachineHistoryModal(false)}>ปิด</button>
+                </Modal.Footer>
+            </Modal>
 
             {/* Required Item Add/Edit Modal */}
             <Modal show={showRequiredItemModal} onHide={closeRequiredItemModal} centered size={editingRequiredItem ? undefined : 'lg'}>
@@ -1932,11 +2245,15 @@ const WorkRunDetail: React.FC = () => {
                 </Modal.Footer>
             </Modal>
 
-            {/* Assign Employee Modal */}
+            {/* Manage Employee Modal (+ button) */}
             <Modal show={showAssignEmpModal} onHide={() => { setShowAssignEmpModal(false); setEmpSearch(''); }} centered size="lg">
-                <Modal.Header closeButton><Modal.Title className='fw-bold'>มอบหมายพนักงาน</Modal.Title></Modal.Header>
+                <Modal.Header closeButton>
+                    <Modal.Title className='fw-bold'>
+                        จัดการพนักงาน
+                    </Modal.Title>
+                </Modal.Header>
                 <Modal.Body>
-                    <div className='d-flex align-items-center position-relative my-4'>
+                    <div className='d-flex align-items-center position-relative mb-4'>
                         <i className='ki-duotone ki-magnifier fs-3 position-absolute ms-5'><span className='path1'></span><span className='path2'></span></i>
                         <input type='text' className='form-control form-control-lg w-100 ps-13' placeholder='ค้นหาชื่อพนักงาน...' value={empSearch} onChange={e => setEmpSearch(e.target.value)} />
                     </div>
@@ -1947,7 +2264,8 @@ const WorkRunDetail: React.FC = () => {
                                 {empLoading ? (
                                     <tr><td colSpan={3} className='text-center py-10'>กำลังโหลด...</td></tr>
                                 ) : filteredEmployees.length > 0 ? filteredEmployees.map(emp => {
-                                    const isAssigned = activeAssignments.some(a => a.employee_id === emp.employee_id);
+                                    const assignedEntry = activeAssignments.find(a => a.employee_id === emp.employee_id);
+                                    const isAssigned = !!assignedEntry;
                                     return (
                                         <tr key={emp.employee_id}>
                                             <td>
@@ -1962,9 +2280,16 @@ const WorkRunDetail: React.FC = () => {
                                             <td><span className={`badge ${emp.status === 'ACTIVE' ? 'badge-light-success' : 'badge-light-danger'} fw-bold`}>{emp.status}</span></td>
                                             <td className='text-end'>
                                                 {isAssigned ? (
-                                                    <button className='btn btn-sm btn-light-secondary fw-bold' disabled>กำลังทำงาน</button>
+                                                    <button
+                                                        className='btn btn-sm btn-light-danger fw-bold'
+                                                        onClick={() => handleUnassignEmployee(emp.employee_id)}
+                                                    >
+                                                        <i className='bi bi-x me-1'></i>นำออก
+                                                    </button>
                                                 ) : (
-                                                    <button className='btn btn-sm btn-primary fw-bold' onClick={() => handleAssignEmployee(emp)}>เลือก</button>
+                                                    <button className='btn btn-sm btn-primary fw-bold' onClick={() => handleAssignEmployee(emp)}>
+                                                        <i className='bi bi-plus me-1'></i>เพิ่ม
+                                                    </button>
                                                 )}
                                             </td>
                                         </tr>
@@ -1978,11 +2303,15 @@ const WorkRunDetail: React.FC = () => {
                 </Modal.Body>
             </Modal>
 
-            {/* Assign Machine Modal */}
+            {/* Manage Machine Modal (+ button) */}
             <Modal show={showAssignMachineModal} onHide={() => { setShowAssignMachineModal(false); setMachineSearch(''); }} centered size="lg">
-                <Modal.Header closeButton><Modal.Title className='fw-bold'>เพิ่มเครื่องจักร</Modal.Title></Modal.Header>
+                <Modal.Header closeButton>
+                    <Modal.Title className='fw-bold'>
+                        <i className='bi bi-gear me-2 text-primary'></i>จัดการเครื่องจักร
+                    </Modal.Title>
+                </Modal.Header>
                 <Modal.Body>
-                    <div className='d-flex align-items-center position-relative my-4'>
+                    <div className='d-flex align-items-center position-relative mb-4'>
                         <i className='ki-duotone ki-magnifier fs-3 position-absolute ms-5'><span className='path1'></span><span className='path2'></span></i>
                         <input type='text' className='form-control form-control-lg w-100 ps-13' placeholder='ค้นหาชื่อเครื่องจักร...' value={machineSearch} onChange={e => setMachineSearch(e.target.value)} />
                     </div>
@@ -2008,9 +2337,16 @@ const WorkRunDetail: React.FC = () => {
                                             <td><span className={`badge ${m.status === 'IDLE' ? 'badge-light-success' : m.status === 'RUNNING' ? 'badge-light-warning' : 'badge-light-danger'} fw-bold`}>{m.status}</span></td>
                                             <td className='text-end'>
                                                 {isAssigned ? (
-                                                    <button className='btn btn-sm btn-light-secondary fw-bold' disabled>กำลังใช้งาน</button>
+                                                    <button
+                                                        className='btn btn-sm btn-light-danger fw-bold'
+                                                        onClick={() => handleUnassignMachine(m.machine_id)}
+                                                    >
+                                                        <i className='bi bi-x me-1'></i>นำออก
+                                                    </button>
                                                 ) : (
-                                                    <button className='btn btn-sm btn-primary fw-bold' onClick={() => handleAssignMachine(m)}>เลือก</button>
+                                                    <button className='btn btn-sm btn-primary fw-bold' onClick={() => handleAssignMachine(m)}>
+                                                        <i className='bi bi-plus me-1'></i>เพิ่ม
+                                                    </button>
                                                 )}
                                             </td>
                                         </tr>

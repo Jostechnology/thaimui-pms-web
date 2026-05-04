@@ -834,7 +834,7 @@
     width: 32px;
     height: 32px;
     border: none;
-    background: #f5f8ff;
+    background: #ffffff;
     border-radius: 8px;
     color: #5e6278;
     cursor: pointer;
@@ -843,15 +843,14 @@
     font-size: 15px;
 }
 
-.wo-back-btn:hover {
-    background: #e7f1ff;
+.wo-back-btn:hover i {
     color: #3699ff;
 }
 
 .wo-header-vdivider {
     width: 1px;
     height: 18px;
-    background: #e4e6ef;
+    background: #ffffff;
     margin: 0 14px;
     flex-shrink: 0;
 }

@@ -9,7 +9,7 @@ import './WorkorderView.css';
 import { type WorkOrder, type WorkRun, type WorkRunDetail as WorkRunDetailType, type WorkRunBreak, type WorkRunCost } from '../../../type_interface/WorkOrderType';
 import { formatIntegerInput } from '../../../utils/input_format_utils';
 import Swal from "sweetalert2";
-import { createWorkRun, getSalesItemTestResults, getWorkRunById } from '../../../services/workRunService';
+import { createWorkRun, getSalesItemTestResults, getWorkRunsCostByWorkOrder } from '../../../services/workRunService';
 import type { WorkRunSourceAllocation, TestResultSourceAllocation, SalesItemTestResult } from '../../../services/workRunService';
 
 const getStatusBadgeClass = (status: string) => {
@@ -101,19 +101,16 @@ const WorkorderView: React.FC = () => {
                 const runs: WorkRun[] = result.data.work_runs || [];
                 setWorkRuns(runs);
 
-                // fetch all work run details in parallel for cost calculation
-                const startedRuns = runs.filter(r => r.start_date !== null);
-                if (startedRuns.length > 0) {
+                // fetch cost data for all started work runs in a single call
+                if (runs.some(r => r.start_date !== null)) {
                     setCostLoading(true);
-                    Promise.all(startedRuns.map(r => getWorkRunById(r.work_run_id)))
-                        .then(results => {
-                            setWorkRunDetails(
-                                results
-                                    .filter(d => d?.success && d.data)
-                                    .map(d => d.data as WorkRunDetailType)
-                            );
+                    getWorkRunsCostByWorkOrder(Number(id))
+                        .then(result => {
+                            if (result?.success && result.data) {
+                                setWorkRunDetails(result.data as WorkRunDetailType[]);
+                            }
                         })
-                        .catch(() => {})
+                        .catch(() => { })
                         .finally(() => setCostLoading(false));
                 } else {
                     setWorkRunDetails([]);
@@ -221,6 +218,11 @@ const WorkorderView: React.FC = () => {
         };
 
         return workRunDetails.map(wr => {
+            const empNames = (wr.assignments ?? [])
+                .filter(a => a.employee)
+                .map(a => `${a.employee.employee_first_name} ${a.employee.employee_last_name}`.trim())
+                .filter((v, i, arr) => arr.indexOf(v) === i);
+
             // Use stored cost when work run is COMPLETED
             const stored: WorkRunCost | null = wr.cost ?? null;
             if (wr.status?.toUpperCase() === 'COMPLETED' && stored) {
@@ -228,6 +230,8 @@ const WorkorderView: React.FC = () => {
                     work_run_id: wr.work_run_id,
                     lot_number: wr.lot_number,
                     status: wr.status,
+                    start_date: wr.start_date,
+                    employees: empNames,
                     material: stored.material_cost ?? 0,
                     depreciation: stored.depreciation_cost ?? 0,
                     maintenance: stored.maintenance_cost ?? 0,
@@ -263,6 +267,8 @@ const WorkorderView: React.FC = () => {
                 work_run_id: wr.work_run_id,
                 lot_number: wr.lot_number,
                 status: wr.status,
+                start_date: wr.start_date,
+                employees: empNames,
                 material,
                 depreciation,
                 maintenance,
@@ -334,7 +340,7 @@ const WorkorderView: React.FC = () => {
             <div className="wo-page-header mb-6">
                 <div className="wo-page-header-left">
                     <button className="wo-back-btn" onClick={() => navigate('/workorder/workorders_list')}>
-                        <i className="bi bi-arrow-left" />
+                        <i className="bi bi-chevron-left"></i>
                     </button>
                     <div className="wo-header-vdivider" />
                     <span className="wo-header-title">การผลิต <strong>#{workOrder.doc_num}</strong></span>
@@ -351,8 +357,8 @@ const WorkorderView: React.FC = () => {
                     <div className={`wo-status-pill${workOrder.status?.toUpperCase() === 'COMPLETED' ? ' wo-status-pill-green' : workOrder.status?.toUpperCase() === 'PENDING' ? ' wo-status-pill-grey' : ''}`}>
                         <span className="wo-status-dot" />
                         {workOrder.status?.toUpperCase() === 'INPROGRESS' ? 'IN PROGRESS' :
-                         workOrder.status?.toUpperCase() === 'COMPLETED' ? 'COMPLETED' :
-                         workOrder.status?.toUpperCase() === 'PENDING' ? 'PENDING' : workOrder.status}
+                            workOrder.status?.toUpperCase() === 'COMPLETED' ? 'COMPLETED' :
+                                workOrder.status?.toUpperCase() === 'PENDING' ? 'PENDING' : workOrder.status}
                     </div>
                     <button className="wo-create-btn bg-primary" onClick={openCreateRunModal}>
                         <i className="bi bi-pencil-square text-white" />
@@ -397,7 +403,7 @@ const WorkorderView: React.FC = () => {
                     <div className="row g-4 wo-lmc-fade" key={activePage}>
                         {pagedActiveRuns.map(wr => {
                             const activeAssignments = wr.assignments.filter(a => a.to_time === null);
-                            const activeMachines    = wr.machines.filter(m => m.to_time === null);
+                            const activeMachines = wr.machines.filter(m => m.to_time === null);
                             const runElapsed = wr.start_date ? calcElapsedMs(wr.start_date, wr.end_date, wr.breaks) : 0;
 
                             return (
@@ -495,15 +501,15 @@ const WorkorderView: React.FC = () => {
                 </div>
             )}
 
-            <div className="row g-5 mb-8">
+            <div className="row g-5 mb-8" style={{ alignItems: 'stretch' }}>
                 {/* Work Runs List */}
-                <div className="col-lg-7">
-                    <div className="wo-card">
+                <div className="col-lg-7" style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div className="wo-card" style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                         <div className="wo-card-header">
                             <h3 className="wo-card-title">Work Runs</h3>
                             <span className="badge badge-light-primary">{workRuns.length} รายการ</span>
                         </div>
-                        <div className="wo-card-body">
+                        <div className="wo-card-body" style={{ flex: '1 1 0', overflowY: 'auto', minHeight: 0 }}>
                             {workRuns.length === 0 ? (
                                 <div className="text-center text-muted py-10">
                                     <i className="bi bi-inbox fs-3x text-gray-300 d-block mb-3" />
@@ -515,7 +521,6 @@ const WorkorderView: React.FC = () => {
                                         <div
                                             key={run.work_run_id}
                                             className="border rounded p-4 cursor-pointer"
-                                            style={{ backgroundColor: '#f9fafb', transition: 'box-shadow 0.15s, background 0.15s' }}
                                             onClick={() => navigate(`/workorder/work_run/${run.work_run_id}`)}
                                             onMouseEnter={e => {
                                                 (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 12px rgba(0,0,0,0.10)';
@@ -523,7 +528,7 @@ const WorkorderView: React.FC = () => {
                                             }}
                                             onMouseLeave={e => {
                                                 (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
-                                                (e.currentTarget as HTMLDivElement).style.backgroundColor = '#f9fafb';
+                                                (e.currentTarget as HTMLDivElement).style.backgroundColor = '';
                                             }}
                                         >
                                             <div className="d-flex align-items-center justify-content-between">
@@ -595,25 +600,9 @@ const WorkorderView: React.FC = () => {
                                         <span className="wo-item-label">จำนวนทั้งหมด</span>
                                         <span className="wo-item-value fw-bold">{workOrder.sales_item.quantity}</span>
                                     </div>
-                                    <div className="separator separator-dashed my-4"></div>
-                                    <div className="wo-cost-summary mt-5">
-                                        <div className="wo-cost-row">
-                                            <span>ราคาต้นทุน</span>
-                                            <span className="fw-bold">฿{workOrder.sales_item.cost_price.toLocaleString()}</span>
-                                        </div>
-                                        <div className="wo-cost-row">
-                                            <span>ราคาขาย</span>
-                                            <span className="fw-bold">฿{workOrder.sales_item.unit_price.toLocaleString()}</span>
-                                        </div>
-                                        <div className="wo-cost-row wo-cost-total">
-                                            <span>กำไร</span>
-                                            <span className="fw-bold text-success">
-                                                ฿{(workOrder.sales_item.unit_price - workOrder.sales_item.cost_price).toLocaleString()}
-                                                <small className="ms-2 text-muted">
-                                                    ({Math.round(((workOrder.sales_item.unit_price - workOrder.sales_item.cost_price) / workOrder.sales_item.unit_price) * 100)}%)
-                                                </small>
-                                            </span>
-                                        </div>
+                                    <div className="wo-item-row">
+                                        <span className="wo-item-label">ราคาขาย</span>
+                                        <span className="wo-item-value fw-bold">{workOrder.sales_item.unit_price.toLocaleString()}</span>
                                     </div>
                                 </div>
                             ) : (
@@ -677,10 +666,10 @@ const WorkorderView: React.FC = () => {
 
             {/* Cost Summary from all Work Runs */}
             <div className="card shadow-sm mb-8">
-                <div className="card-header border-0 pt-5">
+                <div className="card-header border-0 pt-5 pb-0">
                     <div className="card-title">
                         <span className="card-label fw-bold text-gray-900 fs-5">
-                            <i className="bi bi-calculator me-2 text-primary"></i>ต้นทุนรวมจากทุก Work Run
+                            ต้นทุนรวมจากทุก Work Run
                         </span>
                     </div>
                     {costLoading && (
@@ -690,29 +679,34 @@ const WorkorderView: React.FC = () => {
                         </div>
                     )}
                 </div>
-                <div className="card-body pt-4 pb-6">
-                    {/* KPI summary row */}
-                    <div className="row g-4 mb-6">
+                <div className="card-body pt-5 pb-6">
+                    {/* KPI summary cards */}
+                    <div className="row g-3 mb-6">
                         {[
-                            { label: 'ค่าวัตถุดิบ', value: totalCosts.material, icon: 'bi-box-seam', color: 'info', bg: '#e0f9ff' },
-                            { label: 'ค่าเสื่อมราคา', value: totalCosts.depreciation, icon: 'bi-graph-down-arrow', color: '', bg: '#e7f1ff' },
-                            { label: 'ค่าซ่อมบำรุง', value: totalCosts.maintenance, icon: 'bi-wrench', color: 'warning', bg: '#fff3e0' },
-                            { label: 'ค่าพนักงาน', value: totalCosts.labor, icon: 'bi-people-fill', color: 'success', bg: '#d1f5e4' },
-                            { label: 'รวมทั้งหมด', value: totalCosts.total, icon: 'bi-cash-stack', color: 'danger', bg: '#fde8e8', bold: true },
+                            { label: 'ค่าวัตถุดิบรวม', value: totalCosts.material, icon: 'bi-box-seam-fill', iconColor: '#0dcaf0', bg: '#e8fafe' },
+                            { label: 'ค่าเสื่อมราคารวม', value: totalCosts.depreciation, icon: 'bi-graph-down-arrow', iconColor: '#6610f2', bg: '#f3f0ff' },
+                            { label: 'ค่าซ่อมบำรุงรวม', value: totalCosts.maintenance, icon: 'bi-wrench-adjustable', iconColor: '#fd7e14', bg: '#fff4e6' },
+                            { label: 'ค่าแรงรวม', value: totalCosts.labor, icon: 'bi-people-fill', iconColor: '#198754', bg: '#e8f8f0' },
+                            { label: 'รวมทั้งหมด', value: totalCosts.total, icon: 'bi-cash-stack', iconColor: '#dc3545', bg: '#fff0f0' },
                         ].map(item => (
                             <div key={item.label} className="col-6 col-md-4 col-lg">
-                                <div className="rounded p-4 h-100" style={{ backgroundColor: item.bg, border: `1px solid ${item.bg}` }}>
-                                    <div className="d-flex align-items-center gap-2 mb-2">
-                                        <i className={`bi ${item.icon} text-${item.color} fs-6`} />
-                                        <span className="text-gray-600 fs-8 fw-semibold">{item.label}</span>
+                                {/* ปรับตรงนี้: ลบ border ออก และอาจเพิ่ม shadow-sm เพื่อให้ดูมีมิติ */}
+                                <div className="rounded-3 p-4 h-100 d-flex align-items-center gap-3"
+                                    style={{ backgroundColor: item.bg }}>
+                                    <div className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                        style={{ width: 46, height: 46, backgroundColor: `${item.iconColor}20` }}>
+                                        <i className={`bi ${item.icon} fs-4`} style={{ color: item.iconColor }} />
                                     </div>
-                                    {costLoading ? (
-                                        <div className="placeholder-wave"><span className="placeholder col-8 rounded" /></div>
-                                    ) : (
-                                        <span className={`fw-${item.bold ? 'bolder' : 'bold'} fs-${item.bold ? '4' : '5'} text-${item.color}`}>
-                                            ฿{item.value.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                        </span>
-                                    )}
+                                    <div>
+                                        <div className="text-gray-500 fs-8 fw-semibold mb-1">{item.label}</div>
+                                        {costLoading ? (
+                                            <div className="placeholder-wave"><span className="placeholder col-10 rounded" /></div>
+                                        ) : (
+                                            <div className="fw-bolder fs-5" style={{ color: item.iconColor }}>
+                                                ฿{item.value.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -771,14 +765,34 @@ const WorkorderView: React.FC = () => {
                                         </tr>
                                     ))}
                                 </tbody>
-                                <tfoot>
-                                    <tr className="fw-bolder border-top-2 border-gray-300">
-                                        <td colSpan={2} className="text-end text-gray-600 fs-7 pt-3">รวมทั้งหมด</td>
-                                        <td className="text-end text-info pt-3">฿{totalCosts.material.toFixed(2)}</td>
-                                        <td className="text-end text-primary pt-3">฿{totalCosts.depreciation.toFixed(4)}</td>
-                                        <td className="text-end text-warning pt-3">฿{totalCosts.maintenance.toFixed(4)}</td>
-                                        <td className="text-end text-success pt-3">฿{totalCosts.labor.toFixed(2)}</td>
-                                        <td className="text-end text-danger fs-6 pt-3">฿{totalCosts.total.toFixed(2)}</td>
+                                <tfoot className="bg-light">
+                                    <tr className="fw-bolder border-top border-3 border-gray-200">
+                                        <td colSpan={2} className="text-end text-gray-600 fs-7 py-5">รวมทั้งหมด</td>
+
+                                        {/* ค่าวัตถุดิบ - สีเดียวกับ iconColor: #0dcaf0 */}
+                                        <td className="text-end py-5" style={{ color: '#0dcaf0' }}>
+                                            ฿{totalCosts.material.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+
+                                        {/* ค่าเสื่อมราคา - สีเดียวกับ iconColor: #6610f2 */}
+                                        <td className="text-end py-5" style={{ color: '#6610f2' }}>
+                                            ฿{totalCosts.depreciation.toLocaleString('th-TH', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                        </td>
+
+                                        {/* ค่าซ่อมบำรุง - สีเดียวกับ iconColor: #fd7e14 */}
+                                        <td className="text-end py-5" style={{ color: '#fd7e14' }}>
+                                            ฿{totalCosts.maintenance.toLocaleString('th-TH', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                        </td>
+
+                                        {/* ค่าพนักงาน - สีเดียวกับ iconColor: #198754 */}
+                                        <td className="text-end py-5" style={{ color: '#198754' }}>
+                                            ฿{totalCosts.labor.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+
+                                        {/* รวมทั้งหมด - สีเดียวกับ iconColor: #dc3545 และเน้นขนาดตัวอักษร */}
+                                        <td className="text-end fs-5 py-5" style={{ color: '#dc3545' }}>
+                                            ฿{totalCosts.total.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
                                     </tr>
                                 </tfoot>
                             </table>

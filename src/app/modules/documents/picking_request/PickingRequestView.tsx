@@ -206,8 +206,6 @@ const ItemRow: React.FC<{ item: PickingRequestItemDetail; onAdjust: (item: Picki
                                                         <th className='w-110px text-center'>ผลการทดสอบ</th>
                                                         <th className='w-90px text-center'>จัดสรร</th>
                                                         <th className='w-90px text-center'>ใช้จริง</th>
-                                                        <th className='w-120px'>ผู้ทดสอบ</th>
-                                                        <th className='w-150px'>วันที่ทดสอบ</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -230,8 +228,6 @@ const ItemRow: React.FC<{ item: PickingRequestItemDetail; onAdjust: (item: Picki
                                                             </td>
                                                             <td className='text-center fw-semibold text-gray-700'>{c.qty_allocated}</td>
                                                             <td className='text-center fw-semibold text-gray-700'>{c.qty_consumed ?? '-'}</td>
-                                                            <td className='text-gray-600'>{c.test_result.tested_by ?? '-'}</td>
-                                                            <td className='text-gray-600'>{formatDate(c.test_result.test_date)}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
