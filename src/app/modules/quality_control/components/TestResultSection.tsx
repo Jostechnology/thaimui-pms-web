@@ -139,10 +139,10 @@ const TestResultSection: React.FC<Props> = ({
     };
 
     return (
-        <div>
-            <div className="card border-0 shadow-sm">
+        <div style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <div className="card border-0 shadow-sm" style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                 {/* Header */}
-                <div className="card-header bg-white border-bottom border-gray-200 d-flex justify-content-between align-items-center py-4 px-6">
+                <div className="card-header bg-white border-bottom border-gray-200 d-flex justify-content-between align-items-center py-4 px-6" style={{ flexShrink: 0 }}>
                     <div className="d-flex align-items-center gap-3">
                         <h5 className="mb-0 fw-bold text-gray-800">ผลการทดสอบ (Test Results)</h5>
                         {testResults.length > 0 && <span className="badge badge-light-primary fw-bold">{testResults.length}</span>}
@@ -152,7 +152,7 @@ const TestResultSection: React.FC<Props> = ({
                     </button>
                 </div>
 
-                <div className="card-body p-6">
+                <div className="card-body p-6" style={{ flex: '1 1 0', overflowY: 'auto', minHeight: 0 }}>
                     {loading ? (
                         <div className="text-center py-6 text-muted">
                             <span className="spinner-border spinner-border-sm me-2" />กำลังโหลด...
@@ -171,6 +171,7 @@ const TestResultSection: React.FC<Props> = ({
                                     <div
                                         key={tr.test_result_id}
                                         className={`border rounded cursor-pointer overflow-hidden`}
+                                        style={{ backgroundColor: '#fff' }}
                                         onClick={() => navigate(`/quality_control/test_result/${tr.test_result_id}`)}
                                         onMouseEnter={e => {
                                             (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 12px rgba(0,0,0,0.10)';
@@ -178,10 +179,10 @@ const TestResultSection: React.FC<Props> = ({
                                         }}
                                         onMouseLeave={e => {
                                             (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
-                                            (e.currentTarget as HTMLDivElement).style.backgroundColor = '#f9fafb';
+                                            (e.currentTarget as HTMLDivElement).style.backgroundColor = '#fff';
                                         }}
                                     >
-                                        <div className="d-flex align-items-center justify-content-between px-5 py-3 bg-light">
+                                        <div className="d-flex align-items-center justify-content-between px-5 py-3">
                                             <div className="d-flex flex-column gap-2">
                                                 <div className="d-flex align-items-center gap-2 flex-wrap">
                                                     <span className="fw-bold text-gray-700 fs-6">
@@ -205,11 +206,6 @@ const TestResultSection: React.FC<Props> = ({
                                                                     </span>
                                                                 );
                                                             })}
-                                                        </span>
-                                                    )}
-                                                    {isCompleted && tr.test_date && (
-                                                        <span className="text-muted fs-7">
-                                                            <i className="bi bi-calendar3 me-1" />{tr.test_date.split("T")[0]}
                                                         </span>
                                                     )}
                                                 </div>

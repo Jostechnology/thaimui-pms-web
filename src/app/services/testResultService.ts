@@ -44,6 +44,21 @@ export const getTestResultsByQCWorkOrder = async (qcWorkOrderId: number): Promis
     }
 };
 
+export const getTestResultsCostByQCWorkOrder = async (qcWorkOrderId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "GET",
+            `/qc_work_order/${qcWorkOrderId}/test_results/cost`,
+            {},
+            { wrapData: false }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("getTestResultsCostByQCWorkOrder Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการดึงข้อมูลต้นทุน" };
+    }
+};
+
 export const getTestResultsBySalesOrder = async (docEntry: number): Promise<APIResponse> => {
     try {
         const response = await front_api(

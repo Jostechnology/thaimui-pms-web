@@ -3,8 +3,8 @@ import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from 'react-bootstrap';
 import Swal from "sweetalert2";
-import { getEmployeeList } from '../../../services/employee';
-import { getMachineList } from '../../../services/machineService';
+import { getEmployeeList, getEmployeeTotalCount } from '../../../services/employee';
+import { getMachineList, getMachineTotalCount } from '../../../services/machineService';
 import {
     getWorkRunById,
     completeWorkRun,
@@ -58,12 +58,12 @@ const calcTotalBreakMs = (breaks?: WorkRunBreak[]): number => {
         return t + Math.max(0, e - s);
     }, 0);
 };
-const formatDateTimeTL = (dateStr: string | null) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' +
-        d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-};
+// const formatDateTimeTL = (dateStr: string | null) => {
+//     if (!dateStr) return '-';
+//     const d = new Date(dateStr);
+//     return d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' +
+//         d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+// };
 const formatTimeTL = (dateStr: string | null) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
@@ -185,8 +185,10 @@ const WorkRunDetail: React.FC = () => {
 
     // Timeline state
     const [selectedDate, setSelectedDate] = useState(new Date());
-
     const [autoZoom, setAutoZoom] = useState(true);
+
+    // to count
+    const [totalCounts, setTotalCounts] = useState({ emp: 0, mach: 0 });
     type ActivePopover =
         | { type: 'run'; centerPct: number }
         | { type: 'machine'; machineId: number; centerPct: number }
@@ -315,6 +317,11 @@ const WorkRunDetail: React.FC = () => {
         }
     }, [workRun]);
 
+    //to count
+    useEffect(() => {
+        loadCounts(); // เรียกใช้ตอนโหลดหน้า ข้อมูลจะไม่หายเมื่อ Reload
+    }, []);
+
     const handlePrevDate = () => setSelectedDate(prev => { const d = new Date(prev); d.setDate(d.getDate() - 1); return d; });
     const handleNextDate = () => setSelectedDate(prev => { const d = new Date(prev); d.setDate(d.getDate() + 1); return d; });
     const handleToday = useCallback(() => setSelectedDate(new Date()), []);
@@ -322,6 +329,10 @@ const WorkRunDetail: React.FC = () => {
     const activeAssignments = useMemo(() => workRun?.assignments?.filter(a => a.to_time === null) ?? [], [workRun]);
     const allAssignmentsTL = useMemo(() => workRun?.assignments ?? [], [workRun]);
     const activeMachines = useMemo(() => workRun?.machines?.filter(m => m.to_time === null) ?? [], [workRun]);
+
+    const machineUsageRatio = allMachines?.length > 0
+        ? (activeMachines.length / allMachines.length) * 100
+        : 0;
 
     const timelineBounds = useMemo(() => {
         const { dayStart, dayEnd } = getFullDayBounds(selectedDate);
@@ -617,14 +628,27 @@ const WorkRunDetail: React.FC = () => {
     const laborBreakdown = React.useMemo(() => {
         if (!workRun?.assignments) return [];
         const breaks = workRun.breaks ?? [];
-        return workRun.assignments.map(a => {
+        type LaborEntry = { employee_id: number; employee: typeof workRun.assignments[0]['employee']; seconds: number; hourlyRate: number; cost: number; isWorking: boolean };
+        const map = new Map<number, LaborEntry>();
+        for (const a of workRun.assignments) {
             const seconds = calcElapsedSeconds(a, breaks);
             const isWorking = a.to_time === null;
             const salary = a.employee?.salary_base ?? 0;
             const hourlyRate = salary / 30 / 8;
             const cost = hourlyRate * seconds / 3600;
-            return { ...a, seconds, hourlyRate, cost, isWorking };
-        });
+            if (map.has(a.employee_id)) {
+                const existing = map.get(a.employee_id)!;
+                map.set(a.employee_id, {
+                    ...existing,
+                    seconds: existing.seconds + seconds,
+                    cost: existing.cost + cost,
+                    isWorking: existing.isWorking || isWorking,
+                });
+            } else {
+                map.set(a.employee_id, { employee_id: a.employee_id, employee: a.employee, seconds, hourlyRate, cost, isWorking });
+            }
+        }
+        return Array.from(map.values());
     }, [workRun, costTick]);
 
     const totalLaborCost = React.useMemo(
@@ -632,14 +656,21 @@ const WorkRunDetail: React.FC = () => {
         [laborBreakdown]
     );
 
-    const totalMaterialCost = useMemo(() => {
-        if (!workRun?.required_items?.length) return workRun?.work_order?.sales_item?.cost_price ?? 0;
-        return workRun.required_items.reduce((sum, item) => {
-            const batchQty = item.material_list?.quantity ?? 0;
-            const batchCost = item.material_list?.cost_price ?? 0;
-            const cpu = batchQty > 0 ? (item.material_list?.cost_per_unit ?? batchCost / batchQty) : 0;
-            return sum + cpu * item.quantity;
-        }, 0);
+    const finalMaterialCost = useMemo(() => {
+        // For completed runs, use the stored actual material cost for accuracy.
+        if (workRun?.status?.toUpperCase() === 'COMPLETED' && workRun.cost?.material_cost != null) {
+            return workRun.cost.material_cost;
+        }
+        // For active runs or runs without a stored cost, calculate from required items.
+        if (workRun?.required_items?.length) {
+            return workRun.required_items.reduce((sum, item) => {
+                const batchQty = item.material_list?.quantity ?? 0;
+                const batchCost = item.material_list?.cost_price ?? 0;
+                const cpu = batchQty > 0 ? (item.material_list?.cost_per_unit ?? batchCost / batchQty) : 0;
+                return sum + cpu * item.quantity;
+            }, 0);
+        }
+        return 0;
     }, [workRun]);
 
     const status = normalizeKey(workRun?.status);
@@ -812,6 +843,14 @@ const WorkRunDetail: React.FC = () => {
         finally { setUnLoading(); }
     };
 
+    const loadCounts = async () => {
+        const [empCount, machCount] = await Promise.all([
+            getEmployeeTotalCount(),
+            getMachineTotalCount()
+        ]);
+        setTotalCounts({ emp: empCount, mach: machCount });
+    };
+
     // --- Required Items ---
     const openAddRequiredItem = () => {
         setEditingRequiredItem(null);
@@ -939,29 +978,47 @@ const WorkRunDetail: React.FC = () => {
 
     const machineCostActual = useMemo(() => {
         if (!workRun?.machines) return [];
-        return workRun.machines.map(m => {
+        const breaks = workRun.breaks ?? [];
+        const map = new Map<number, {
+            machine_id: number; machine: typeof workRun.machines[0]['machine'];
+            depreciationCost: number; maintenanceCost: number; totalCost: number;
+            seconds: number; isRunning: boolean; noRate: boolean;
+        }>();
+        for (const m of workRun.machines) {
             const isRunning = m.to_time === null;
-            const elapsed = calcElapsedSeconds(m, workRun.breaks ?? []);
+            const elapsed = calcElapsedSeconds(m, breaks);
             const cost = m.cost;
-
             const depreciationCost = isRunning
                 ? (cost?.depreciation_per_second ?? 0) * elapsed
                 : (cost?.depreciation_cost ?? 0);
-
             const maintenanceCost = isRunning
                 ? (cost?.maintenance_rate_per_second ?? 0) * elapsed
                 : (cost?.maintenance_cost ?? 0);
-
-            return {
-                ...m,
-                depreciationCost,
-                maintenanceCost,
-                totalCost: depreciationCost + maintenanceCost,
-                seconds: elapsed,
-                isRunning,
-                noRate: !cost,
-            };
-        });
+            if (map.has(m.machine_id)) {
+                const ex = map.get(m.machine_id)!;
+                map.set(m.machine_id, {
+                    ...ex,
+                    seconds: ex.seconds + elapsed,
+                    depreciationCost: ex.depreciationCost + depreciationCost,
+                    maintenanceCost: ex.maintenanceCost + maintenanceCost,
+                    totalCost: ex.totalCost + depreciationCost + maintenanceCost,
+                    isRunning: ex.isRunning || isRunning,
+                    noRate: ex.noRate && !cost,
+                });
+            } else {
+                map.set(m.machine_id, {
+                    machine_id: m.machine_id,
+                    machine: m.machine,
+                    depreciationCost,
+                    maintenanceCost,
+                    totalCost: depreciationCost + maintenanceCost,
+                    seconds: elapsed,
+                    isRunning,
+                    noRate: !cost,
+                });
+            }
+        }
+        return Array.from(map.values());
     }, [workRun, costTick]);
 
     const costChartData = useMemo(() => {
@@ -974,6 +1031,7 @@ const WorkRunDetail: React.FC = () => {
         const POINTS = 60;
         const step = totalMs / POINTS;
         const breaks = workRun.breaks ?? [];
+        const isCompleted = workRun.status?.toUpperCase() === 'COMPLETED';
 
         const effectiveSec = (entry: { from_time: string; to_time: string | null }, atMs: number) => {
             const eStart = new Date(entry.from_time).getTime();
@@ -988,22 +1046,57 @@ const WorkRunDetail: React.FC = () => {
             return Math.max(0, activeEnd - eStart - overlapBreak) / 1000;
         };
 
+        // For completed runs, calculate an effective overall labor rate to ensure the graph
+        // ends at the exact stored final cost.
+        let effectiveLaborRate = 0;
+        if (isCompleted && workRun.cost?.labor_cost != null) {
+            const totalLaborSec = (workRun.assignments ?? []).reduce((sum, a) => sum + calcElapsedSeconds(a, breaks), 0);
+            if (totalLaborSec > 0) {
+                effectiveLaborRate = workRun.cost.labor_cost / totalLaborSec;
+            }
+        }
+
         const data = [];
         for (let i = 0; i <= POINTS; i++) {
             const t = startMs + i * step;
             let depreciation = 0;
             let maintenance = 0;
             (workRun.machines ?? []).forEach(m => {
-                const sec = effectiveSec(m, t);
-                depreciation += (m.cost?.depreciation_per_second ?? 0) * sec;
-                maintenance += (m.cost?.maintenance_rate_per_second ?? 0) * sec;
+                const sec = effectiveSec(m, t); // duration up to time 't'
+                const isRunning = m.to_time === null;
+
+                let depreciationRate = 0;
+                let maintenanceRate = 0;
+
+                // Use live per-second rates for running machines or any machine if the run itself is not completed.
+                if (isRunning || !isCompleted) {
+                    depreciationRate = m.cost?.depreciation_per_second ?? 0;
+                    maintenanceRate = m.cost?.maintenance_rate_per_second ?? 0;
+                } else {
+                    // It's a completed machine usage. Calculate its effective rate.
+                    const totalSec = calcElapsedSeconds(m, breaks);
+                    if (totalSec > 0) {
+                        depreciationRate = (m.cost?.depreciation_cost ?? 0) / totalSec;
+                        maintenanceRate = (m.cost?.maintenance_cost ?? 0) / totalSec;
+                    }
+                }
+                depreciation += depreciationRate * sec;
+                maintenance += maintenanceRate * sec;
             });
             let labor = 0;
-            (workRun.assignments ?? []).forEach(a => {
-                const sec = effectiveSec(a, t);
-                const salary = a.employee?.salary_base ?? 0;
-                labor += (salary / 30 / 8 / 3600) * sec;
-            });
+            // If completed and we have an effective rate, use it for consistency.
+            if (isCompleted && effectiveLaborRate > 0) {
+                (workRun.assignments ?? []).forEach(a => {
+                    const sec = effectiveSec(a, t);
+                    labor += effectiveLaborRate * sec;
+                });
+            } else { // Otherwise, calculate live from salary.
+                (workRun.assignments ?? []).forEach(a => {
+                    const sec = effectiveSec(a, t);
+                    const salary = a.employee?.salary_base ?? 0;
+                    labor += (salary / 30 / 8 / 3600) * sec;
+                });
+            }
             const elapsedMin = Math.round((t - startMs) / 60000);
             const hh = Math.floor(elapsedMin / 60).toString().padStart(2, '0');
             const mm = (elapsedMin % 60).toString().padStart(2, '0');
@@ -1013,11 +1106,11 @@ const WorkRunDetail: React.FC = () => {
                 ค่าเสื่อมราคา: parseFloat(depreciation.toFixed(4)),
                 ค่าซ่อมบำรุง: parseFloat(maintenance.toFixed(4)),
                 ค่าพนักงาน: parseFloat(labor.toFixed(4)),
-                รวม: parseFloat((depreciation + maintenance + labor).toFixed(4)),
+                รวม: parseFloat((finalMaterialCost + depreciation + maintenance + labor).toFixed(4)),
             });
         }
         return data;
-    }, [workRun, costTick]);
+    }, [workRun, costTick, finalMaterialCost]);
 
     return (
         <Content>
@@ -1083,6 +1176,7 @@ const WorkRunDetail: React.FC = () => {
                             <i className='bi bi-check-circle me-1'></i> ปิด Work Run
                         </button>
                     )}
+
                 </div>
             </div>
 
@@ -1162,8 +1256,7 @@ const WorkRunDetail: React.FC = () => {
                         </div>
                         <div className="d-flex align-items-baseline gap-2">
                             <span className="wo-kpi-big">{activeAssignments.length}</span>
-                            <span className="text-muted fs-6">/ {workRun?.assignments?.length ?? 0} คน</span>
-                        </div>
+                            <span className="text-muted fs-6">/ {totalCounts.emp} คน</span>                        </div>
                         <div className="wo-avatar-stack mt-3">
                             {activeAssignments.slice(0, 4).map(a => (
                                 <div key={a.work_run_assignment_id} className="wo-avatar" title={`${a.employee?.employee_first_name} ${a.employee?.employee_last_name}`}>
@@ -1203,10 +1296,16 @@ const WorkRunDetail: React.FC = () => {
                         </div>
                         <div className="d-flex align-items-baseline gap-2">
                             <span className="wo-kpi-big">{activeMachines.length}</span>
-                            <span className="text-muted fs-6">/ {workRun?.machines?.length ?? 0} เครื่อง</span>
+                            <span className="text-muted fs-6">/ {totalCounts.mach} เครื่อง</span>
                         </div>
                         <div className="wo-progress-bar mt-3">
-                            <div className="wo-progress-fill wo-progress-blue" style={{ width: `${workRun?.status?.toUpperCase() === 'COMPLETED' ? 100 : activeMachines.length > 0 ? 60 : 0}%` }} />
+                            <div
+                                className="wo-progress-fill wo-progress-blue"
+                                style={{
+                                    width: `${machineUsageRatio}%`,
+                                    transition: 'width 0.3s ease'
+                                }}
+                            />
                         </div>
                     </div>
                 </div>
@@ -1582,16 +1681,6 @@ const WorkRunDetail: React.FC = () => {
                                             </div>
                                         </div>
                                     ))}
-
-                                    {/* Legend */}
-                                    <div className="d-flex gap-4 mt-4 fs-8 text-muted flex-wrap">
-                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#0d6efd', marginRight: 4 }} />Work Run</span>
-                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#fd7e14', marginRight: 4 }} />พัก</span>
-                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#50cd89', marginRight: 4 }} />พนักงาน (กำลังทำงาน)</span>
-                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#a1a5b7', marginRight: 4 }} />พนักงาน (เสร็จแล้ว)</span>
-                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#17a2b8', marginRight: 4 }} />เครื่องจักร (กำลังใช้งาน)</span>
-                                        <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#6c757d', marginRight: 4 }} />เครื่องจักร (เสร็จแล้ว)</span>
-                                    </div>
                                 </div>
                             ) : (
                                 <div className="text-center text-muted py-10">
@@ -1634,7 +1723,7 @@ const WorkRunDetail: React.FC = () => {
                                 ) : (
                                     <div className="d-flex flex-column gap-2">
                                         {machineCostActual.map(m => (
-                                            <div key={m.work_run_machine_id}
+                                            <div key={m.machine_id}
                                                 className="d-flex align-items-center justify-content-between rounded px-4 py-3"
                                                 style={{ background: m.isRunning ? '#fffbeb' : '#f9fafb', border: `1px solid ${m.isRunning ? '#fde68a' : '#e5e7eb'}` }}>
                                                 <div className="d-flex align-items-center gap-3">
@@ -1692,7 +1781,7 @@ const WorkRunDetail: React.FC = () => {
                                 ) : (
                                     <div className="d-flex flex-column gap-2">
                                         {laborBreakdown.map(a => (
-                                            <div key={a.work_run_assignment_id}
+                                            <div key={a.employee_id}
                                                 className="d-flex align-items-center justify-content-between rounded px-4 py-3"
                                                 style={{ background: a.isWorking ? '#f0fdf4' : '#f9fafb', border: `1px solid ${a.isWorking ? '#bbf7d0' : '#e5e7eb'}` }}>
                                                 <div className="d-flex align-items-center gap-3">
@@ -1747,8 +1836,8 @@ const WorkRunDetail: React.FC = () => {
                                         </span>
                                         <span className="text-gray-600 fs-7">ค่าวัตถุดิบ</span>
                                     </div>
-                                    {totalMaterialCost > 0
-                                        ? <span className="fw-semibold text-gray-800 fs-7">฿{totalMaterialCost.toFixed(2)}</span>
+                                    {finalMaterialCost > 0
+                                        ? <span className="fw-semibold text-gray-800 fs-7">฿{finalMaterialCost.toFixed(2)}</span>
                                         : <span className="text-muted fs-8 fst-italic">ไม่มีข้อมูล</span>
                                     }
                                 </div>
@@ -1808,7 +1897,7 @@ const WorkRunDetail: React.FC = () => {
                                     <span className="fw-bold text-gray-800 fs-6">รวมต้นทุน</span>
                                     <span className="fw-bolder text-primary fs-4">
                                         ฿{(
-                                            totalMaterialCost +
+                                            finalMaterialCost +
                                             machineCostActual.reduce((s, m) => s + m.depreciationCost, 0) +
                                             machineCostActual.reduce((s, m) => s + m.maintenanceCost, 0) +
                                             totalLaborCost

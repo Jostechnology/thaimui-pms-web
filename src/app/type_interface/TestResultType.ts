@@ -55,8 +55,6 @@ export interface TestResultDetail {
     session_status: 'PENDING' | 'INPROGRESS' | 'PAUSED' | 'COMPLETED';
     claimed_qty: number;
     overall_status: 'PASSED' | 'FAILED' | null;
-    test_date: string | null;
-    tested_by: string | null;
     test_method: string | null;
     standard_reference: string | null;
     remark: string | null;

@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useParams, useNavigate } from "react-router-dom";
 import { Modal } from "react-bootstrap";
 import Swal from "sweetalert2";
 import { Content } from "../../../../_metronic/layout/components/content";
 import "../../workorder/components/WorkorderView.css";
+import { getEmployeeTotalCount } from '../../../services/employee';
+import { getMachineTotalCount } from '../../../services/machineService';
 import {
     getTestResultById,
     startTestResult,
@@ -26,7 +29,7 @@ import { formatThaiDate } from "../../../helpers/dataHelpers";
 import { formatIntegerInput, toDecimalInput } from "../../../utils/input_format_utils";
 import type { Employee } from "../../../type_interface/EmployeeType";
 import type { Machine } from "../../../type_interface/MachineType";
-import type { TestResultDetail, TestResultBreak } from "../../../type_interface/TestResultType";
+import type { TestResultDetail, TestResultBreak, TestResultAssignment, TestResultMachineEntry } from "../../../type_interface/TestResultType";
 import type { QCWorkOrderItem } from "../../../type_interface/QCWorkOrderType";
 import type { PickingRequest, PickingRequestListItem } from "../../../type_interface/PickingRequestType";
 
@@ -38,6 +41,7 @@ const getRunStatusColor = (status: string) => {
         default: return '#adb5bd';
     }
 };
+
 const getRunStatusBg = (status: string) => {
     switch (status?.toUpperCase()) {
         case 'INPROGRESS': return '#e7f1ff'; case 'COMPLETED': return '#d1e7dd';
@@ -45,6 +49,7 @@ const getRunStatusBg = (status: string) => {
         default: return '#f8f9fa';
     }
 };
+
 const getRunStatusLabel = (status: string) => {
     switch (status?.toUpperCase()) {
         case 'INPROGRESS': return 'กำลังดำเนินการ'; case 'COMPLETED': return 'เสร็จสิ้น';
@@ -52,6 +57,16 @@ const getRunStatusLabel = (status: string) => {
         default: return status;
     }
 };
+
+const calcTotalBreakMs = (breaks?: TestResultBreak[]): number => {
+    if (!breaks?.length) return 0;
+    return breaks.reduce((t, b) => {
+        const s = new Date(b.break_start).getTime();
+        const e = b.break_end ? new Date(b.break_end).getTime() : Date.now();
+        return t + Math.max(0, e - s);
+    }, 0);
+};
+
 const formatDurationMs = (ms: number): string => {
     const totalSec = Math.floor(ms / 1000);
     const h = Math.floor(totalSec / 3600);
@@ -61,26 +76,31 @@ const formatDurationMs = (ms: number): string => {
     if (m > 0) return `${m}m ${s}s`;
     return `${s}s`;
 };
+
 const formatDateTimeTL = (dateStr: string | null) => {
     if (!dateStr) return '-';
     const d = new Date(dateStr);
     return d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' +
         d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 };
+
 const formatTimeTL = (dateStr: string | null) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 };
+
 const getFullDayBounds = (date: Date) => {
     const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(date); dayEnd.setHours(24, 0, 0, 0);
     return { dayStart, dayEnd };
 };
+
 const timeToPercent = (time: Date, s: Date, e: Date): number => {
     const total = e.getTime() - s.getTime();
     if (total === 0) return 0;
     return Math.max(0, Math.min(100, ((time.getTime() - s.getTime()) / total) * 100));
 };
+
 const pickIntervalMin = (rangeMs: number): number => {
     const h = rangeMs / 3600000;
     if (h <= 0.5) return 5; if (h <= 1) return 10; if (h <= 2) return 15;
@@ -160,22 +180,30 @@ const OverallBadge: React.FC<{ status: string | null }> = ({ status }) => {
     );
 };
 
-const TestResultLiveTimer: React.FC<{ testResult: TestResultDetail | null }> = ({ testResult }) => {
-    const [elapsed, setElapsed] = useState("00:00:00");
+const TestResultLiveTimer = ({ testResult }: { testResult: TestResultDetail }) => {
+    const [elapsed, setElapsed] = useState('00:00:00');
     useEffect(() => {
-        if (!testResult) { setElapsed("00:00:00"); return; }
-        const status = testResult.session_status;
-        if (status === "PENDING") { setElapsed("00:00:00"); return; }
-        const startStr = testResult.started_at
-            ?? [...(testResult.assignments ?? [])].sort((a, b) => new Date(a.from_time).getTime() - new Date(b.from_time).getTime())[0]?.from_time;
-        if (!startStr && status !== "INPROGRESS") { setElapsed("00:00:00"); return; }
-        const startMs = startStr ? new Date(startStr).getTime() : Date.now();
+        const status = testResult.session_status?.toUpperCase();
+        if (status === 'PENDING') { setElapsed('00:00:00'); return; }
+
+        // นับจาก started_at เป็น start time หลัก
+        const startStr = testResult.started_at ?? (() => {
+            const times = [
+                ...(testResult.assignments ?? []).map(a => a.from_time),
+                ...(testResult.machines ?? []).map(m => m.from_time),
+            ].filter(Boolean) as string[];
+            return times.length ? times.reduce((e, t) => new Date(t) < new Date(e) ? t : e) : null;
+        })();
+        if (!startStr) { setElapsed('00:00:00'); return; }
+
+        const startMs = new Date(startStr).getTime();
         const calc = () => {
-            const s = Math.floor(Math.max(0, Date.now() - startMs) / 1000);
-            setElapsed(`${Math.floor(s / 3600).toString().padStart(2, "0")}:${Math.floor((s % 3600) / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`);
+            const workMs = Math.max(0, Date.now() - startMs - calcTotalBreakMs(testResult.breaks));
+            const s = Math.floor(workMs / 1000);
+            setElapsed(`${Math.floor(s / 3600).toString().padStart(2, '0')}:${Math.floor((s % 3600) / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`);
         };
         calc();
-        if (status === "INPROGRESS") { const iv = setInterval(calc, 1000); return () => clearInterval(iv); }
+        if (status === 'INPROGRESS') { const iv = setInterval(calc, 1000); return () => clearInterval(iv); }
     }, [testResult]);
     return <span className="wo-timer-value">{elapsed}</span>;
 };
@@ -193,8 +221,6 @@ interface FinalizeItemForm {
 }
 
 interface FinalizeForm {
-    test_date: string;
-    tested_by: string;
     test_method: string;
     standard_reference: string;
     overall_status: "PASSED" | "FAILED";
@@ -274,7 +300,9 @@ const ViewTestResultSession: React.FC = () => {
         | null;
     const [activePopover, setActivePopover] = useState<ActivePopover>(null);
     const popoverRef = useRef<HTMLDivElement>(null);
-    
+
+    // to count
+    const [totalCounts, setTotalCounts] = useState({ emp: 0, mach: 0 });
 
     // ─── data fetching ────────────────────────────────────────────────────
 
@@ -329,9 +357,8 @@ const ViewTestResultSession: React.FC = () => {
             .finally(() => setMachineLoading(false));
     }, [machineSearch, testResult?.session_status]);
 
-    // อัพเดต now ทุก 30 วินาที สำหรับ realtime timeline
     useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), 30000);
+        const timer = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
@@ -361,7 +388,25 @@ const ViewTestResultSession: React.FC = () => {
     const handleNextDate = () => setSelectedDate(prev => { const d = new Date(prev); d.setDate(d.getDate() + 1); return d; });
     const handleToday = useCallback(() => setSelectedDate(new Date()), []);
 
+    // for item table
+    useEffect(() => {
+        if (testResult && testResult.required_items) {
+            // แปลงข้อมูลจาก API (required_items) ให้เข้ากับรูปแบบของตาราง (RequiredItemRow)
+            const itemsFromApi = testResult.required_items.map((it: any) => ({
+                qc_item_id: it.qc_item_id ?? undefined,
+                item_code: it.item_code ?? "",
+                item_name: it.item_name ?? "",
+                required_qty: String(it.required_qty ?? ""),
+                unit: it.unit ?? "",
+                material_list_id: it.material_list_id ?? undefined,
+            }));
+            setReqRows(itemsFromApi);
+        }
+    }, [testResult]); // ทำงานทุกครั้งที่ testResult ได้รับข้อมูลใหม่จาก fetchData
 
+    useEffect(() => {
+        loadCounts();
+    }, [test_result_id]);
 
     // ─── derived data ─────────────────────────────────────────────────────
 
@@ -441,7 +486,7 @@ const ViewTestResultSession: React.FC = () => {
             const ml = ri.material_list;
             if (!ml) continue;
             const costPerUnit = ml.cost_per_unit ?? (ml.cost_price && ml.quantity > 0 ? ml.cost_price / ml.quantity : 0);
-            materialCost += costPerUnit * (ri.required_qty ?? 0);
+            materialCost += costPerUnit * (ri.qty_consumed_actual ?? ri.required_qty ?? 0);
         }
 
         return {
@@ -454,20 +499,194 @@ const ViewTestResultSession: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [testResult, costTick]);
 
+    const calcElapsedSeconds = useCallback((entry: { from_time: string; to_time: string | null }, breaks: TestResultBreak[]): number => {
+        const start = new Date(entry.from_time).getTime();
+        const end = entry.to_time ? new Date(entry.to_time).getTime() : Date.now();
+        const breakOverlapMs = (breaks ?? []).reduce((sum, b) => {
+            const bStart = new Date(b.break_start).getTime();
+            const bEnd = b.break_end ? new Date(b.break_end).getTime() : Date.now();
+            return sum + Math.max(0, Math.min(end, bEnd) - Math.max(start, bStart));
+        }, 0);
+        return Math.max(0, end - start - breakOverlapMs) / 1000;
+    }, []);
+
+    const laborBreakdown = useMemo(() => {
+        if (!testResult?.assignments) return [];
+        const breaks = testResult.breaks ?? [];
+        type LaborEntry = { employee_id: number; employee: TestResultAssignment['employee']; seconds: number; hourlyRate: number; cost: number; isWorking: boolean };
+        const map = new Map<number, LaborEntry>();
+        for (const a of testResult.assignments) {
+            const seconds = calcElapsedSeconds(a, breaks);
+            const isWorking = a.to_time === null;
+            const salary = (a.employee as any)?.salary_base ?? 0;
+            const hourlyRate = salary / 30 / 8;
+            const cost = hourlyRate * seconds / 3600;
+            if (map.has(a.employee_id)) {
+                const existing = map.get(a.employee_id)!;
+                map.set(a.employee_id, {
+                    ...existing,
+                    seconds: existing.seconds + seconds,
+                    cost: existing.cost + cost,
+                    isWorking: existing.isWorking || isWorking,
+                });
+            } else {
+                map.set(a.employee_id, { employee_id: a.employee_id, employee: a.employee, seconds, hourlyRate, cost, isWorking });
+            }
+        }
+        return Array.from(map.values());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [testResult, costTick, calcElapsedSeconds]);
+
+    const totalLaborCost = useMemo(
+        () => laborBreakdown.reduce((s, a) => s + a.cost, 0),
+        [laborBreakdown]
+    );
+
+    const totalMaterialCost = useMemo(() => {
+        if (!testResult?.required_items?.length) return 0;
+        return testResult.required_items.reduce((sum: number, item: any) => {
+            const ml = item.material_list;
+            if (!ml) return sum;
+            const costPerUnit = ml.cost_per_unit ?? (ml.cost_price && ml.quantity > 0 ? ml.cost_price / ml.quantity : 0);
+            return sum + costPerUnit * (item.qty_consumed_actual ?? item.required_qty ?? item.quantity ?? 0);
+        }, 0);
+    }, [testResult]);
+
+    const machineCostActual = useMemo(() => {
+        if (!testResult?.machines) return [];
+        const breaks = testResult.breaks ?? [];
+        type MachineEntry = {
+            machine_id: number; machine: TestResultMachineEntry['machine'];
+            depreciationCost: number; maintenanceCost: number; totalCost: number;
+            seconds: number; isRunning: boolean; noRate: boolean;
+        };
+        const map = new Map<number, MachineEntry>();
+        for (const m of testResult.machines) {
+            const isRunning = m.to_time === null;
+            const elapsed = calcElapsedSeconds(m, breaks);
+            const cost = m.cost;
+            const depreciationCost = isRunning
+                ? (cost?.depreciation_per_second ?? 0) * elapsed
+                : (cost?.depreciation_cost ?? 0);
+            const maintenanceCost = isRunning
+                ? (cost?.maintenance_rate_per_second ?? 0) * elapsed
+                : (cost?.maintenance_cost ?? 0);
+            if (map.has(m.machine_id)) {
+                const ex = map.get(m.machine_id)!;
+                map.set(m.machine_id, {
+                    ...ex,
+                    seconds: ex.seconds + elapsed,
+                    depreciationCost: ex.depreciationCost + depreciationCost,
+                    maintenanceCost: ex.maintenanceCost + maintenanceCost,
+                    totalCost: ex.totalCost + depreciationCost + maintenanceCost,
+                    isRunning: ex.isRunning || isRunning,
+                    noRate: ex.noRate && !cost,
+                });
+            } else {
+                map.set(m.machine_id, {
+                    machine_id: m.machine_id,
+                    machine: m.machine,
+                    depreciationCost,
+                    maintenanceCost,
+                    totalCost: depreciationCost + maintenanceCost,
+                    seconds: elapsed,
+                    isRunning,
+                    noRate: !cost,
+                });
+            }
+        }
+        return Array.from(map.values());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [testResult, costTick, calcElapsedSeconds]);
+
     // Employees already assigned (to disable in picker)
     const assignedEmpIds = useMemo(() =>
         new Set(activeAssignments.map(a => a.employee_id)), [activeAssignments]);
     const assignedMachineIds = useMemo(() =>
         new Set(activeMachines.map(m => m.machine_id)), [activeMachines]);
 
+    // fallback: ถ้า started_at เป็น null ใช้ from_time ของ assignment/machine แรกสุดแทน
+    const effectiveStartedAt = useMemo(() => {
+        if (testResult?.started_at) return testResult.started_at;
+        const times = [
+            ...(testResult?.assignments ?? []).map(a => a.from_time),
+            ...(testResult?.machines ?? []).map(m => m.from_time),
+        ].filter(Boolean) as string[];
+        if (times.length === 0) return null;
+        return times.reduce((earliest, t) =>
+            new Date(t).getTime() < new Date(earliest).getTime() ? t : earliest
+        );
+    }, [testResult]);
+
+    const costChartData = useMemo(() => {
+        if (!effectiveStartedAt) return [];
+        const startMs = new Date(effectiveStartedAt).getTime();
+        const endMs = testResult?.session_status === 'COMPLETED'
+            ? (testResult.assignments ?? []).reduce(
+                (max, a) => a.to_time ? Math.max(max, new Date(a.to_time).getTime()) : max,
+                startMs
+            ) || Date.now()
+            : Date.now();
+        const totalMs = endMs - startMs;
+        if (totalMs <= 0) return [];
+
+        const POINTS = 60;
+        const step = totalMs / POINTS;
+        const breaks = testResult?.breaks ?? [];
+
+        const effectiveSec = (entry: { from_time: string; to_time: string | null }, atMs: number) => {
+            const eStart = new Date(entry.from_time).getTime();
+            const eEnd = entry.to_time ? new Date(entry.to_time).getTime() : atMs;
+            const activeEnd = Math.min(eEnd, atMs);
+            if (eStart >= activeEnd) return 0;
+            const overlapBreak = breaks.reduce((sum, b) => {
+                const bS = new Date(b.break_start).getTime();
+                const bE = b.break_end ? new Date(b.break_end).getTime() : atMs;
+                return sum + Math.max(0, Math.min(activeEnd, bE) - Math.max(eStart, bS));
+            }, 0);
+            return Math.max(0, activeEnd - eStart - overlapBreak) / 1000;
+        };
+
+        const data = [];
+        for (let i = 0; i <= POINTS; i++) {
+            const t = startMs + i * step;
+            let depreciation = 0;
+            let maintenance = 0;
+            (testResult?.machines ?? []).forEach(m => {
+                const sec = effectiveSec(m, t);
+                depreciation += (m.cost?.depreciation_per_second ?? 0) * sec;
+                maintenance += (m.cost?.maintenance_rate_per_second ?? 0) * sec;
+            });
+            let labor = 0;
+            (testResult?.assignments ?? []).forEach(a => {
+                const sec = effectiveSec(a, t);
+                const salary = (a.employee as any)?.salary_base ?? 0;
+                labor += (salary / 30 / 8 / 3600) * sec;
+            });
+            const elapsedMin = Math.round((t - startMs) / 60000);
+            const hh = Math.floor(elapsedMin / 60).toString().padStart(2, '0');
+            const mm = (elapsedMin % 60).toString().padStart(2, '0');
+            data.push({
+                elapsedMin,
+                label: `${hh}:${mm}`,
+                ค่าเสื่อมราคา: parseFloat(depreciation.toFixed(4)),
+                ค่าซ่อมบำรุง: parseFloat(maintenance.toFixed(4)),
+                ค่าพนักงาน: parseFloat(labor.toFixed(4)),
+                รวม: parseFloat((depreciation + maintenance + labor).toFixed(4)),
+            });
+        }
+        return data;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [effectiveStartedAt, testResult, costTick]);
+
     const timelineBounds = useMemo(() => {
         const { dayStart, dayEnd } = getFullDayBounds(selectedDate);
-        if (!autoZoom || !testResult?.started_at) return { start: dayStart, end: dayEnd };
+        if (!autoZoom || !effectiveStartedAt) return { start: dayStart, end: dayEnd };
         const times: number[] = [];
-        const runStart = new Date(testResult.started_at).getTime();
+        const runStart = new Date(effectiveStartedAt).getTime();
         const runEnd = Date.now();
         times.push(runStart, runEnd);
-        testResult.machines?.forEach(m => {
+        testResult?.machines?.forEach(m => {
             times.push(new Date(m.from_time).getTime());
             times.push(m.to_time ? new Date(m.to_time).getTime() : Date.now());
         });
@@ -478,23 +697,54 @@ const ViewTestResultSession: React.FC = () => {
             start: new Date(Math.max(dayStart.getTime(), Math.min(...dayTimes) - PAD)),
             end: new Date(Math.min(dayEnd.getTime(), Math.max(...dayTimes) + PAD)),
         };
-    }, [autoZoom, testResult, selectedDate]);
+    }, [autoZoom, effectiveStartedAt, testResult, selectedDate]);
 
     const timelineLabels = useMemo(() => buildTimelineLabels(timelineBounds.start, timelineBounds.end), [timelineBounds]);
 
     const runBars = useMemo(() => {
-        if (!testResult?.started_at) return [];
+        if (!effectiveStartedAt) return [];
         const { start, end } = timelineBounds;
-        const rS = new Date(testResult.started_at).getTime();
-        const rE = now.getTime();
-        if (rE <= start.getTime() || rS >= end.getTime()) return [];
-        const cs = new Date(Math.max(rS, start.getTime()));
-        const ce = new Date(Math.min(rE, end.getTime()));
-        const l = timeToPercent(cs, start, end);
-        const r = timeToPercent(ce, start, end);
-        if (r <= l) return [];
-        return [{ id: 'run-bar-0', leftPercent: l, widthPercent: r - l, isCurrent: testResult.session_status !== 'COMPLETED' }];
-    }, [testResult, timelineBounds, now]);
+        const breaks = testResult?.breaks ?? [];
+
+        const rS = new Date(effectiveStartedAt).getTime();
+        const rE = testResult?.session_status === 'COMPLETED'
+            ? ((testResult.assignments ?? []).reduce((m, a) => a.to_time ? Math.max(m, new Date(a.to_time).getTime()) : m, rS) || now.getTime())
+            : now.getTime();
+
+        // เริ่มด้วย interval เดียว start→end แล้วเจาะรูช่วง break ออก
+        let intervals: { s: number; e: number }[] = [{ s: rS, e: rE }];
+        breaks.forEach(brk => {
+            const bS = new Date(brk.break_start).getTime();
+            const bE = brk.break_end ? new Date(brk.break_end).getTime() : now.getTime();
+            const next: { s: number; e: number }[] = [];
+            intervals.forEach(iv => {
+                if (bS < iv.e && bE > iv.s) {
+                    if (bS > iv.s) next.push({ s: iv.s, e: bS });
+                    if (bE < iv.e) next.push({ s: bE, e: iv.e });
+                } else {
+                    next.push(iv);
+                }
+            });
+            intervals = next;
+        });
+
+        return intervals
+            .map((iv, idx) => {
+                if (iv.e <= start.getTime() || iv.s >= end.getTime()) return null;
+                const cs = new Date(Math.max(iv.s, start.getTime()));
+                const ce = new Date(Math.min(iv.e, end.getTime()));
+                const l = timeToPercent(cs, start, end);
+                const r = timeToPercent(ce, start, end);
+                if (r <= l) return null;
+                return {
+                    id: `run-bar-${idx}`,
+                    leftPercent: l,
+                    widthPercent: r - l,
+                    isCurrent: testResult?.session_status !== 'COMPLETED' && iv.e >= now.getTime() - 2000,
+                };
+            })
+            .filter((b): b is NonNullable<typeof b> => b !== null && b.widthPercent > 0);
+    }, [effectiveStartedAt, testResult, timelineBounds, now]);
 
     const breakBars = useMemo(() => {
         if (!testResult?.breaks?.length) return [];
@@ -512,12 +762,13 @@ const ViewTestResultSession: React.FC = () => {
         }).filter(Boolean) as { id: string; leftPercent: number; widthPercent: number; isOpen: boolean; break_type: string; from_time: string; to_time: string | null }[];
     }, [testResult, timelineBounds, now]);
 
-    type EmpBar = { assignment_id: string; leftPercent: number; widthPercent: number; isActive: boolean; from_time: string; to_time: string | null };
+    type EmpBar = { bar_key: string; assignment_id: string; leftPercent: number; widthPercent: number; isActive: boolean; from_time: string; to_time: string | null };
     type EmpRow = { employee_id: number; name: string; bars: EmpBar[] };
 
     const employeeRows = useMemo(() => {
         if (!testResult?.assignments) return [];
         const { start, end } = timelineBounds;
+        const breaks = testResult.breaks ?? [];
         const grouped = new Map<number, EmpRow>();
 
         testResult.assignments.forEach(a => {
@@ -535,30 +786,50 @@ const ViewTestResultSession: React.FC = () => {
             }
 
             if (aE < start.getTime() || aS > end.getTime()) return;
-            const cs = new Date(Math.max(aS, start.getTime()));
-            const ce = new Date(Math.min(aE, end.getTime()));
-            const l = timeToPercent(cs, start, end);
-            const r = timeToPercent(ce, start, end);
 
-            grouped.get(a.employee_id)!.bars.push({
-                assignment_id: `${a.test_result_assignment_id}`,
-                leftPercent: l,
-                widthPercent: Math.max(0.5, r - l),
-                isActive: a.to_time === null && aE >= new Date().getTime() - 1000,
-                from_time: a.from_time,
-                to_time: a.to_time
+            let intervals: { s: number; e: number }[] = [{ s: aS, e: aE }];
+            breaks.forEach(brk => {
+                const bS = new Date(brk.break_start).getTime();
+                const bE = brk.break_end ? new Date(brk.break_end).getTime() : now.getTime();
+                const next: { s: number; e: number }[] = [];
+                intervals.forEach(iv => {
+                    if (bS < iv.e && bE > iv.s) {
+                        if (bS > iv.s) next.push({ s: iv.s, e: bS });
+                        if (bE < iv.e) next.push({ s: bE, e: iv.e });
+                    } else { next.push(iv); }
+                });
+                intervals = next;
+            });
+
+            intervals.forEach((iv, segIdx) => {
+                if (iv.e <= start.getTime() || iv.s >= end.getTime()) return;
+                const cs = new Date(Math.max(iv.s, start.getTime()));
+                const ce = new Date(Math.min(iv.e, end.getTime()));
+                const l = timeToPercent(cs, start, end);
+                const r = timeToPercent(ce, start, end);
+                if (r <= l) return;
+                grouped.get(a.employee_id)!.bars.push({
+                    bar_key: `${a.test_result_assignment_id}-${segIdx}`,
+                    assignment_id: `${a.test_result_assignment_id}`,
+                    leftPercent: l,
+                    widthPercent: Math.max(0.5, r - l),
+                    isActive: a.to_time === null && iv.e >= now.getTime() - 1000,
+                    from_time: a.from_time,
+                    to_time: a.to_time
+                });
             });
         });
 
         return Array.from(grouped.values());
     }, [testResult, timelineBounds, now]);
 
-    type MachBar = { test_result_machine_id: string; leftPercent: number; widthPercent: number; isActive: boolean; from_time: string; to_time: string | null };
+    type MachBar = { bar_key: string; test_result_machine_id: string; leftPercent: number; widthPercent: number; isActive: boolean; from_time: string; to_time: string | null };
     type MachRow = { machine_id: number; name: string; machine_code?: string; bars: MachBar[] };
 
     const machineRows = useMemo(() => {
         if (!testResult?.machines) return [];
         const { start, end } = timelineBounds;
+        const breaks = testResult.breaks ?? [];
         const grouped = new Map<number, MachRow>();
 
         testResult.machines.forEach(m => {
@@ -575,23 +846,48 @@ const ViewTestResultSession: React.FC = () => {
             }
 
             if (mE < start.getTime() || mS > end.getTime()) return;
-            const cs = new Date(Math.max(mS, start.getTime()));
-            const ce = new Date(Math.min(mE, end.getTime()));
-            const l = timeToPercent(cs, start, end);
-            const r = timeToPercent(ce, start, end);
 
-            grouped.get(m.machine_id)!.bars.push({
-                test_result_machine_id: `${m.test_result_machine_id}`,
-                leftPercent: l,
-                widthPercent: Math.max(0.5, r - l),
-                isActive: m.to_time === null && mE >= new Date().getTime() - 2000,
-                from_time: m.from_time,
-                to_time: m.to_time
+            let intervals: { s: number; e: number }[] = [{ s: mS, e: mE }];
+            breaks.forEach(brk => {
+                const bS = new Date(brk.break_start).getTime();
+                const bE = brk.break_end ? new Date(brk.break_end).getTime() : now.getTime();
+                const next: { s: number; e: number }[] = [];
+                intervals.forEach(iv => {
+                    if (bS < iv.e && bE > iv.s) {
+                        if (bS > iv.s) next.push({ s: iv.s, e: bS });
+                        if (bE < iv.e) next.push({ s: bE, e: iv.e });
+                    } else { next.push(iv); }
+                });
+                intervals = next;
+            });
+
+            intervals.forEach((iv, segIdx) => {
+                if (iv.e <= start.getTime() || iv.s >= end.getTime()) return;
+                const cs = new Date(Math.max(iv.s, start.getTime()));
+                const ce = new Date(Math.min(iv.e, end.getTime()));
+                const l = timeToPercent(cs, start, end);
+                const r = timeToPercent(ce, start, end);
+                if (r <= l) return;
+                grouped.get(m.machine_id)!.bars.push({
+                    bar_key: `${m.test_result_machine_id}-${segIdx}`,
+                    test_result_machine_id: `${m.test_result_machine_id}`,
+                    leftPercent: l,
+                    widthPercent: Math.max(0.5, r - l),
+                    isActive: m.to_time === null && iv.e >= now.getTime() - 2000,
+                    from_time: m.from_time,
+                    to_time: m.to_time
+                });
             });
         });
 
         return Array.from(grouped.values());
     }, [testResult, timelineBounds, now]);
+
+
+    // Active machine
+    const machineUsageRatio = totalCounts.mach > 0
+        ? (activeMachines.length / totalCounts.mach) * 100
+        : 0;
 
     // ─── employee actions ─────────────────────────────────────────────────
 
@@ -827,8 +1123,6 @@ const ViewTestResultSession: React.FC = () => {
         });
         setFinalizeActuals(actuals);
         setFinalizeForm({
-            test_date: getTodayLocal(),
-            tested_by: "",
             test_method: "",
             standard_reference: "",
             overall_status: "PASSED",
@@ -874,6 +1168,16 @@ const ViewTestResultSession: React.FC = () => {
         } finally {
             setFinalizeSaving(false);
         }
+    };
+
+    // ─── for count ────────────────────────────────────────────────────
+
+    const loadCounts = async () => {
+        const [empCount, machCount] = await Promise.all([
+            getEmployeeTotalCount(),
+            getMachineTotalCount()
+        ]);
+        setTotalCounts({ emp: empCount, mach: machCount });
     };
 
     // ─── delete ───────────────────────────────────────────────────────────
@@ -927,58 +1231,62 @@ const ViewTestResultSession: React.FC = () => {
 
     return (
         <Content>
-
             {/* ── HEADER ── */}
-            <div className="d-flex flex-stack mb-8">
-                <div className="d-flex align-items-center">
-                    <button
-                        className="btn btn-sm btn-icon btn-light-primary me-3"
-                        onClick={() => qcId ? navigate(`/quality_control/qc_workorders_list/view/${qcId}`) : navigate(-1)}
-                    >
-                        <i className="bi bi-arrow-left fs-3" />
-                    </button>
-                    <div className="d-flex flex-column">
-                        <div className="d-flex align-items-center gap-3 flex-wrap">
-                            <h1 className="text-gray-900 fw-bold fs-2 mb-0">
+            <div className="card-header border-0 pt-5 pb-5 mb-8 bg-white p-5 rounded shadow-sm">
+                <div className="container-fluid p-0">
+                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-5">
+                        <div className="d-flex align-items-center flex-wrap gap-5">
+                            <button
+                                className="btn btn-clean btn-sm text-gray-500 hover-primary p-0 me-2"
+                                onClick={() => qcId ? navigate(`/quality_control/qc_workorders_list/view/${qcId}`) : navigate(-1)}
+                            >
+                                <i className="bi bi-chevron-left" />
+                            </button>
+
+                            <h1 className="text-dark fw-bolder fs-2 mb-0">
                                 {testResult.test_result_code || `Session #${testResult.test_result_id}`}
                             </h1>
-                            <StatusBadge status={testResult.session_status} />
-                            {isCompleted && <OverallBadge status={testResult.overall_status} />}
-                        </div>
-                        <div className="d-flex align-items-center gap-3 mt-1 flex-wrap">
-                            <span className="text-muted fw-semibold fs-8">
-                                <i className="bi bi-clipboard2-check me-1" />{qcCode}
-                            </span>
-                            <span className="text-muted fw-semibold fs-8">จำนวน: {testResult.claimed_qty} ชิ้น</span>
-                            {testResult.created_date && (
-                                <span className="text-muted fs-8">
-                                    <i className="bi bi-calendar3 me-1" />{formatThaiDate(testResult.created_date)}
+
+                            {/* ข้อมูล Metadata (Customer, SO, Qty) */}
+                            <div className="d-flex align-items-center gap-6 ms-2">
+                                <span className="text-muted fw-bold fs-6 d-flex align-items-center">
+                                    <i className="bi bi-person fs-5 me-2" />
+                                    {qcCode}
                                 </span>
-                            )}
+
+                                <span className="text-muted fw-bold fs-6 d-flex align-items-center">
+                                    <i className="bi bi-box-seam fs-5 me-2" />
+                                    {testResult.claimed_qty || 1} ชิ้น
+                                </span>
+                            </div>
                         </div>
+
+                        {/* --- ฝั่งขวา: สถานะ + ปุ่ม Action --- */}
+                        <div className="d-flex align-items-center gap-3">
+                            {isPending && (
+                                <button className="btn btn-sm btn-primary fw-bold px-6" onClick={openStartModal}>
+                                    <i className="bi bi-play-fill me-1" />เริ่มทดสอบ
+                                </button>
+                            )}
+                            {isInProgress && (
+                                <button className="btn btn-sm btn-warning fw-bold px-6" onClick={handlePause}>
+                                    <i className="bi bi-pause-fill me-1" />พักทดสอบ
+                                </button>
+                            )}
+                            {isPaused && (
+                                <button className="btn btn-sm btn-primary fw-bold px-6" onClick={handleResume}>
+                                    <i className="bi bi-play-fill me-1" />ทดสอบต่อ
+                                </button>
+                            )}
+                            {isActive && !showFinalizeForm && (
+                                <button className="btn btn-sm btn-success fw-bold px-6" onClick={openFinalizeForm}>
+                                    <i className="bi bi-check-circle me-1" />ปิดการทดสอบ
+                                </button>
+                            )}
+
+                        </div>
+
                     </div>
-                </div>
-                <div className="d-flex gap-2">
-                    {isPending && (
-                        <button className="btn btn-sm btn-primary fw-bold px-6" onClick={openStartModal}>
-                            <i className="bi bi-play-fill me-1" />เริ่มทดสอบ
-                        </button>
-                    )}
-                    {isInProgress && (
-                        <button className="btn btn-sm btn-warning fw-bold px-6" onClick={handlePause}>
-                            <i className="bi bi-pause-fill me-1" />พักทดสอบ
-                        </button>
-                    )}
-                    {isPaused && (
-                        <button className="btn btn-sm btn-primary fw-bold px-6" onClick={handleResume}>
-                            <i className="bi bi-play-fill me-1" />ทดสอบต่อ
-                        </button>
-                    )}
-                    {isActive && !showFinalizeForm && (
-                        <button className="btn btn-sm btn-success fw-bold px-6" onClick={openFinalizeForm}>
-                            <i className="bi bi-check-circle me-1" />ปิดการทดสอบ
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -1037,7 +1345,7 @@ const ViewTestResultSession: React.FC = () => {
                             </div>
                             <div className="d-flex align-items-baseline gap-2">
                                 <span className="wo-kpi-big">{activeAssignments.length}</span>
-                                <span className="text-muted fs-6">/ {(testResult.assignments ?? []).length} คน</span>
+                                <span className="text-muted fs-6">/ {totalCounts.emp} คน</span>
                             </div>
                             <div className="wo-avatar-stack mt-3">
                                 {activeAssignments.slice(0, 4).map(a => (
@@ -1080,14 +1388,17 @@ const ViewTestResultSession: React.FC = () => {
                             </div>
                             <div className="d-flex align-items-baseline gap-2">
                                 <span className="wo-kpi-big">{activeMachines.length}</span>
-                                <span className="text-muted fs-6">/ {(testResult.machines ?? []).length} เครื่อง</span>
+                                <span className="text-muted fs-6">/ {totalCounts.mach} เครื่อง</span>
                             </div>
                             <div className="wo-progress-bar mt-3">
-                                <div
-                                    className="wo-progress-fill wo-progress-blue"
-                                    style={{ width: `${isCompleted ? 100 : activeMachines.length > 0 ? 60 : 0}%` }}
-                                />
-                            </div>
+                            <div
+                                className="wo-progress-fill wo-progress-blue"
+                                style={{
+                                    width: `${machineUsageRatio}%`,
+                                    transition: 'width 0.3s ease'
+                                }}
+                            />
+                        </div>
                         </div>
                     </div>
                 </div>
@@ -1096,57 +1407,24 @@ const ViewTestResultSession: React.FC = () => {
             {/* ── BODY ── */}
             <div className="row g-6 align-items-start">
 
-                {/* LEFT 60% */}
-                <div className="col-12 col-xl-7">
+                {/* LEFT 40% */}
+                <div className="col-12 col-xl-4">
 
                     {/* Session Info */}
                     <div className="wo-card mb-6">
                         <div className="wo-card-header">
                             <h3 className="wo-card-title">
-                                <i className="bi bi-info-circle-fill me-2 text-primary fs-6" />ข้อมูล Session
+                                ข้อมูล Session
                             </h3>
+                            <StatusBadge status={testResult.session_status} />
+
                         </div>
                         <div className="wo-card-body">
-                            <div className="row g-5 mb-5">
-                                <div className="col-6 col-md-3">
-                                    <span className="text-muted fw-bold fs-8 text-uppercase d-block mb-1">สถานะ</span>
-                                    <StatusBadge status={testResult.session_status} />
-                                </div>
-                                <div className="col-6 col-md-3">
-                                    <span className="text-muted fw-bold fs-8 text-uppercase d-block mb-1">จำนวน</span>
-                                    <span className="fw-bold fs-6">{testResult.claimed_qty} ชิ้น</span>
-                                </div>
-                                {testResult.test_date && (
-                                    <div className="col-6 col-md-3">
-                                        <span className="text-muted fw-bold fs-8 text-uppercase d-block mb-1">วันที่ทดสอบ</span>
-                                        <span className="fw-semibold text-gray-800 fs-7">{formatThaiDate(testResult.test_date)}</span>
-                                    </div>
-                                )}
-                                {testResult.test_method && (
-                                    <div className="col-6 col-md-3">
-                                        <span className="text-muted fw-bold fs-8 text-uppercase d-block mb-1">วิธีทดสอบ</span>
-                                        <span className="fw-semibold text-gray-800 fs-7">{testResult.test_method}</span>
-                                    </div>
-                                )}
-                                {testResult.standard_reference && (
-                                    <div className="col-6 col-md-3">
-                                        <span className="text-muted fw-bold fs-8 text-uppercase d-block mb-1">มาตรฐาน</span>
-                                        <span className="fw-semibold text-gray-800 fs-7">{testResult.standard_reference}</span>
-                                    </div>
-                                )}
-                                {testResult.remark && (
-                                    <div className="col-12">
-                                        <span className="text-muted fw-bold fs-8 text-uppercase d-block mb-1">หมายเหตุ</span>
-                                        <span className="text-gray-700 fs-7">{testResult.remark}</span>
-                                    </div>
-                                )}
-                            </div>
-
                             {/* Work Run Sources */}
                             {(testResult.work_run_sources ?? []).length > 0 && (
                                 <div className="mb-5">
                                     <span className="text-muted fw-bold fs-8 text-uppercase d-block mb-2">
-                                        <i className="bi bi-diagram-3 me-1" />Work Run ที่นำมาทดสอบ
+                                        Work Run ที่นำมาทดสอบ
                                     </span>
                                     <div className="d-flex flex-wrap gap-2">
                                         {testResult.work_run_sources.map((src: any) => (
@@ -1158,402 +1436,724 @@ const ViewTestResultSession: React.FC = () => {
                                 </div>
                             )}
 
-
+                            {/* ตารางรายการวัตถุดิบ (Read-only) */}
+                            <div className="table-responsive">
+                                <table className="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-4">
+                                    <thead>
+                                        <tr className="fw-bold text-muted bg-light">
+                                            <th className="ps-4 min-w-150px rounded-start">วัตถุดิบ</th>
+                                            <th className="w-100px text-center">รหัสวัตถุดิบ</th>
+                                            <th className="w-110px text-end pe-4 rounded-end">จำนวน</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {reqRows.length > 0 ? (
+                                            reqRows.map((row, i) => (
+                                                <tr key={i}>
+                                                    <td className="ps-4">
+                                                        <span className="text-gray-800 fw-bold d-block fs-6">
+                                                            {row.item_name || "—"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="text-center text-muted fw-semibold">
+                                                        {row.item_code || "—"}
+                                                    </td>
+                                                    <td className="text-end pe-4 fw-bolder text-dark">
+                                                        {Number(row.required_qty || 0).toLocaleString()}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={3} className="text-center text-muted py-10">
+                                                    {loading ? "กำลังโหลดข้อมูล..." : "ไม่มีรายการข้อมูล"}
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 
+                </div>
+
+                {/* RIGHT 80% — Cost Breakdown */}
+                <div className="col-12 col-xl-8">
                     {/* Timeline */}
-                    <div className="col-lg-8">
-                        <div className="wo-card h-100">
-                            <div className="wo-card-header">
-                                <h3 className="wo-card-title">ไทม์ไลน์การผลิต (Production Timeline)</h3>
-                                <div className="d-flex align-items-center gap-2 flex-wrap">
-                                    <button
-                                        className={`btn btn-sm fw-bold ${autoZoom ? 'btn-primary' : 'btn-light'}`}
-                                        title={autoZoom ? 'แสดงเฉพาะช่วงที่มีกิจกรรม' : 'แสดงทั้งวัน (0–24 น.)'}
-                                        onClick={() => setAutoZoom(v => !v)}
-                                    >
-                                        <i className={`bi ${autoZoom ? 'bi-zoom-in' : 'bi-zoom-out'} me-1`} />
-                                        {autoZoom ? 'ซูมอัตโนมัติ' : 'ทั้งวัน'}
-                                    </button>
-                                    <div className="d-flex align-items-center gap-2 ms-2">
-                                        <button className="btn btn-sm btn-icon btn-light" onClick={handlePrevDate}><i className="bi bi-chevron-left" /></button>
-                                        <span className="fw-semibold text-gray-700" style={{ cursor: 'pointer', minWidth: 110, textAlign: 'center' }} onClick={handleToday}>
-                                            {selectedDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                        </span>
-                                        <button className="btn btn-sm btn-icon btn-light" onClick={handleNextDate}><i className="bi bi-chevron-right" /></button>
-                                    </div>
+                    <div className="wo-card mb-6">
+                        <div className="wo-card-header">
+                            <h3 className="wo-card-title">ไทม์ไลน์การผลิต (Production Timeline)</h3>
+                            <div className="d-flex align-items-center gap-2 flex-wrap">
+                                <button
+                                    className={`btn btn-sm fw-bold ${autoZoom ? 'btn-primary' : 'btn-light'}`}
+                                    title={autoZoom ? 'แสดงเฉพาะช่วงที่มีกิจกรรม' : 'แสดงทั้งวัน (0–24 น.)'}
+                                    onClick={() => setAutoZoom(v => !v)}
+                                >
+                                    <i className={`bi ${autoZoom ? 'bi-zoom-in' : 'bi-zoom-out'} me-1`} />
+                                    {autoZoom ? 'ซูมอัตโนมัติ' : 'ทั้งวัน'}
+                                </button>
+                                <div className="d-flex align-items-center gap-2 ms-2">
+                                    <button className="btn btn-sm btn-icon btn-light" onClick={handlePrevDate}><i className="bi bi-chevron-left" /></button>
+                                    <span className="fw-semibold text-gray-700" style={{ cursor: 'pointer', minWidth: 110, textAlign: 'center' }} onClick={handleToday}>
+                                        {selectedDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                    </span>
+                                    <button className="btn btn-sm btn-icon btn-light" onClick={handleNextDate}><i className="bi bi-chevron-right" /></button>
                                 </div>
                             </div>
-                            <div className="wo-card-body">
-                                {testResult?.started_at ? (
-                                    <div className="wo-timeline-container">
-                                        <div className="wo-timeline-header">
-                                            <div className="wo-timeline-label-col"></div>
-                                            <div className="wo-timeline-bar-col">
-                                                <div className="wo-timeline-hours" style={{ position: 'relative', height: 20 }}>
-                                                    {timelineLabels.map(({ label, percent }) => (
-                                                        <span key={label} style={{ position: 'absolute', left: `${percent}%`, transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>
-                                                            {label}
-                                                        </span>
-                                                    ))}
-                                                </div>
+                        </div>
+                        <div className="wo-card-body">
+                            {effectiveStartedAt ? (
+                                <div className="wo-timeline-container">
+                                    <div className="wo-timeline-header">
+                                        <div className="wo-timeline-label-col"></div>
+                                        <div className="wo-timeline-bar-col">
+                                            <div className="wo-timeline-hours" style={{ position: 'relative', height: 20 }}>
+                                                {timelineLabels.map(({ label, percent }) => (
+                                                    <span key={label} style={{ position: 'absolute', left: `${percent}%`, transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>
+                                                        {label}
+                                                    </span>
+                                                ))}
                                             </div>
                                         </div>
+                                    </div>
 
-                                        {/* Session row */}
-                                        <div className="wo-timeline-row">
+                                    {/* Session row */}
+                                    <div className="wo-timeline-row">
+                                        <div className="wo-timeline-label-col">
+                                            <div className="wo-phase-label">
+                                                <span className="wo-phase-dot" style={{ backgroundColor: getRunStatusColor(testResult.session_status) }} />
+                                                <span className="wo-phase-name" title={testResult.test_result_code || `Session #${testResult.test_result_id}`}>
+                                                    {testResult.test_result_code || `Session #${testResult.test_result_id}`}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="wo-timeline-bar-col">
+                                            <div className="wo-timeline-track" style={{ position: 'relative' }}>
+                                                {runBars.length > 0 ? (
+                                                    <>
+                                                        {/* Run bar */}
+                                                        {runBars.map(bar => (
+                                                            <div
+                                                                key={bar.id}
+                                                                className="wo-timeline-bar"
+                                                                style={{
+                                                                    backgroundColor: getRunStatusColor(testResult.session_status),
+                                                                    left: `${bar.leftPercent}%`,
+                                                                    width: `${bar.widthPercent}%`
+                                                                }}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const centerPct = bar.leftPercent + bar.widthPercent / 2;
+                                                                    setActivePopover(prev => prev?.type === 'run' ? null : { type: 'run', centerPct });
+                                                                }}
+                                                            >
+                                                                {bar.widthPercent >= 8 && (
+                                                                    <span className="wo-bar-text">{getRunStatusLabel(testResult.session_status)}</span>
+                                                                )}
+                                                            </div>
+                                                        ))}
+
+                                                        {activePopover?.type === 'run' && (
+                                                            <div
+                                                                ref={popoverRef}
+                                                                className="wo-timeline-popover"
+                                                                style={{
+                                                                    left: `${Math.min(Math.max(activePopover.centerPct, 15), 85)}%`,
+                                                                    transform: 'translateX(-50%)',
+                                                                    '--arrow-left': 'calc(50% - 6px)',
+                                                                    position: 'absolute', zIndex: 100
+                                                                } as React.CSSProperties}
+                                                                onClick={e => e.stopPropagation()}
+                                                            >
+                                                                <div className="wo-timeline-popover-header">
+                                                                    <span className="fw-bold text-gray-800" style={{ fontSize: 13 }}>
+                                                                        {testResult.test_result_code || `Session #${testResult.test_result_id}`}
+                                                                    </span>
+                                                                    <span className="wo-emp-status" style={{ backgroundColor: getRunStatusBg(testResult.session_status), color: getRunStatusColor(testResult.session_status) }}>
+                                                                        {getRunStatusLabel(testResult.session_status)}
+                                                                    </span>
+                                                                </div>
+
+                                                                <div className="wo-timeline-popover-list">
+                                                                    <div className="text-muted fw-semibold mb-1" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                                                                        <i className="bi bi-people-fill me-1" />ผู้ทดสอบ ({activeAssignments.length} คน)
+                                                                    </div>
+                                                                    {activeAssignments.length === 0 ? (
+                                                                        <div className="text-muted" style={{ fontSize: 12 }}>ยังไม่มีผู้ทดสอบ</div>
+                                                                    ) : (
+                                                                        activeAssignments.map(a => (
+                                                                            <div key={a.test_result_assignment_id} className="wo-timeline-popover-emp">
+                                                                                <div className="wo-popover-avatar">{a.employee?.employee_first_name?.charAt(0) ?? '?'}</div>
+                                                                                <span className="flex-1">{a.employee?.employee_first_name} {a.employee?.employee_last_name}</span>
+                                                                                <span className="text-muted ms-auto" style={{ fontSize: 11 }}>
+                                                                                    {a.from_time ? new Date(a.from_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                                                                                </span>
+                                                                            </div>
+                                                                        ))
+                                                                    )}
+                                                                </div>
+
+                                                                {testResult.breaks && testResult.breaks.length > 0 && (
+                                                                    <div className="wo-timeline-popover-footer">
+                                                                        <div className="text-muted fw-semibold mb-1" style={{ fontSize: 11, textTransform: 'uppercase' }}>
+                                                                            <i className="bi bi-clock-history me-1 text-warning" />
+                                                                            พัก {testResult.breaks.length} ครั้ง • {formatDurationMs(calcTotalBreakMs(testResult.breaks))}
+                                                                        </div>
+                                                                        {testResult.breaks.map(b => (
+                                                                            <div key={b.break_id} style={{ fontSize: 11, color: '#7e8299', paddingBottom: 2 }}>
+                                                                                <span className="fw-semibold text-gray-700">{b.break_type}</span>
+                                                                                <span className="ms-2">{formatTimeTL(b.break_start)} – {b.break_end ? formatTimeTL(b.break_end) : 'กำลังพัก...'}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <div className="wo-timeline-bar-empty">
+                                                        <span className="text-muted" style={{ fontSize: 11 }}>ไม่มีกิจกรรมวันนี้</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Employee rows */}
+                                    {employeeRows.length > 0 && (
+                                        <>
+                                            <div style={{ borderTop: '1px dashed #e4e6ef', margin: '6px 0 2px' }} />
+                                            {employeeRows.map(row => (
+                                                <div key={row.employee_id} className="wo-timeline-row">
+                                                    <div className="wo-timeline-label-col">
+                                                        <div className="wo-phase-label">
+                                                            <span
+                                                                className="wo-phase-dot"
+                                                                style={{
+                                                                    backgroundColor: row.bars.some(b => b.isActive) ? '#50cd89' : '#a1a5b7'
+                                                                }}
+                                                            />
+                                                            <span className="wo-phase-name" title={row.name}>
+                                                                <i className="bi bi-person-fill me-1" style={{ fontSize: 10, color: '#50cd89' }} />{row.name}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="wo-timeline-bar-col">
+                                                        <div className="wo-timeline-track" style={{ position: 'relative' }}>
+                                                            {row.bars.map(bar => (
+                                                                <React.Fragment key={bar.bar_key}>
+                                                                    <div
+                                                                        className="wo-timeline-bar"
+                                                                        style={{ backgroundColor: bar.isActive ? '#50cd89' : '#a1a5b7', left: `${bar.leftPercent}%`, width: `${bar.widthPercent}%` }}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const centerPct = bar.leftPercent + bar.widthPercent / 2;
+                                                                            setActivePopover(prev => prev?.type === 'employee' && prev.assignmentId === bar.assignment_id ? null : { type: 'employee', assignmentId: bar.assignment_id, centerPct });
+                                                                        }}
+                                                                    >
+                                                                        {bar.widthPercent >= 8 && <span className="wo-bar-text">{bar.isActive ? 'กำลังทำงาน' : 'เสร็จแล้ว'}</span>}
+                                                                    </div>
+                                                                    {activePopover?.type === 'employee' && activePopover.assignmentId === bar.assignment_id && (() => {
+                                                                        const durationMs = bar.to_time ? new Date(bar.to_time).getTime() - new Date(bar.from_time).getTime() : Date.now() - new Date(bar.from_time).getTime();
+                                                                        return (
+                                                                            <div ref={popoverRef} className="wo-timeline-popover" style={{ left: `${Math.min(Math.max(activePopover.centerPct, 15), 85)}%`, transform: 'translateX(-50%)', '--arrow-left': 'calc(50% - 6px)' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
+                                                                                <div className="wo-timeline-popover-header">
+                                                                                    <span className="fw-bold text-gray-800" style={{ fontSize: 13 }}><i className="bi bi-person-fill me-1" style={{ color: '#50cd89' }} />{row.name}</span>
+                                                                                    <span className="wo-emp-status" style={{ backgroundColor: bar.isActive ? '#e8fff3' : '#f1f1f4', color: bar.isActive ? '#198754' : '#6c757d' }}>{bar.isActive ? 'กำลังทำงาน' : 'เสร็จแล้ว'}</span>
+                                                                                </div>
+                                                                                <div className="wo-timeline-popover-list">
+                                                                                    <div className="wo-timeline-popover-emp"><i className="bi bi-clock me-1 text-muted" style={{ fontSize: 12 }} /><span className="text-muted" style={{ fontSize: 12 }}>เริ่ม:</span><span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{formatTimeTL(bar.from_time)}</span></div>
+                                                                                    <div className="wo-timeline-popover-emp"><i className="bi bi-clock-history me-1 text-muted" style={{ fontSize: 12 }} /><span className="text-muted" style={{ fontSize: 12 }}>สิ้นสุด:</span><span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{bar.to_time ? formatTimeTL(bar.to_time) : 'กำลังทำงาน...'}</span></div>
+                                                                                </div>
+                                                                                <div className="wo-timeline-popover-footer"><span className="text-muted fw-semibold" style={{ fontSize: 11 }}><i className="bi bi-stopwatch me-1" />ระยะเวลา: {formatDurationMs(durationMs)}</span></div>
+                                                                            </div>
+                                                                        );
+                                                                    })()}
+                                                                </React.Fragment>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+
+                                    {/* Machine rows */}
+                                    {machineRows.map(row => (
+                                        <div key={row.machine_id} className="wo-timeline-row">
                                             <div className="wo-timeline-label-col">
                                                 <div className="wo-phase-label">
-                                                    <span className="wo-phase-dot" style={{ backgroundColor: getRunStatusColor(testResult.session_status) }} />
-                                                    <span className="wo-phase-name" title={testResult.test_result_code || `Session #${testResult.test_result_id}`}>
-                                                        {testResult.test_result_code || `Session #${testResult.test_result_id}`}
+                                                    <span
+                                                        className="wo-phase-dot"
+                                                        style={{
+                                                            backgroundColor: row.bars.some(b => b.isActive) ? '#17a2b8' : '#a1a5b7'
+                                                        }}
+                                                    />
+                                                    <span className="wo-phase-name" title={row.name}>
+                                                        <i className="bi bi-gear-fill me-1" style={{ fontSize: 10, color: '#17a2b8' }} />{row.name}
                                                     </span>
                                                 </div>
                                             </div>
                                             <div className="wo-timeline-bar-col">
                                                 <div className="wo-timeline-track" style={{ position: 'relative' }}>
-                                                    {runBars.length > 0 ? (
-                                                        <>
-                                                            {/* Run bar */}
-                                                            {runBars.map(bar => (
-                                                                <div
-                                                                    key={bar.id}
-                                                                    className="wo-timeline-bar"
-                                                                    style={{
-                                                                        backgroundColor: getRunStatusColor(testResult.session_status),
-                                                                        left: `${bar.leftPercent}%`,
-                                                                        width: `${bar.widthPercent}%`
-                                                                    }}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        const centerPct = bar.leftPercent + bar.widthPercent / 2;
-                                                                        setActivePopover(prev => prev?.type === 'run' ? null : { type: 'run', centerPct });
-                                                                    }}
-                                                                >
-                                                                    {bar.widthPercent >= 8 && (
-                                                                        <span className="wo-bar-text">{getRunStatusLabel(testResult.session_status)}</span>
-                                                                    )}
-                                                                </div>
-                                                            ))}
-
-                                                            {/* Break bars (orange, overlaid on run bar) */}
-                                                            {breakBars.map(bar => (
-                                                                <div
-                                                                    key={bar.id}
-                                                                    className="wo-timeline-bar"
-                                                                    style={{ backgroundColor: '#fd7e14', opacity: 0.85, left: `${bar.leftPercent}%`, width: `${bar.widthPercent}%`, zIndex: 2 }}
-                                                                    title={`พัก${bar.isOpen ? ' (ยังพักอยู่)' : ''} · ${formatTimeTL(bar.from_time)} – ${bar.to_time ? formatTimeTL(bar.to_time) : '...'}`}
-                                                                >
-                                                                    {bar.widthPercent >= 8 && <span className="wo-bar-text">พัก</span>}
-                                                                </div>
-                                                            ))}
-
-                                                            {activePopover?.type === 'run' && (
-                                                                <div
-                                                                    ref={popoverRef}
-                                                                    className="wo-timeline-popover"
-                                                                    style={{
-                                                                        left: `${Math.min(Math.max(activePopover.centerPct, 15), 85)}%`,
-                                                                        transform: 'translateX(-50%)',
-                                                                        '--arrow-left': 'calc(50% - 6px)',
-                                                                        position: 'absolute', zIndex: 100
-                                                                    } as React.CSSProperties}
-                                                                    onClick={e => e.stopPropagation()}
-                                                                >
-                                                                    <div className="wo-timeline-popover-header">
-                                                                        <span className="fw-bold text-gray-800" style={{ fontSize: 13 }}>
-                                                                            {testResult.test_result_code || `Session #${testResult.test_result_id}`}
-                                                                        </span>
-                                                                        <span className="wo-emp-status" style={{ backgroundColor: getRunStatusBg(testResult.session_status), color: getRunStatusColor(testResult.session_status) }}>
-                                                                            {getRunStatusLabel(testResult.session_status)}
-                                                                        </span>
-                                                                    </div>
-
-                                                                    <div className="wo-timeline-popover-list">
-                                                                        <div className="text-muted fw-semibold mb-1" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                                                                            <i className="bi bi-people-fill me-1" />ผู้ทดสอบ ({activeAssignments.length} คน)
-                                                                        </div>
-                                                                        {activeAssignments.length === 0 ? (
-                                                                            <div className="text-muted" style={{ fontSize: 12 }}>ยังไม่มีผู้ทดสอบ</div>
-                                                                        ) : (
-                                                                            activeAssignments.map(a => (
-                                                                                <div key={a.test_result_assignment_id} className="wo-timeline-popover-emp">
-                                                                                    <div className="wo-popover-avatar">{a.employee?.employee_first_name?.charAt(0) ?? '?'}</div>
-                                                                                    <span className="flex-1">{a.employee?.employee_first_name} {a.employee?.employee_last_name}</span>
-                                                                                    <span className="text-muted ms-auto" style={{ fontSize: 11 }}>
-                                                                                        {a.from_time ? new Date(a.from_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}
-                                                                                    </span>
-                                                                                </div>
-                                                                            ))
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    ) : (
-                                                        <div className="wo-timeline-bar-empty">
-                                                            <span className="text-muted" style={{ fontSize: 11 }}>ไม่มีกิจกรรมวันนี้</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Employee rows */}
-                                        {employeeRows.length > 0 && (
-                                            <>
-                                                <div style={{ borderTop: '1px dashed #e4e6ef', margin: '6px 0 2px' }} />
-                                                {employeeRows.map(row => (
-                                                    <div key={row.employee_id} className="wo-timeline-row">
-                                                        <div className="wo-timeline-label-col">
-                                                            <div className="wo-phase-label">
-                                                                <span className="wo-phase-dot" style={{ backgroundColor: row.bars.some(b => b.isActive) ? '#50cd89' : '#a1a5b7' }} />
-                                                                <span className="wo-phase-name" title={row.name}>
-                                                                    <i className="bi bi-person-fill me-1" style={{ fontSize: 10, color: '#50cd89' }} />{row.name}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="wo-timeline-bar-col">
-                                                            <div className="wo-timeline-track" style={{ position: 'relative' }}>
-                                                                {row.bars.map(bar => (
-                                                                    <React.Fragment key={bar.assignment_id}>
-                                                                        <div
-                                                                            className="wo-timeline-bar"
-                                                                            style={{ backgroundColor: bar.isActive ? '#50cd89' : '#a1a5b7', left: `${bar.leftPercent}%`, width: `${bar.widthPercent}%` }}
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                const centerPct = bar.leftPercent + bar.widthPercent / 2;
-                                                                                setActivePopover(prev => prev?.type === 'employee' && prev.assignmentId === bar.assignment_id ? null : { type: 'employee', assignmentId: bar.assignment_id, centerPct });
-                                                                            }}
-                                                                        >
-                                                                            {bar.widthPercent >= 8 && <span className="wo-bar-text">{bar.isActive ? 'กำลังทำงาน' : 'เสร็จแล้ว'}</span>}
-                                                                        </div>
-                                                                        {activePopover?.type === 'employee' && activePopover.assignmentId === bar.assignment_id && (() => {
-                                                                            const durationMs = bar.to_time ? new Date(bar.to_time).getTime() - new Date(bar.from_time).getTime() : Date.now() - new Date(bar.from_time).getTime();
-                                                                            return (
-                                                                                <div ref={popoverRef} className="wo-timeline-popover" style={{ left: `${Math.min(Math.max(activePopover.centerPct, 15), 85)}%`, transform: 'translateX(-50%)', '--arrow-left': 'calc(50% - 6px)' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
-                                                                                    <div className="wo-timeline-popover-header">
-                                                                                        <span className="fw-bold text-gray-800" style={{ fontSize: 13 }}><i className="bi bi-person-fill me-1" style={{ color: '#50cd89' }} />{row.name}</span>
-                                                                                        <span className="wo-emp-status" style={{ backgroundColor: bar.isActive ? '#e8fff3' : '#f1f1f4', color: bar.isActive ? '#198754' : '#6c757d' }}>{bar.isActive ? 'กำลังทำงาน' : 'เสร็จแล้ว'}</span>
-                                                                                    </div>
-                                                                                    <div className="wo-timeline-popover-list">
-                                                                                        <div className="wo-timeline-popover-emp"><i className="bi bi-clock me-1 text-muted" style={{ fontSize: 12 }} /><span className="text-muted" style={{ fontSize: 12 }}>เริ่ม:</span><span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{formatTimeTL(bar.from_time)}</span></div>
-                                                                                        <div className="wo-timeline-popover-emp"><i className="bi bi-clock-history me-1 text-muted" style={{ fontSize: 12 }} /><span className="text-muted" style={{ fontSize: 12 }}>สิ้นสุด:</span><span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{bar.to_time ? formatTimeTL(bar.to_time) : 'กำลังทำงาน...'}</span></div>
-                                                                                    </div>
-                                                                                    <div className="wo-timeline-popover-footer"><span className="text-muted fw-semibold" style={{ fontSize: 11 }}><i className="bi bi-stopwatch me-1" />ระยะเวลา: {formatDurationMs(durationMs)}</span></div>
-                                                                                </div>
-                                                                            );
-                                                                        })()}
-                                                                    </React.Fragment>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </>
-                                        )}
-
-                                        {/* Machine rows */}
-                                        {machineRows.map(row => (
-                                            <div key={row.machine_id} className="wo-timeline-row">
-                                                <div className="wo-timeline-label-col">
-                                                    <div className="wo-phase-label">
-                                                        <span className="wo-phase-dot" style={{ backgroundColor: row.bars.some(b => b.isActive) ? '#17a2b8' : '#a1a5b7' }} />
-                                                        <span className="wo-phase-name" title={row.name}>
-                                                            <i className="bi bi-gear-fill me-1" style={{ fontSize: 10, color: '#17a2b8' }} />{row.name}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className="wo-timeline-bar-col">
-                                                    <div className="wo-timeline-track" style={{ position: 'relative' }}>
-                                                        {row.bars.map(bar => (
-                                                            <React.Fragment key={bar.test_result_machine_id}>
-                                                                <div
-                                                                    className="wo-timeline-bar"
-                                                                    style={{
-                                                                        backgroundColor: bar.isActive ? '#17a2b8' : '#a1a5b7',
-                                                                        left: `${bar.leftPercent}%`,
-                                                                        width: `${bar.widthPercent}%`
-                                                                    }}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        const centerPct = bar.leftPercent + bar.widthPercent / 2;
-                                                                        setActivePopover(prev =>
-                                                                            prev?.type === 'machine' && prev.barId === bar.test_result_machine_id
-                                                                                ? null
-                                                                                : { type: 'machine', machineId: row.machine_id, barId: bar.test_result_machine_id, centerPct }
-                                                                        );
-                                                                    }}
-                                                                >
-                                                                    {bar.widthPercent >= 8 && <span className="wo-bar-text">{bar.isActive ? 'กำลังใช้งาน' : 'เสร็จแล้ว'}</span>}
-                                                                </div>
-
-                                                                {activePopover?.type === 'machine' && activePopover.barId === bar.test_result_machine_id && (() => {
-                                                                    // คำนวณระยะเวลา (Duration)
-                                                                    const durationMs = bar.to_time
-                                                                        ? new Date(bar.to_time).getTime() - new Date(bar.from_time).getTime()
-                                                                        : Date.now() - new Date(bar.from_time).getTime();
-
-                                                                    return (
-                                                                        <div
-                                                                            ref={popoverRef}
-                                                                            className="wo-timeline-popover"
-                                                                            style={{
-                                                                                left: `${Math.min(Math.max(activePopover.centerPct, 15), 85)}%`,
-                                                                                transform: 'translateX(-50%)',
-                                                                                '--arrow-left': 'calc(50% - 6px)'
-                                                                            } as React.CSSProperties}
-                                                                            onClick={e => e.stopPropagation()}
-                                                                        >
-                                                                            <div className="wo-timeline-popover-header">
-                                                                                <span className="fw-bold text-gray-800" style={{ fontSize: 13 }}>
-                                                                                    <i className="bi bi-gear-fill me-1" style={{ color: '#17a2b8' }} />{row.name}
-                                                                                </span>
-                                                                                <span className="wo-emp-status" style={{
-                                                                                    backgroundColor: bar.isActive ? '#e1f5fe' : '#f1f1f4',
-                                                                                    color: bar.isActive ? '#0288d1' : '#6c757d'
-                                                                                }}>
-                                                                                    {bar.isActive ? 'กำลังใช้งาน' : 'เสร็จแล้ว'}
-                                                                                </span>
-                                                                            </div>
-                                                                            <div className="wo-timeline-popover-list">
-                                                                                <div className="wo-timeline-popover-emp">
-                                                                                    <i className="bi bi-clock me-1 text-muted" style={{ fontSize: 12 }} />
-                                                                                    <span className="text-muted" style={{ fontSize: 12 }}>เริ่ม:</span>
-                                                                                    <span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{formatTimeTL(bar.from_time)}</span>
-                                                                                </div>
-                                                                                <div className="wo-timeline-popover-emp">
-                                                                                    <i className="bi bi-clock-history me-1 text-muted" style={{ fontSize: 12 }} />
-                                                                                    <span className="text-muted" style={{ fontSize: 12 }}>สิ้นสุด:</span>
-                                                                                    <span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>
-                                                                                        {bar.to_time ? formatTimeTL(bar.to_time) : 'กำลังใช้งาน...'}
-                                                                                    </span>
-                                                                                </div>
-                                                                            </div>
-                                                                            <div className="wo-timeline-popover-footer">
-                                                                                <span className="text-muted fw-semibold" style={{ fontSize: 11 }}>
-                                                                                    <i className="bi bi-stopwatch me-1" />ระยะเวลา: {formatDurationMs(durationMs)}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
+                                                    {row.bars.map(bar => (
+                                                        <React.Fragment key={bar.bar_key}>
+                                                            <div
+                                                                className="wo-timeline-bar"
+                                                                style={{
+                                                                    backgroundColor: bar.isActive ? '#17a2b8' : '#a1a5b7',
+                                                                    left: `${bar.leftPercent}%`,
+                                                                    width: `${bar.widthPercent}%`
+                                                                }}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const centerPct = bar.leftPercent + bar.widthPercent / 2;
+                                                                    setActivePopover(prev =>
+                                                                        prev?.type === 'machine' && prev.barId === bar.test_result_machine_id
+                                                                            ? null
+                                                                            : { type: 'machine', machineId: row.machine_id, barId: bar.test_result_machine_id, centerPct }
                                                                     );
-                                                                })()}
-                                                            </React.Fragment>
-                                                        ))}
-                                                    </div>
+                                                                }}
+                                                            >
+                                                                {bar.widthPercent >= 8 && <span className="wo-bar-text">{bar.isActive ? 'กำลังใช้งาน' : 'เสร็จแล้ว'}</span>}
+                                                            </div>
+
+                                                            {activePopover?.type === 'machine' && activePopover.barId === bar.test_result_machine_id && (() => {
+                                                                // คำนวณระยะเวลา (Duration)
+                                                                const durationMs = bar.to_time
+                                                                    ? new Date(bar.to_time).getTime() - new Date(bar.from_time).getTime()
+                                                                    : Date.now() - new Date(bar.from_time).getTime();
+
+                                                                return (
+                                                                    <div
+                                                                        ref={popoverRef}
+                                                                        className="wo-timeline-popover"
+                                                                        style={{
+                                                                            left: `${Math.min(Math.max(activePopover.centerPct, 15), 85)}%`,
+                                                                            transform: 'translateX(-50%)',
+                                                                            '--arrow-left': 'calc(50% - 6px)'
+                                                                        } as React.CSSProperties}
+                                                                        onClick={e => e.stopPropagation()}
+                                                                    >
+                                                                        <div className="wo-timeline-popover-header">
+                                                                            <span className="fw-bold text-gray-800" style={{ fontSize: 13 }}>
+                                                                                <i className="bi bi-gear-fill me-1" style={{ color: '#17a2b8' }} />{row.name}
+                                                                            </span>
+                                                                            <span className="wo-emp-status" style={{
+                                                                                backgroundColor: bar.isActive ? '#e1f5fe' : '#f1f1f4',
+                                                                                color: bar.isActive ? '#0288d1' : '#6c757d'
+                                                                            }}>
+                                                                                {bar.isActive ? 'กำลังใช้งาน' : 'เสร็จแล้ว'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="wo-timeline-popover-list">
+                                                                            <div className="wo-timeline-popover-emp">
+                                                                                <i className="bi bi-clock me-1 text-muted" style={{ fontSize: 12 }} />
+                                                                                <span className="text-muted" style={{ fontSize: 12 }}>เริ่ม:</span>
+                                                                                <span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>{formatTimeTL(bar.from_time)}</span>
+                                                                            </div>
+                                                                            <div className="wo-timeline-popover-emp">
+                                                                                <i className="bi bi-clock-history me-1 text-muted" style={{ fontSize: 12 }} />
+                                                                                <span className="text-muted" style={{ fontSize: 12 }}>สิ้นสุด:</span>
+                                                                                <span className="ms-1 fw-semibold text-gray-700" style={{ fontSize: 12 }}>
+                                                                                    {bar.to_time ? formatTimeTL(bar.to_time) : 'กำลังใช้งาน...'}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="wo-timeline-popover-footer">
+                                                                            <span className="text-muted fw-semibold" style={{ fontSize: 11 }}>
+                                                                                <i className="bi bi-stopwatch me-1" />ระยะเวลา: {formatDurationMs(durationMs)}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </React.Fragment>
+                                                    ))}
                                                 </div>
                                             </div>
-                                        ))}
-
-                                        {/* Legend */}
-                                        <div className="d-flex gap-4 mt-4 fs-8 text-muted flex-wrap">
-                                            <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#0d6efd', marginRight: 4 }} />Session</span>
-                                            <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#50cd89', marginRight: 4 }} />ผู้ทดสอบ (กำลังทดสอบ)</span>
-                                            <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#a1a5b7', marginRight: 4 }} />ผู้ทดสอบ (เสร็จแล้ว)</span>
-                                            <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#17a2b8', marginRight: 4 }} />เครื่องจักร (กำลังใช้งาน)</span>
-                                            <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#6c757d', marginRight: 4 }} />เครื่องจักร (เสร็จแล้ว)</span>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="text-center text-muted py-10">
-                                        <i className="bi bi-clock-history fs-3x text-gray-300 mb-3 d-block" />
-                                        Session ยังไม่ได้เริ่มทดสอบ
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-
-                    {/* Completed: test result items */}
-                    {isCompleted && (testResult.test_result_items ?? []).length > 0 && (
-                        <div className="wo-card mb-6">
-                            <div className="wo-card-header">
-                                <h3 className="wo-card-title">
-                                    <i className="bi bi-clipboard2-check me-2 text-success fs-6" />ผลการทดสอบรายหน่วย
-                                </h3>
-                            </div>
-                            <div className="wo-card-body">
-                                <div className="table-responsive">
-                                    <table className="table table-bordered align-middle fs-7 mb-0">
-                                        <thead className="table-light">
-                                            <tr className="fw-bold text-gray-700 text-center">
-                                                <th className="w-60px">ลำดับ</th>
-                                                <th className="text-start">คำอธิบาย</th>
-                                                <th className="w-120px">Serial No.</th>
-                                                <th className="w-100px">WLL วัดได้</th>
-                                                <th className="w-100px">Load Test</th>
-                                                <th className="w-100px">ผล</th>
-                                                <th>หมายเหตุ</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {(testResult.test_result_items as any[]).map((item: any) => (
-                                                <tr key={item.test_result_item_id} className="text-center">
-                                                    <td className="fw-bold">{item.unit_number}</td>
-                                                    <td className="text-start">{item.description || "—"}</td>
-                                                    <td>{item.serial_no || "—"}</td>
-                                                    <td>{item.wll_measured ?? "—"}</td>
-                                                    <td>{item.load_test_value ?? "—"}</td>
-                                                    <td>
-                                                        <span className={`badge fw-bold ${item.result === "PASSED" ? "badge-light-success" : "badge-light-danger"}`}>
-                                                            {item.result}
-                                                        </span>
-                                                    </td>
-                                                    <td>{item.remark || "—"}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* RIGHT 40% — Cost Breakdown */}
-                <div className="col-12 col-xl-5">
-                    <div className="wo-card" style={{ position: "sticky", top: 24 }}>
-                        <div className="wo-card-header">
-                            <h3 className="wo-card-title">
-                                <i className="bi bi-currency-exchange me-2 text-primary fs-6" />ต้นทุน
-                            </h3>
-                            {isActive && <span className="wo-live-dot" style={isPaused ? { background: '#fd7e14' } : {}} />}
-                        </div>
-                        <div className="wo-card-body">
-                            {liveCosts ? (
-                                <div className="wo-cost-summary">
-                                    {[
-                                        { label: "ค่าพนักงาน", value: liveCosts.labor_cost, icon: "bi-people-fill" },
-                                        { label: "ค่าเสื่อมราคา", value: liveCosts.depreciation_cost, icon: "bi-gear-fill" },
-                                        { label: "ค่าซ่อมบำรุง", value: liveCosts.maintenance_cost, icon: "bi-tools" },
-                                        { label: "ค่าวัตถุดิบ", value: liveCosts.material_cost, icon: "bi-box-seam" },
-                                    ].map(({ label, value, icon }) => (
-                                        <div key={label} className="wo-cost-row">
-                                            <span className="d-flex align-items-center gap-2">
-                                                <i className={`bi ${icon} text-muted`} />
-                                                {label}
-                                            </span>
-                                            <span className="fw-semibold">฿{fmtCurrency(value as number)}</span>
                                         </div>
                                     ))}
-                                    <div className="wo-cost-row wo-cost-total">
-                                        <span className="fw-bold" style={{ color: "#181c32" }}>รวมทั้งหมด</span>
-                                        <span className="fw-bold" style={{ fontSize: 20, color: "#181c32" }}>
-                                            ฿{fmtCurrency(liveCosts.total_cost as number)}
-                                        </span>
-                                    </div>
                                 </div>
                             ) : (
                                 <div className="text-center text-muted py-10">
-                                    <i className="bi bi-currency-exchange fs-3x text-gray-300 mb-3 d-block" />
-                                    ยังไม่มีข้อมูลต้นทุน
+                                    <i className="bi bi-clock-history fs-3x text-gray-300 mb-3 d-block" />
+                                    Session ยังไม่ได้เริ่มทดสอบ
                                 </div>
                             )}
                         </div>
                     </div>
                 </div>
+                {/* Completed: test result items */}
+                {isCompleted && (testResult.test_result_items ?? []).length > 0 && (
+                    <div className="wo-card mb-6">
+                        <div className="wo-card-header">
+                            <h3 className="wo-card-title">
+                                ผลการทดสอบรายหน่วย
+                            </h3>
+                        </div>
+
+                        <div className="wo-card-body">
+                            <div className="table-responsive">
+                                <table className="table table-bordered align-middle fs-7 mb-0">
+                                    <thead className="table-light">
+                                        <tr className="fw-bold text-gray-700 text-center">
+                                            <th className="w-60px">ลำดับ</th>
+                                            <th className="text-start">คำอธิบาย</th>
+                                            <th className="w-120px">Serial No.</th>
+                                            <th className="w-100px">WLL วัดได้</th>
+                                            <th className="w-100px">Load Test</th>
+                                            <th className="w-100px">ผล</th>
+                                            <th>หมายเหตุ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(testResult.test_result_items as any[]).map((item: any) => (
+                                            <tr key={item.test_result_item_id} className="text-center">
+                                                <td className="fw-bold">{item.unit_number}</td>
+                                                <td className="text-start">{item.description || "—"}</td>
+                                                <td>{item.serial_no || "—"}</td>
+                                                <td>{item.wll_measured ?? "—"}</td>
+                                                <td>{item.load_test_value ?? "—"}</td>
+                                                <td>
+                                                    <span className={`badge fw-bold ${item.result === "PASSED" ? "badge-light-success" : "badge-light-danger"}`}>
+                                                        {item.result}
+                                                    </span>
+                                                </td>
+                                                <td>{item.remark || "—"}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+
+                                {/* สรุปรายละเอียดการทดสอบ */}
+                                <div className="mt-8 border-top pt-5">
+                                    <div className="row g-4">
+                                        {testResult.test_method && (
+                                            <div className="col-6 col-md-4">
+                                                <div className="bg-light rounded-3 p-4 h-100">
+                                                    <span className="text-muted fw-bold fs-9 text-uppercase d-block mb-2 ls-1">วิธีทดสอบ</span>
+                                                    <span className="fw-bold text-gray-800 fs-6">{testResult.test_method}</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {testResult.standard_reference && (
+                                            <div className="col-6 col-md-4">
+                                                <div className="bg-light rounded-3 p-4 h-100">
+                                                    <span className="text-muted fw-bold fs-9 text-uppercase d-block mb-2 ls-1">มาตรฐานอ้างอิง</span>
+                                                    <span className="fw-bold text-gray-800 fs-6">{testResult.standard_reference}</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {testResult.remark && (
+                                            <div className="col-12 mt-2">
+                                                <div className="p-4 border border-dashed rounded-3">
+                                                    <span className="text-muted fw-bold fs-9 text-uppercase d-block mb-1 ls-1">หมายเหตุเพิ่มเติม</span>
+                                                    <span className="text-gray-600 fs-7 italic">{testResult.remark}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                )}
+
+                {/* สรุปต้นทุน */}
+                <div className="card shadow-sm mb-8">
+                    <div className="card-header border-0 pt-5">
+                        <div className="card-title">
+                            <span className="card-label fw-bold text-gray-900 fs-5">
+                                สรุปต้นทุน
+                            </span>
+                        </div>
+                    </div>
+                    <div className="card-body pt-3">
+                        <div className="row g-5">
+                            {/* ── ฝั่งซ้าย: รายละเอียดเครื่องจักร + พนักงาน ── */}
+                            <div className="col-lg-7 d-flex flex-column gap-5">
+
+                                {/* ── เครื่องจักร ── */}
+                                <div>
+                                    <div className="d-flex align-items-center gap-2 mb-3">
+                                        <span className="fs-7 fw-bold text-gray-700">รายละเอียดค่าเครื่องจักร</span>
+                                        <span className="badge badge-light-primary fs-9">{machineCostActual.length} เครื่อง</span>
+                                    </div>
+                                    {machineCostActual.length === 0 ? (
+                                        <div className="text-muted fs-8 py-3 ps-2">ยังไม่มีเครื่องจักรที่ใช้งาน</div>
+                                    ) : (
+                                        <div className="d-flex flex-column gap-2">
+                                            {machineCostActual.map(m => (
+                                                <div key={m.machine_id}
+                                                    className="d-flex align-items-center justify-content-between rounded px-4 py-3"
+                                                    style={{ background: m.isRunning ? '#fffbeb' : '#f9fafb', border: `1px solid ${m.isRunning ? '#fde68a' : '#e5e7eb'}` }}>
+                                                    <div className="d-flex align-items-center gap-3">
+                                                        <div className="symbol symbol-35px">
+                                                            <span className={`symbol-label ${m.isRunning ? 'bg-warning' : 'bg-light'}`}>
+                                                                <i className={`bi bi-gear fs-6 ${m.isRunning ? 'text-white' : 'text-gray-500'}`}></i>
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <div className="d-flex align-items-center gap-2 mb-1">
+                                                                {m.machine?.is_second_hand && (
+                                                                    <span className="badge badge-sm badge-light-warning">มือสอง</span>
+                                                                )}
+                                                                <span className="fw-semibold text-gray-800 fs-7">
+                                                                    {m.machine?.machine_name ?? `Machine #${m.machine_id}`}
+                                                                </span>
+                                                                <span className="text-muted fs-8">{formatDurationMs(m.seconds * 1000)}</span>
+                                                            </div>
+                                                            <div className="d-flex gap-3 fs-8 text-muted">
+                                                                <span>
+                                                                    <i className="bi bi-graph-down-arrow me-1 text-primary" />
+                                                                    {m.noRate ? <span className="text-warning">ยังไม่มี rate</span> : `฿${m.depreciationCost.toFixed(4)}`}
+                                                                </span>
+                                                                <span>
+                                                                    <i className="bi bi-wrench me-1 text-warning" />
+                                                                    {m.isRunning
+                                                                        ? <span className="text-warning">~฿{m.maintenanceCost.toFixed(4)}</span>
+                                                                        : `฿${m.maintenanceCost.toFixed(4)}`}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <span className={`fw-bolder fs-7 ${m.isRunning ? 'text-warning' : 'text-gray-800'}`}>
+                                                        {m.isRunning ? '~' : ''}฿{m.totalCost.toFixed(4)}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* ── พนักงาน ── */}
+                                <div>
+                                    <div className="d-flex align-items-center gap-2 mb-3">
+                                        <span className="fs-7 fw-bold text-gray-700">รายละเอียดค่าพนักงาน</span>
+                                        <span className="badge badge-light-success fs-9">{laborBreakdown.length} คน</span>
+                                    </div>
+                                    {laborBreakdown.length === 0 ? (
+                                        <div className="text-muted fs-8 py-3 ps-2">ยังไม่มีพนักงานที่ถูก assign</div>
+                                    ) : (
+                                        <div className="d-flex flex-column gap-2">
+                                            {laborBreakdown.map(a => (
+                                                <div key={a.employee_id}
+                                                    className="d-flex align-items-center justify-content-between rounded px-4 py-3"
+                                                    style={{ background: a.isWorking ? '#f0fdf4' : '#f9fafb', border: `1px solid ${a.isWorking ? '#bbf7d0' : '#e5e7eb'}` }}>
+                                                    <div className="d-flex align-items-center gap-3">
+                                                        <div className="symbol symbol-35px">
+                                                            <span className={`symbol-label ${a.isWorking ? 'bg-success' : 'bg-light'}`}>
+                                                                <i className={`bi bi-person-fill fs-6 ${a.isWorking ? 'text-white' : 'text-gray-500'}`}></i>
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <div className="d-flex align-items-center gap-2 mb-1">
+                                                                <span className="fw-semibold text-gray-800 fs-7">
+                                                                    {a.employee?.employee_first_name} {a.employee?.employee_last_name}
+                                                                </span>
+                                                                <span className="text-muted fs-8">{formatDurationMs(a.seconds * 1000)}</span>
+                                                            </div>
+                                                            <div className="d-flex gap-3 fs-8 text-muted">
+                                                                <span>
+                                                                    <i className="bi bi-cash-stack me-1 text-success" />
+                                                                    {a.employee?.salary_base
+                                                                        ? `฿${a.employee.salary_base.toLocaleString()}/เดือน`
+                                                                        : <span className="fst-italic">ไม่มีเงินเดือน</span>}
+                                                                </span>
+                                                                <span>
+                                                                    <i className="bi bi-clock me-1" />
+                                                                    {a.hourlyRate > 0 ? `฿${a.hourlyRate.toFixed(2)}/ชม.` : '—'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <span className={`fw-bolder fs-7 ${a.isWorking ? 'text-success' : 'text-gray-800'}`}>
+                                                        {a.isWorking ? '~' : ''}฿{a.cost.toFixed(2)}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                            </div>
+
+                            {/* ── ฝั่งขวา: ตารางสรุปรวม ── */}
+                            <div className="col-lg-5">
+                                <div className="fs-7 fw-bold text-gray-600 mb-3">ต้นทุนรวม</div>
+                                <div className="bg-light rounded p-4">
+                                    {/* ค่าวัตถุดิบ */}
+                                    <div className="d-flex justify-content-between align-items-center mb-3">
+                                        <div className="d-flex align-items-center gap-2">
+                                            <span className="symbol symbol-25px">
+                                                <span className="symbol-label">
+                                                    <i className="bi bi-box-seam fs-8"></i>
+                                                </span>
+                                            </span>
+                                            <span className="text-gray-600 fs-7">ค่าวัตถุดิบ</span>
+                                        </div>
+                                        {totalMaterialCost > 0
+                                            ? <span className="fw-semibold text-gray-800 fs-7">฿{totalMaterialCost.toFixed(2)}</span>
+                                            : <span className="text-muted fs-8 fst-italic">ไม่มีข้อมูล</span>
+                                        }
+                                    </div>
+
+                                    {/* ค่าเสื่อมราคาเครื่องจักร */}
+                                    <div className="d-flex justify-content-between align-items-center mb-3">
+                                        <div className="d-flex align-items-center gap-2">
+                                            <span className="symbol symbol-25px">
+                                                <span className="symbol-label">
+                                                    <i className="bi bi-graph-down-arrow fs-8"></i>
+                                                </span>
+                                            </span>
+                                            <span className="text-gray-600 fs-7">ค่าเสื่อมราคาเครื่องจักร</span>
+                                        </div>
+                                        <span className="fw-semibold text-gray-800 fs-7">
+                                            ฿{machineCostActual.reduce((s, m) => s + m.depreciationCost, 0).toFixed(4)}
+                                        </span>
+                                    </div>
+
+                                    {/* ค่าซ่อมเครื่องจักร — real-time */}
+                                    <div className="d-flex justify-content-between align-items-center mb-3">
+                                        <div className="d-flex align-items-center gap-2">
+                                            <span className="symbol symbol-25px">
+                                                <span className="symbol-label">
+                                                    <i className="bi bi-wrench fs-8"></i>
+                                                </span>
+                                            </span>
+                                            <div>
+                                                <span className="text-gray-600 fs-7">ค่าซ่อมเครื่องจักร</span>
+                                                {machineCostActual.some(m => m.isRunning) && (
+                                                    <span className="ms-1 text-warning fs-9 fst-italic">(ประมาณการ)</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <span className={`fw-semibold fs-7 text-gray-800`}>
+                                            ฿{machineCostActual.reduce((s, m) => s + m.maintenanceCost, 0).toFixed(4)}
+                                        </span>
+                                    </div>
+
+                                    {/* ค่าพนักงาน */}
+                                    <div className="d-flex justify-content-between align-items-center mb-4">
+                                        <div className="d-flex align-items-center gap-2">
+                                            <span className="symbol symbol-25px">
+                                                <span className="symbol-label">
+                                                    <i className="bi bi-people fs-8"></i>
+                                                </span>
+                                            </span>
+                                            <span className="text-gray-600 fs-7">ค่าพนักงาน</span>
+                                        </div>
+                                        <span className="fw-semibold text-gray-800 fs-7">฿{totalLaborCost.toFixed(2)}</span>
+                                    </div>
+
+                                    <div className="separator separator-dashed mb-4"></div>
+
+                                    {/* รวมต้นทุน */}
+                                    <div className="d-flex justify-content-between align-items-center">
+                                        <span className="fw-bold text-gray-800 fs-6">รวมต้นทุน</span>
+                                        <span className="fw-bolder text-primary fs-4">
+                                            ฿{(
+                                                totalMaterialCost +
+                                                machineCostActual.reduce((s, m) => s + m.depreciationCost, 0) +
+                                                machineCostActual.reduce((s, m) => s + m.maintenanceCost, 0) +
+                                                totalLaborCost
+                                            ).toFixed(2)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Cost Over Time Chart */}
+                {costChartData.length > 1 && (
+                    <div className="card shadow-sm mb-8">
+                        <div className="card-header border-0 pt-5">
+                            <div className="card-title">
+                                <span className="card-label fw-bold text-gray-900 fs-5">
+                                    ต้นทุนสะสมตามช่วงเวลา
+                                </span>
+                            </div>
+                            <div className="card-toolbar">
+                                <span className="text-muted fs-8">แกน X = เวลาที่ผ่านไป (ชม:นาที) &nbsp;|&nbsp; แกน Y = บาท</span>
+                            </div>
+                        </div>
+                        <div className="card-body pt-3 pb-6">
+                            {/* Legend chips */}
+                            <div className="d-flex flex-wrap gap-3 mb-5">
+                                {[
+                                    { label: 'ค่าเสื่อมราคา', color: '#0d6efd' },
+                                    { label: 'ค่าซ่อมบำรุง', color: '#fd7e14' },
+                                    { label: 'ค่าพนักงาน', color: '#198754' },
+                                    { label: 'รวม', color: '#6f42c1', dashed: true },
+                                ].map(item => (
+                                    <span key={item.label} className="d-flex align-items-center gap-1 fs-8 text-gray-700 fw-semibold">
+                                        <svg width="22" height="10">
+                                            <line x1="0" y1="5" x2="22" y2="5"
+                                                stroke={item.color} strokeWidth="2.5"
+                                                strokeDasharray={item.dashed ? '4 3' : undefined} />
+                                        </svg>
+                                        {item.label}
+                                    </span>
+                                ))}
+                            </div>
+
+                            <ResponsiveContainer width="100%" height={320}>
+                                <LineChart data={costChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis
+                                        dataKey="label"
+                                        tick={{ fontSize: 11, fill: '#6c757d' }}
+                                        tickLine={false}
+                                        interval={Math.floor(costChartData.length / 8)}
+                                        label={{ value: 'เวลาที่ผ่านไป', position: 'insideBottomRight', offset: -10, fontSize: 11, fill: '#6c757d' }}
+                                    />
+                                    <YAxis
+                                        tick={{ fontSize: 11, fill: '#6c757d' }}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tickFormatter={(v: number) => v >= 1 ? `฿${v.toFixed(2)}` : `฿${v.toFixed(4)}`}
+                                        width={80}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }}
+                                        formatter={(value: number, name: string) => [`฿${value.toFixed(4)}`, name]}
+                                        labelFormatter={(label: string) => `เวลา ${label}`}
+                                    />
+                                    <Line type="monotone" dataKey="ค่าเสื่อมราคา" stroke="#0d6efd" strokeWidth={2} dot={false} />
+                                    <Line type="monotone" dataKey="ค่าซ่อมบำรุง" stroke="#fd7e14" strokeWidth={2} dot={false} />
+                                    <Line type="monotone" dataKey="ค่าพนักงาน" stroke="#198754" strokeWidth={2} dot={false} />
+                                    <Line type="monotone" dataKey="รวม" stroke="#6f42c1" strokeWidth={2.5} strokeDasharray="5 4" dot={false} />
+                                </LineChart>
+                            </ResponsiveContainer>
+
+                            {/* Summary row */}
+                            <div className="d-flex flex-wrap justify-content-center gap-5 mt-4 pt-4">
+                                {[
+                                    { label: 'ค่าเสื่อมราคา', key: 'ค่าเสื่อมราคา', color: '#0d6efd', bg: '#e7f1ff' },
+                                    { label: 'ค่าซ่อมบำรุง', key: 'ค่าซ่อมบำรุง', color: '#fd7e14', bg: '#fff3e0' },
+                                    { label: 'ค่าพนักงาน', key: 'ค่าพนักงาน', color: '#198754', bg: '#d1e7dd' },
+                                    { label: 'รวม', key: 'รวม', color: '#6f42c1', bg: '#f0ebff' },
+                                ].map(item => {
+                                    const last = costChartData[costChartData.length - 1];
+                                    const val = last ? (last as unknown as Record<string, number>)[item.key] : 0;
+                                    return (
+                                        <div key={item.key} className="d-flex flex-column align-items-center px-4 py-2 rounded" style={{ backgroundColor: item.bg, minWidth: 120 }}>
+                                            <span className="fs-8 fw-semibold mb-1" style={{ color: item.color }}>{item.label}</span>
+                                            <span className="fw-bolder fs-6" style={{ color: item.color }}>฿{val.toFixed(4)}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
             </div>
 
@@ -1801,7 +2401,6 @@ const ViewTestResultSession: React.FC = () => {
                             {/* Metadata */}
                             <div className="row g-4 mb-6">
                                 {[
-                                    { label: "วันที่ทดสอบ", field: "test_date" as const, type: "date" },
                                     { label: "วิธีการทดสอบ", field: "test_method" as const, type: "text", placeholder: "e.g. Proof Load Test" },
                                     { label: "มาตรฐานอ้างอิง", field: "standard_reference" as const, type: "text", placeholder: "e.g. BS EN 13414" },
                                     { label: "หมายเหตุ", field: "remark" as const, type: "text", placeholder: "หมายเหตุ (ถ้ามี)" },
@@ -1913,27 +2512,27 @@ const ViewTestResultSession: React.FC = () => {
                                             </thead>
                                             <tbody>
                                                 {(testResult.required_items as any[]).map((it: any) => {
-                                                const itemKey = it.test_result_required_item_id ?? it.id;
-                                                return (
-                                                    <tr key={itemKey ?? it.qc_item_id}>
-                                                        <td className="fw-bold text-gray-800">{it.item_name || "—"}</td>
-                                                        <td className="text-center text-muted">{it.unit || "—"}</td>
-                                                        <td className="text-center fw-semibold text-gray-700">{it.required_qty ?? "—"}</td>
-                                                        <td>
-                                                            <input
-                                                                type="text"
-                                                                className="form-control form-control-sm text-center"
-                                                                placeholder="0"
-                                                                value={itemKey != null ? (finalizeActuals[itemKey] ?? "") : ""}
-                                                                onChange={e => {
-                                                                    if (itemKey == null) return;
-                                                                    setFinalizeActuals(prev => ({ ...prev, [itemKey]: formatIntegerInput(e.target.value) }));
-                                                                }}
-                                                            />
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
+                                                    const itemKey = it.test_result_required_item_id ?? it.id;
+                                                    return (
+                                                        <tr key={itemKey ?? it.qc_item_id}>
+                                                            <td className="fw-bold text-gray-800">{it.item_name || "—"}</td>
+                                                            <td className="text-center text-muted">{it.unit || "—"}</td>
+                                                            <td className="text-center fw-semibold text-gray-700">{it.required_qty ?? "—"}</td>
+                                                            <td>
+                                                                <input
+                                                                    type="text"
+                                                                    className="form-control form-control-sm text-center"
+                                                                    placeholder="0"
+                                                                    value={itemKey != null ? (finalizeActuals[itemKey] ?? "") : ""}
+                                                                    onChange={e => {
+                                                                        if (itemKey == null) return;
+                                                                        setFinalizeActuals(prev => ({ ...prev, [itemKey]: formatIntegerInput(e.target.value) }));
+                                                                    }}
+                                                                />
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Content } from "../../../../_metronic/layout/components/content";
 import { getQCWorkOrderById } from "../../../services/qcWorkOrderService";
@@ -9,6 +9,8 @@ import { formatThaiDate } from "../../../helpers/dataHelpers";
 import TestResultSection from "./TestResultSection";
 import Swal from "sweetalert2";
 import "../../workorder/components/WorkorderView.css";
+import { type TestResultDetail } from '../../../type_interface/TestResultType';
+import { getTestResultsCostByQCWorkOrder } from '../../../services/testResultService';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -47,6 +49,34 @@ const CardSection: React.FC<{ icon: string; title: string; children: React.React
     </div>
 );
 
+const formatTimer = (ms: number): string => {
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
+
+const getTestStatusLabel = (status: string) => {
+    switch (status?.toUpperCase()) {
+        case 'INPROGRESS': return 'กำลังทดสอบ';
+        case 'COMPLETED': return 'เสร็จสิ้น';
+        case 'PAUSED': return 'หยุดชั่วคราว';
+        case 'PENDING': return 'รอดำเนินการ';
+        default: return status;
+    }
+};
+
+const getTestStatusVariant = (status: string) => {
+    switch (status?.toUpperCase()) {
+        case 'INPROGRESS': return 'warning';
+        case 'COMPLETED': return 'success';
+        case 'PAUSED': return 'info';
+        case 'PENDING': return 'secondary';
+        default: return 'secondary';
+    }
+};
+
 // ─── component ──────────────────────────────────────────────────────────────
 
 const ViewQCWorkOrder: React.FC = () => {
@@ -58,8 +88,29 @@ const ViewQCWorkOrder: React.FC = () => {
     const [testResults, setTestResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [pdfLoading, setPdfLoading] = useState(false);
+    const [testResultDetails, setTestResultDetails] = useState<TestResultDetail[]>([]);
+    const [costLoading, setCostLoading] = useState(false);
+
+    const [now, setNow] = useState(Date.now());
+    const [activePage, setActivePage] = useState(0);
+
+    const calcElapsedMs = (fromTime: string, toTime: string | null, breaks: { break_start: string; break_end: string | null }[]): number => {
+        const s = new Date(fromTime).getTime();
+        const e = toTime ? new Date(toTime).getTime() : now;
+        const brkMs = breaks.reduce((sum, b) => {
+            const bS = new Date(b.break_start).getTime();
+            const bE = b.break_end ? new Date(b.break_end).getTime() : now;
+            return sum + Math.max(0, Math.min(e, bE) - Math.max(s, bS));
+        }, 0);
+        return Math.max(0, e - s - brkMs);
+    };
 
     useEffect(() => { if (qc_workorder_id) loadData(qc_workorder_id); }, [qc_workorder_id]);
+
+    useEffect(() => {
+        const timer = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     const loadData = async (id: string) => {
         setLoading(true);
@@ -72,6 +123,16 @@ const ViewQCWorkOrder: React.FC = () => {
             const raw = result.data;
             setRawData(raw);
             setTestResults(raw.test_results ?? []);
+
+            setCostLoading(true);
+            getTestResultsCostByQCWorkOrder(Number(id))
+                .then(res => {
+                    if (res?.success && Array.isArray(res.data)) {
+                        setTestResultDetails(res.data as TestResultDetail[]);
+                    }
+                })
+                .catch(() => { })
+                .finally(() => setCostLoading(false));
             const form = raw.qc_form || {};
             const items: QCWorkOrderItem[] = (raw.qc_items || []).map((item: any) => {
                 const ml = item.material_list ?? {};
@@ -135,6 +196,80 @@ const ViewQCWorkOrder: React.FC = () => {
         }
     };
 
+    const testResultCosts = useMemo(() => {
+        const calcSec = (entry: { from_time: string; to_time: string | null }, breaks: { break_start: string; break_end: string | null }[]) => {
+            const s = new Date(entry.from_time).getTime();
+            const e = entry.to_time ? new Date(entry.to_time).getTime() : Date.now();
+            const brkMs = breaks.reduce((sum, b) => {
+                const bS = new Date(b.break_start).getTime();
+                const bE = b.break_end ? new Date(b.break_end).getTime() : Date.now();
+                return sum + Math.max(0, Math.min(e, bE) - Math.max(s, bS));
+            }, 0);
+            return Math.max(0, e - s - brkMs) / 1000;
+        };
+
+        return testResultDetails.map(tr => {
+            const stored = tr.cost ?? null;
+            if (tr.session_status === 'COMPLETED' && stored) {
+                return {
+                    test_result_id: tr.test_result_id,
+                    test_result_code: tr.test_result_code,
+                    status: tr.session_status,
+                    material: stored.material_cost ?? 0,
+                    depreciation: stored.depreciation_cost ?? 0,
+                    maintenance: stored.maintenance_cost ?? 0,
+                    labor: stored.labor_cost ?? 0,
+                    total: stored.total_cost ?? 0,
+                };
+            }
+
+            const breaks = tr.breaks ?? [];
+
+            const material = (tr.required_items ?? []).reduce((sum: number, item: any) => {
+                const ml = item.material_list;
+                const cpu = ml ? (ml.cost_per_unit ?? (ml.quantity > 0 ? ml.cost_price / ml.quantity : 0)) : 0;
+                return sum + cpu * item.quantity;
+            }, 0);
+
+            let depreciation = 0, maintenance = 0;
+            (tr.machines ?? []).forEach((m: any) => {
+                const sec = calcSec(m, breaks);
+                const running = m.to_time === null;
+                depreciation += running ? (m.cost?.depreciation_per_second ?? 0) * sec : (m.cost?.depreciation_cost ?? 0);
+                maintenance += running ? (m.cost?.maintenance_rate_per_second ?? 0) * sec : (m.cost?.maintenance_cost ?? 0);
+            });
+
+            const labor = (tr.assignments ?? []).reduce((sum: number, a: any) => {
+                const sec = calcSec(a, breaks);
+                const salary = a.employee?.salary_base ?? 0;
+                return sum + (salary / 30 / 8 / 3600) * sec;
+            }, 0);
+
+            return {
+                test_result_id: tr.test_result_id,
+                test_result_code: tr.test_result_code,
+                status: tr.session_status,
+                material,
+                depreciation,
+                maintenance,
+                labor,
+                total: material + depreciation + maintenance + labor,
+            };
+        });
+    }, [testResultDetails]);
+
+    const totalCosts = useMemo(() =>
+        testResultCosts.reduce(
+            (acc, r) => ({
+                material: acc.material + r.material,
+                depreciation: acc.depreciation + r.depreciation,
+                maintenance: acc.maintenance + r.maintenance,
+                labor: acc.labor + r.labor,
+                total: acc.total + r.total,
+            }),
+            { material: 0, depreciation: 0, maintenance: 0, labor: 0, total: 0 }
+        ), [testResultCosts]);
+
     const handleExportPDF = async () => {
         setPdfLoading(true);
         try {
@@ -147,6 +282,14 @@ const ViewQCWorkOrder: React.FC = () => {
     };
 
     const statusInfo = getStatusInfo(rawData?.status ?? "");
+
+    const activeTestSessions = testResultDetails.filter(tr => tr.session_status === 'INPROGRESS');
+    const ACTIVE_SESSIONS_PER_PAGE = 3;
+    const totalActivePages = Math.ceil(activeTestSessions.length / ACTIVE_SESSIONS_PER_PAGE);
+    const pagedActiveSessions = activeTestSessions.slice(
+        activePage * ACTIVE_SESSIONS_PER_PAGE,
+        (activePage + 1) * ACTIVE_SESSIONS_PER_PAGE,
+    );
 
     // ── loading skeleton ──────────────────────────────────────────────────────
     if (loading) {
@@ -215,10 +358,144 @@ const ViewQCWorkOrder: React.FC = () => {
                 </div>
             </div>
 
+            {/* Active Test Sessions — Live Monitoring Cards */}
+            {activeTestSessions.length > 0 && (
+                <div className="mb-8">
+
+                    {/* Section header */}
+                    <div className="d-flex align-items-center gap-3 mb-5">
+                        <div className="wo-pulse-blue" />
+                        <span className="fw-bold text-gray-900 fs-5">กำลังดำเนินการอยู่</span>
+                        <span className="badge badge-light-primary fw-bold">{activeTestSessions.length} Test Session</span>
+                        {totalActivePages > 1 && (
+                            <div className="ms-auto d-flex align-items-center gap-2">
+                                <button
+                                    className="wo-page-btn"
+                                    disabled={activePage === 0}
+                                    onClick={() => setActivePage(p => Math.max(0, p - 1))}
+                                >
+                                    <i className="bi bi-chevron-left" />
+                                </button>
+                                <span className="text-muted fs-8 fw-semibold" style={{ minWidth: 40, textAlign: 'center' }}>
+                                    {activePage + 1} / {totalActivePages}
+                                </span>
+                                <button
+                                    className="wo-page-btn"
+                                    disabled={activePage >= totalActivePages - 1}
+                                    onClick={() => setActivePage(p => Math.min(totalActivePages - 1, p + 1))}
+                                >
+                                    <i className="bi bi-chevron-right" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Cards grid — paginated, 3 per page */}
+                    <div className="row g-4 wo-lmc-fade" key={activePage}>
+                        {pagedActiveSessions.map(tr => {
+                            const activeAssignments = tr.assignments.filter(a => a.to_time === null);
+                            const activeMachines = tr.machines.filter(m => m.to_time === null);
+                            const sessionElapsed = tr.started_at ? calcElapsedMs(tr.started_at, null, tr.breaks) : 0;
+
+                            return (
+                                <div key={tr.test_result_id} className="col-12 col-lg-6 col-xl-4">
+                                    <div
+                                        className="wo-lmc-card"
+                                        onClick={() => navigate(`/quality_control/test_result/${tr.test_result_id}`)}
+                                    >
+                                        <div className="p-5">
+
+                                            {/* Top row: Session code (left) + RUNNING (right) */}
+                                            <div className="d-flex align-items-start justify-content-between mb-3">
+                                                <div>
+                                                    <span className="wo-card-lot-label">Test Session</span>
+                                                    <span className="wo-card-lot-number">{tr.test_result_code || `TS-${tr.test_result_id}`}</span>
+                                                    <div className="mt-2">
+                                                        <span className="badge badge-light-primary fw-bold fs-8">
+                                                            <i className="bi bi-box-seam me-1" style={{ fontSize: 10 }} />
+                                                            {tr.claimed_qty} ชิ้น
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="d-flex align-items-center gap-2 mt-1">
+                                                    <div className="wo-pulse-blue" />
+                                                    <span className="text-primary fw-bold fs-8">RUNNING</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="separator separator-dashed mb-4" />
+
+                                            {/* Bottom row: Staff + Machine (left) | Timer (right) */}
+                                            <div className="d-flex align-items-end justify-content-between gap-4">
+                                                <div style={{ minWidth: 0 }}>
+                                                    {/* Staff */}
+                                                    <div className="mb-3">
+                                                        {activeAssignments.length === 0 ? (
+                                                            <div className="d-flex align-items-center gap-2">
+                                                                <i className="bi bi-person text-muted fs-7" />
+                                                                <span className="text-muted fs-8 fst-italic">ยังไม่มีพนักงาน</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="d-flex align-items-center gap-2">
+                                                                <div className="symbol symbol-30px flex-shrink-0">
+                                                                    <span className="symbol-label bg-light-primary text-primary fw-bold fs-8">
+                                                                        {activeAssignments[0].employee?.employee_first_name?.[0] ?? '?'}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="fw-semibold text-gray-800 fs-7 text-truncate">
+                                                                    {activeAssignments[0].employee?.employee_first_name} {activeAssignments[0].employee?.employee_last_name}
+                                                                    {activeAssignments.length > 1 && (
+                                                                        <span className="text-muted ms-1 fs-8">+{activeAssignments.length - 1} คน</span>
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {/* Machine */}
+                                                    <div>
+                                                        {activeMachines.length === 0 ? (
+                                                            <div className="d-flex align-items-center gap-2">
+                                                                <i className="bi bi-gear text-muted fs-7" />
+                                                                <span className="text-muted fs-8 fst-italic">ยังไม่มีเครื่องจักร</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="d-flex align-items-center gap-2">
+                                                                <div className="symbol symbol-30px flex-shrink-0">
+                                                                    <span className="symbol-label bg-light-info text-info fw-bold fs-8">
+                                                                        <i className="bi bi-gear-fill" />
+                                                                    </span>
+                                                                </div>
+                                                                <span className="fw-semibold text-gray-800 fs-7 text-truncate">
+                                                                    {activeMachines[0].machine?.machine_name || activeMachines[0].machine?.machine_code || `#${activeMachines[0].machine_id}`}
+                                                                    {activeMachines.length > 1 && (
+                                                                        <span className="text-muted ms-1 fs-8">+{activeMachines.length - 1}</span>
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Timer — right side */}
+                                                <div className="flex-shrink-0">
+                                                    <div className="wo-lmc-timer-large">{formatTimer(sessionElapsed)}</div>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                </div>
+            )}
+
             {/* ═══════════════════════════════════════════════════════════
                 60 / 40 BODY
             ═══════════════════════════════════════════════════════════ */}
-            <div className="row g-6 align-items-start">
+            <div className="row g-6" style={{ alignItems: 'stretch' }}>
 
                 {/* ── LEFT 60% — work order details ─────────────────────── */}
                 <div className="col-12 col-xl-7">
@@ -266,44 +543,49 @@ const ViewQCWorkOrder: React.FC = () => {
                         </div>
                     </CardSection>
 
-                    {/* Standards / Cert / Serial */}
                     <CardSection icon="bi-shield-fill-check" title="มาตรฐาน / ใบรับรอง / Serial">
-                        <div className="d-flex flex-column gap-5">
-                            <div>
-                                <span className="text-muted fs-8 fw-bold text-uppercase d-block mb-2">มาตรฐาน</span>
+                        {/* ปรับเป็น row และใช้ col-md เพื่อแบ่งฝั่ง */}
+                        <div className="row g-4">
+                            {/* มาตรฐาน */}
+                            <div className="col-12 col-md-4 border-end-md">
+                                <span className="text-muted fs-9 fw-bolder text-uppercase d-block mb-1">มาตรฐาน</span>
                                 <div className="d-flex flex-wrap gap-1">
                                     <CheckBadge checked={formData.ptt} label="PTT" />
                                     <CheckBadge checked={formData.chevron} label="Chevron" />
                                     <CheckBadge checked={formData.valeur} label="Valeur" />
                                     <CheckBadge checked={formData.ophir} label="Ophir" />
                                     <CheckBadge checked={formData.threeSpec} label="3Spec" />
-                                    <CheckBadge checked={formData.standardOthers} label={`Others${formData.standardOthersText ? `: ${formData.standardOthersText}` : ""}`} />
+                                    <CheckBadge checked={formData.standardOthers} label={formData.standardOthersText || "Others"} />
                                     {!formData.ptt && !formData.chevron && !formData.valeur && !formData.ophir && !formData.threeSpec && !formData.standardOthers && (
-                                        <span className="text-muted fs-7">ไม่ระบุ</span>
+                                        <span className="text-muted fs-7">---</span>
                                     )}
                                 </div>
                             </div>
-                            <div>
-                                <span className="text-muted fs-8 fw-bold text-uppercase d-block mb-2">ใบรับรอง</span>
+
+                            {/* ใบรับรอง */}
+                            <div className="col-12 col-md-4 border-end-md">
+                                <span className="text-muted fs-9 fw-bolder text-uppercase d-block mb-1">ใบรับรอง</span>
                                 <div className="d-flex flex-wrap gap-1">
                                     <CheckBadge checked={formData.inHouse} label="In-house" />
                                     <CheckBadge checked={formData.thirdParty} label="Third Party" />
                                     <CheckBadge checked={formData.ndt} label="NDT" />
-                                    <CheckBadge checked={formData.testingOthers} label={`Others${formData.testingOthersText ? `: ${formData.testingOthersText}` : ""}`} />
+                                    <CheckBadge checked={formData.testingOthers} label={formData.testingOthersText || "Others"} />
                                     {!formData.inHouse && !formData.thirdParty && !formData.ndt && !formData.testingOthers && (
-                                        <span className="text-muted fs-7">ไม่ระบุ</span>
+                                        <span className="text-muted fs-7">---</span>
                                     )}
                                 </div>
                             </div>
-                            <div>
-                                <span className="text-muted fs-8 fw-bold text-uppercase d-block mb-2">Serial Number</span>
+
+                            {/* Serial Number */}
+                            <div className="col-12 col-md-4">
+                                <span className="text-muted fs-9 fw-bolder text-uppercase d-block mb-1">Serial Number</span>
                                 <div className="d-flex flex-wrap gap-1">
                                     <CheckBadge checked={formData.continueSerial} label="คล้องวางแห" />
                                     <CheckBadge checked={formData.serialImprint} label="ตอกที่ตัวสินค้า" />
                                     <CheckBadge checked={formData.serialTag} label="คล้องแท็ก" />
-                                    <CheckBadge checked={formData.serialOthers} label={`Others${formData.serialOthersText ? `: ${formData.serialOthersText}` : ""}`} />
+                                    <CheckBadge checked={formData.serialOthers} label={formData.serialOthersText || "Others"} />
                                     {!formData.continueSerial && !formData.serialImprint && !formData.serialTag && !formData.serialOthers && (
-                                        <span className="text-muted fs-7">ไม่ระบุ</span>
+                                        <span className="text-muted fs-7">---</span>
                                     )}
                                 </div>
                             </div>
@@ -503,21 +785,154 @@ const ViewQCWorkOrder: React.FC = () => {
                 </div>
 
                 {/* ── RIGHT 40% — Testing Dashboard ───────────────────────── */}
-                <div className="col-12 col-xl-5">
+                <div className="col-12 col-xl-5" style={{ display: 'flex', flexDirection: 'column' }}>
                     {/* Test Results — full width under details */}
                     {qc_workorder_id && (
-                        <TestResultSection
-                            qcWorkOrderId={Number(qc_workorder_id)}
-                            quantity={formData.quantity ?? 1}
-                            salesItemDescription={formData.salesItemCode}
-                            salesItemId={formData.salesItemId}
-                            testResultsPre={testResults}
-                            qcItems={formData.items}
-                        />
+                        <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                            <TestResultSection
+                                qcWorkOrderId={Number(qc_workorder_id)}
+                                quantity={formData.quantity ?? 1}
+                                salesItemDescription={formData.salesItemCode}
+                                salesItemId={formData.salesItemId}
+                                testResultsPre={testResults}
+                                qcItems={formData.items}
+                            />
+                        </div>
                     )}
                 </div>
 
             </div>
+
+            {/* Cost Summary from all Test Sessions */}
+            <div className="card shadow-sm mb-8 mt-6">
+                <div className="card-header border-0 pt-5 pb-0">
+                    <div className="card-title">
+                        <span className="card-label fw-bold text-gray-900 fs-5">
+                            ต้นทุนรวมจากทุก Test Session
+                        </span>
+                    </div>
+                    {costLoading && (
+                        <div className="card-toolbar">
+                            <span className="spinner-border spinner-border-sm text-primary me-2" />
+                            <span className="text-muted fs-8">กำลังโหลดต้นทุน...</span>
+                        </div>
+                    )}
+                </div>
+                <div className="card-body pt-5 pb-6">
+                    <div className="row g-3 mb-6">
+                        {[
+                            { label: 'ค่าวัตถุดิบรวม', value: totalCosts.material, icon: 'bi-box-seam-fill', iconColor: '#0dcaf0', bg: '#e8fafe' },
+                            { label: 'ค่าเสื่อมราคารวม', value: totalCosts.depreciation, icon: 'bi-graph-down-arrow', iconColor: '#6610f2', bg: '#f3f0ff' },
+                            { label: 'ค่าซ่อมบำรุงรวม', value: totalCosts.maintenance, icon: 'bi-wrench-adjustable', iconColor: '#fd7e14', bg: '#fff4e6' },
+                            { label: 'ค่าแรงรวม', value: totalCosts.labor, icon: 'bi-people-fill', iconColor: '#198754', bg: '#e8f8f0' },
+                            { label: 'รวมทั้งหมด', value: totalCosts.total, icon: 'bi-cash-stack', iconColor: '#dc3545', bg: '#fff0f0' },
+                        ].map(item => (
+                            <div key={item.label} className="col-6 col-md-4 col-lg">
+                                <div className="rounded-3 p-4 h-100 d-flex align-items-center gap-3"
+                                    style={{ backgroundColor: item.bg }}>
+                                    <div className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                        style={{ width: 46, height: 46, backgroundColor: `${item.iconColor}20` }}>
+                                        <i className={`bi ${item.icon} fs-4`} style={{ color: item.iconColor }} />
+                                    </div>
+                                    <div>
+                                        <div className="text-gray-500 fs-8 fw-semibold mb-1">{item.label}</div>
+                                        {costLoading ? (
+                                            <div className="placeholder-wave"><span className="placeholder col-10 rounded" /></div>
+                                        ) : (
+                                            <div className="fw-bolder fs-5" style={{ color: item.iconColor }}>
+                                                ฿{item.value.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {!costLoading && testResultCosts.length > 0 && (
+                        <div className="table-responsive">
+                            <table className="table align-middle table-row-bordered fs-7 gy-3">
+                                <thead>
+                                    <tr className="text-muted fw-bold fs-8 text-uppercase border-bottom border-gray-200">
+                                        <th>Test Session</th>
+                                        <th>สถานะ</th>
+                                        <th className="text-end">ค่าวัตถุดิบ</th>
+                                        <th className="text-end">ค่าเสื่อมราคา</th>
+                                        <th className="text-end">ค่าซ่อมบำรุง</th>
+                                        <th className="text-end">ค่าพนักงาน</th>
+                                        <th className="text-end">รวม</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-gray-700 fw-semibold">
+                                    {testResultCosts.map(r => (
+                                        <tr key={r.test_result_id}>
+                                            <td>
+                                                <span className="fw-bold text-gray-800">
+                                                    {r.test_result_code || `#${r.test_result_id}`}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span className={`badge badge-light-${getTestStatusVariant(r.status)}`}>
+                                                    {getTestStatusLabel(r.status)}
+                                                </span>
+                                            </td>
+                                            <td className="text-end text-gray-700">
+                                                {r.material > 0 ? `฿${r.material.toFixed(2)}` : <span className="text-muted">-</span>}
+                                            </td>
+                                            <td className="text-end text-gray-700">
+                                                {r.depreciation > 0 ? `฿${r.depreciation.toFixed(4)}` : <span className="text-muted">-</span>}
+                                            </td>
+                                            <td className="text-end text-gray-700">
+                                                {r.maintenance > 0 ? `฿${r.maintenance.toFixed(4)}` : <span className="text-muted">-</span>}
+                                            </td>
+                                            <td className="text-end text-gray-700">
+                                                {r.labor > 0 ? `฿${r.labor.toFixed(2)}` : <span className="text-muted">-</span>}
+                                            </td>
+                                            <td className="text-end fw-bold text-primary">
+                                                ฿{r.total.toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot className="bg-light">
+                                    <tr className="fw-bolder border-top border-3 border-gray-200">
+                                        <td colSpan={2} className="text-end text-gray-600 fs-7 py-5">รวมทั้งหมด</td>
+                                        <td className="text-end py-5" style={{ color: '#0dcaf0' }}>
+                                            ฿{totalCosts.material.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="text-end py-5" style={{ color: '#6610f2' }}>
+                                            ฿{totalCosts.depreciation.toLocaleString('th-TH', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                        </td>
+                                        <td className="text-end py-5" style={{ color: '#fd7e14' }}>
+                                            ฿{totalCosts.maintenance.toLocaleString('th-TH', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                                        </td>
+                                        <td className="text-end py-5" style={{ color: '#198754' }}>
+                                            ฿{totalCosts.labor.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="text-end fs-5 py-5" style={{ color: '#dc3545' }}>
+                                            ฿{totalCosts.total.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    )}
+
+                    {!costLoading && testResultCosts.length === 0 && testResults.length > 0 && (
+                        <div className="text-center text-muted py-6 fs-7">
+                            <i className="bi bi-hourglass-split fs-3x text-gray-300 d-block mb-3" />
+                            Test Session ยังไม่ได้เริ่มดำเนินการ จึงยังไม่มีข้อมูลต้นทุน
+                        </div>
+                    )}
+
+                    {!costLoading && testResults.length === 0 && (
+                        <div className="text-center text-muted py-6 fs-7">
+                            ยังไม่มี Test Session
+                        </div>
+                    )}
+                </div>
+            </div>
+
         </Content >
     );
 };
