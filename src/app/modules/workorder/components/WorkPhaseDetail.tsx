@@ -202,16 +202,23 @@ const WorkPhaseDetail: React.FC = () => {
 
                     <div className="col-md-4">
                         <div className="card border border-gray-200 shadow-sm h-100">
-                            <div className="card-body d-flex justify-content-between align-items-center py-4 px-5">
-                                <div>
-                                    <div className="text-success fw-bold fs-7 mb-2">ค่าแรงงานทั้งหมด</div>
-                                    <div className="fw-bolder text-dark" style={{ fontSize: '2rem', lineHeight: 1 }}>
-                                        {formatNumber(data.total_labor_cost)}
-                                        <span className="text-muted fw-semibold fs-6 ms-2">THB</span>
+                            <div className="card-body py-4 px-5">
+                                <div className="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <div className="text-success fw-bold fs-7 mb-1">ค่าแรงงานทั้งหมด</div>
+                                        <div className="fw-bolder text-dark" style={{ fontSize: '1.6rem', lineHeight: 1 }}>
+                                            {formatNumber(data.total_labor_cost)}
+                                            <span className="text-muted fw-semibold fs-7 ms-1">THB</span>
+                                        </div>
+                                    </div>
+                                    <div className="d-flex align-items-center justify-content-center rounded-3 bg-light-success" style={{ width: 40, height: 40 }}>
+                                        <i className="bi bi-cash-stack text-success fs-4" />
                                     </div>
                                 </div>
-                                <div className="d-flex align-items-center justify-content-center rounded-3 bg-light-success" style={{ width: 48, height: 48 }}>
-                                    <i className="bi bi-cash-stack text-success fs-3" />
+                                <div className="d-flex justify-content-between fs-9 text-muted pt-2 border-top">
+                                    <span><i className="bi bi-cash-stack text-success me-1" />ฐาน {formatNumber(data.total_base_labor_cost ?? 0)}</span>
+                                    <span><i className="bi bi-calendar-day text-primary me-1" />วัน {formatNumber(data.total_day_labor_cost ?? 0)}</span>
+                                    <span><i className="bi bi-lightning text-warning me-1" />OT {formatNumber(data.total_ot_labor_cost ?? 0)}</span>
                                 </div>
                             </div>
                         </div>
@@ -311,9 +318,14 @@ const WorkPhaseDetail: React.FC = () => {
                                             เวลาที่ใช้
                                             <span className="ms-1 fs-9">{sortField === 'time' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
                                         </th>
-                                        <th>
-                                            เรทค่าจ้าง
-                                            <i className="bi bi-info-circle ms-1 text-muted fs-9" title="เงินเดือน ÷ 30 วัน ÷ 8 ชม." />
+                                        <th className="text-end">
+                                            <i className="bi bi-cash-stack text-success me-1" />ฐาน
+                                        </th>
+                                        <th className="text-end">
+                                            <i className="bi bi-calendar-day text-primary me-1" />วัน
+                                        </th>
+                                        <th className="text-end">
+                                            <i className="bi bi-lightning text-warning me-1" />OT/วันหยุด
                                         </th>
                                         <th role="button" className={`text-end ${sortField === 'cost' ? 'text-primary' : ''}`} onClick={() => toggleSort('cost')}>
                                             รวม (THB)
@@ -343,12 +355,9 @@ const WorkPhaseDetail: React.FC = () => {
                                                     {formatDuration(emp.time_spent_seconds)}
                                                 </span>
                                             </td>
-                                            <td>
-                                                <span className="fw-semibold text-gray-700 fs-7">
-                                                    {formatNumber(emp.hourly_rate)}
-                                                    <span className="text-muted fs-8 ms-1">THB/Hr</span>
-                                                </span>
-                                            </td>
+                                            <td className="text-end fw-semibold text-gray-700 fs-7">{formatNumber((emp as any).base_cost ?? 0)}</td>
+                                            <td className="text-end fw-semibold text-gray-700 fs-7">{formatNumber((emp as any).day_cost ?? 0)}</td>
+                                            <td className="text-end fw-semibold text-gray-700 fs-7">{formatNumber((emp as any).ot_cost ?? 0)}</td>
                                             <td className="text-end">
                                                 <span className="fw-bolder text-dark fs-6">{formatNumber(emp.net_cost)}</span>
                                             </td>
@@ -356,7 +365,7 @@ const WorkPhaseDetail: React.FC = () => {
                                     ))}
                                     {paginatedEmployees.length === 0 && (
                                         <tr>
-                                            <td colSpan={4} className="text-center text-muted py-10">
+                                            <td colSpan={6} className="text-center text-muted py-10">
                                                 <i className="bi bi-people fs-1 d-block mb-3 text-gray-300" />
                                                 ไม่พบข้อมูลพนักงาน
                                             </td>
@@ -366,9 +375,12 @@ const WorkPhaseDetail: React.FC = () => {
                                 {filteredEmployees.length > 0 && (
                                     <tfoot>
                                         <tr className="border-top border-2">
-                                            <td colSpan={3} className="text-end py-4">
+                                            <td colSpan={2} className="text-end py-4">
                                                 <span className="fw-bold text-muted text-uppercase fs-8">รวมทั้งหมด</span>
                                             </td>
+                                            <td className="text-end py-4 fw-bold text-success">{formatNumber(data.total_base_labor_cost ?? 0)}</td>
+                                            <td className="text-end py-4 fw-bold text-primary">{formatNumber(data.total_day_labor_cost ?? 0)}</td>
+                                            <td className="text-end py-4 fw-bold text-warning">{formatNumber(data.total_ot_labor_cost ?? 0)}</td>
                                             <td className="text-end py-4">
                                                 <span className="fw-bolder text-primary" style={{ fontSize: '1.4rem' }}>
                                                     {formatNumber(data.total_labor_cost)}

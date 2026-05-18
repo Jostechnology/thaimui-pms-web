@@ -22,7 +22,8 @@ export interface EmployeeData {
     is_active?: boolean;
     user_id?: number;
     base_salary?: number;
-    salary_base?: number;
+    day_rate?: number;
+    ot_hourly_rate?: number;
 }
 
 const EmployeeSalaryList: React.FC = () => {
@@ -134,15 +135,17 @@ const EmployeeSalaryList: React.FC = () => {
                         <thead>
                             <tr className="text-start text-gray-800 fw-bold fs-7 text-uppercase gs-0 bg-light">
                                 <th className="min-w-100px ps-4 rounded-start">รหัสพนักงาน</th>
-                                <th className="min-w-100px">ชื่อพนักงาน</th>
-                                <th className="min-w-100px">เงินเดือน</th>
+                                <th className="min-w-150px">ชื่อพนักงาน</th>
+                                <th className="min-w-100px text-end">เงินเดือนฐาน (฿/เดือน)</th>
+                                <th className="min-w-100px text-end">ค่าแรงรายวัน (฿/วัน)</th>
+                                <th className="min-w-100px text-end">ค่า OT (฿/ชม.)</th>
                                 <th className="min-w-100px text-center rounded-end">จัดการ</th>
                             </tr>
                         </thead>
                         <tbody className="fw-semibold text-gray-600">
                             {dataLoading ? (
                                 <tr>
-                                    <td colSpan={4} className="text-center py-10">
+                                    <td colSpan={6} className="text-center py-10">
                                         <span className="spinner-border spinner-border-sm text-primary me-2"></span>
                                         กำลังโหลดข้อมูล...
                                     </td>
@@ -168,14 +171,20 @@ const EmployeeSalaryList: React.FC = () => {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="text-success fw-bold fs-6">
-                                            {formatCurrency(item.base_salary || item.salary_base)}
+                                        <td className="text-end text-success fw-bold fs-6">
+                                            {formatCurrency(item.base_salary)}
+                                        </td>
+                                        <td className="text-end text-gray-800 fw-bold">
+                                            {formatCurrency(item.day_rate)}
+                                        </td>
+                                        <td className="text-end text-gray-800 fw-bold">
+                                            {formatCurrency(item.ot_hourly_rate)}
                                         </td>
                                         <td className="text-center">
                                             <div className="d-flex justify-content-center gap-2">
                                                 <button
                                                     className="btn btn-icon btn-sm btn-light-warning shadow-sm"
-                                                    title="ปรับเงินเดือน"
+                                                    title="ปรับค่าตอบแทน"
                                                     onClick={() => handleOpenAdjustModal(item)}
                                                 >
                                                     <i className="bi bi-calculator fs-4"></i>
@@ -186,7 +195,7 @@ const EmployeeSalaryList: React.FC = () => {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={4} className="text-center py-10 text-muted">
+                                    <td colSpan={6} className="text-center py-10 text-muted">
                                         ไม่พบข้อมูลพนักงาน
                                     </td>
                                 </tr>
@@ -225,7 +234,9 @@ const EmployeeSalaryList: React.FC = () => {
                 employee={selectedEmp ? {
                     id: selectedEmp.employee_id,
                     name: `${selectedEmp.employee_first_name} ${selectedEmp.employee_last_name}`,
-                    currentSalary: selectedEmp.base_salary || selectedEmp.salary_base || 0
+                    currentBase: selectedEmp.base_salary || 0,
+                    currentDay: selectedEmp.day_rate || 0,
+                    currentOt: selectedEmp.ot_hourly_rate || 0,
                 } : null}
             />
             <SalarySummaryModal

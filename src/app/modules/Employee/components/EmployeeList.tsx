@@ -70,7 +70,9 @@ const EmployeeList: React.FC = () => {
             address: it.address ?? null,
             status: it.status ?? it.employee_status ?? '',
             user_id: it.user_id ?? it.userId ?? 0,
-            salary_base: it.salary_base ?? it.salaryBase ?? 0,
+            base_salary: it.base_salary ?? 0,
+            day_rate: it.day_rate ?? 0,
+            ot_hourly_rate: it.ot_hourly_rate ?? 0,
           } as Employee))
           : [];
         setEmployees(normalized);
@@ -221,16 +223,18 @@ const EmployeeList: React.FC = () => {
                   <th>พนักงาน</th>
                   <th>เบอร์โทร</th>
                   <th>อีเมล</th>
-                  <th>เงินเดือน</th>
+                  <th className="text-end">เงินเดือนฐาน</th>
+                  <th className="text-end">ค่าแรง/วัน</th>
+                  <th className="text-end">OT/ชม.</th>
                   <th className="text-center">สถานะ</th>
                   <th className="text-end">จัดการ</th>
                 </tr>
               </thead>
               <tbody className="text-gray-600 fw-semibold">
                 {dataLoading ? (
-                  <tr><td colSpan={7} className="text-center py-10"><span className="spinner-border spinner-border-sm text-primary me-2"></span>กำลังโหลด...</td></tr>
+                  <tr><td colSpan={9} className="text-center py-10"><span className="spinner-border spinner-border-sm text-primary me-2"></span>กำลังโหลด...</td></tr>
                 ) : employees.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-10">{keyword ? 'ไม่พบผลลัพธ์' : 'ยังไม่มีข้อมูลพนักงาน'}</td></tr>
+                  <tr><td colSpan={9} className="text-center py-10">{keyword ? 'ไม่พบผลลัพธ์' : 'ยังไม่มีข้อมูลพนักงาน'}</td></tr>
                 ) : (
                   employees.map((emp) => {
                     const avatar = getAvatarColor(emp.employee_id);
@@ -255,7 +259,9 @@ const EmployeeList: React.FC = () => {
                         </td>
                         <td>{emp.phone_number || '-'}</td>
                         <td>{emp.email || '-'}</td>
-                        <td>{emp.salary_base ? formatSalary(emp.salary_base) : '-'}</td>
+                        <td className="text-end">{formatSalary(emp.base_salary)}</td>
+                        <td className="text-end">{formatSalary(emp.day_rate)}</td>
+                        <td className="text-end">{formatSalary(emp.ot_hourly_rate)}</td>
                         <td className="text-center"><span className={`badge ${getStatusBadgeClass(emp.status)}`}>{getThaiStatus(emp.status) || '-'}</span></td>
                         <td className="text-end">
                           <div className="d-flex justify-content-end gap-1">

@@ -173,6 +173,22 @@ export const subRoutesConfig: SubRouteType[] = [
         display : true
     },
     {
+        module_code: "SHIFT_MANAGEMENT",
+        main_module_code: "SETTING",
+        path: "/setting/shift_management",
+        title: "จัดการกะการทำงาน",
+        permission: [],
+        display : true
+    },
+    {
+        module_code: "HOLIDAY_MANAGEMENT",
+        main_module_code: "SETTING",
+        path: "/setting/holiday_management",
+        title: "จัดการวันหยุด",
+        permission: [],
+        display : true
+    },
+    {
         module_code: "DASHBOARD",
         main_module_code: "WORKORDERS",
         path: "/workorder/workorders_dashboard",

@@ -8,6 +8,8 @@ import BranchManagement from "./components/BranchManagement";
 import BranchList from "./components/BranchList";
 import BranchCreate from "./components/BranchCreate";
 import BranchEdit from "./components/BranchEdit";
+import ShiftManagement from "./components/ShiftManagement";
+import HolidayManagement from "./components/HolidayManagement";
 
 const SettingPage = () => {
 
@@ -22,6 +24,9 @@ const SettingPage = () => {
             <Route path="branch_list" element={<BranchList />}/>
             <Route path="branch_create" element={<BranchCreate />}/>
             <Route path="branch_edit/:id" element={<BranchEdit />}/>
+
+            <Route path="shift_management" element={<ShiftManagement />}/>
+            <Route path="holiday_management" element={<HolidayManagement />}/>
         </Routes>
     );
 

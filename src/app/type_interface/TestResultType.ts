@@ -44,7 +44,9 @@ export interface TestResultCost {
     material_cost: number | null;
     depreciation_cost: number | null;
     maintenance_cost: number | null;
-    labor_cost: number | null;
+    base_labor_cost: number | null;
+    day_labor_cost: number | null;
+    ot_labor_cost: number | null;
     total_cost: number | null;
 }
 

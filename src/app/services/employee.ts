@@ -135,7 +135,15 @@ export const getEmployeeSalaryHistory = async (employee_id: number, month?: stri
     }
 };
 
-export const updateEmployeeSalary = async (employee_id: number, payload: { new_salary: number; effective_date: string; remark?: string }) => {
+export interface UpdateSalaryPayload {
+    new_base_salary?: number;
+    new_day_rate?: number;
+    new_ot_hourly_rate?: number;
+    effective_date: string;
+    remark?: string;
+}
+
+export const updateEmployeeSalary = async (employee_id: number, payload: UpdateSalaryPayload) => {
     try {
         const response = await front_api(
             'PUT',

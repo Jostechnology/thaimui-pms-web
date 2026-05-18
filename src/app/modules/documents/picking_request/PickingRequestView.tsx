@@ -211,7 +211,18 @@ const ItemRow: React.FC<{ item: PickingRequestItemDetail; onAdjust: (item: Picki
                                                 <tbody>
                                                     {item.test_result_consumptions.map(c => (
                                                         <tr key={c.id}>
-                                                            <td className='fw-bold text-gray-800'>{c.test_result.test_result_code}</td>
+                                                            <td>
+                                                                <a
+                                                                    href={`/quality_control/test_result/${c.test_result.test_result_id}`}
+                                                                    target='_blank'
+                                                                    rel='noopener noreferrer'
+                                                                    className='fw-bold text-primary text-hover-primary text-decoration-underline'
+                                                                    title='เปิด Test Result ในแท็บใหม่'
+                                                                >
+                                                                    {c.test_result.test_result_code}
+                                                                    <i className='bi bi-box-arrow-up-right ms-1 fs-9'></i>
+                                                                </a>
+                                                            </td>
                                                             <td className='text-center'>
                                                                 <span className={`badge ${SESSION_BADGE[c.test_result.session_status] ?? 'badge-light-secondary'} fw-bold fs-8`}>
                                                                     {c.test_result.session_status}
@@ -256,8 +267,29 @@ const ItemRow: React.FC<{ item: PickingRequestItemDetail; onAdjust: (item: Picki
                                                 <tbody>
                                                     {item.work_run_consumptions.map(c => (
                                                         <tr key={c.id}>
-                                                            <td className='fw-bold text-gray-800'>{c.work_run.lot_number ?? '-'}</td>
-                                                            <td className='text-center text-muted'>#{c.work_run.work_run_id}</td>
+                                                            <td>
+                                                                <a
+                                                                    href={`/workorder/work_run/${c.work_run.work_run_id}`}
+                                                                    target='_blank'
+                                                                    rel='noopener noreferrer'
+                                                                    className='fw-bold text-primary text-hover-primary text-decoration-underline'
+                                                                    title='เปิด Work Run ในแท็บใหม่'
+                                                                >
+                                                                    {c.work_run.lot_number ?? '-'}
+                                                                    <i className='bi bi-box-arrow-up-right ms-1 fs-9'></i>
+                                                                </a>
+                                                            </td>
+                                                            <td className='text-center'>
+                                                                <a
+                                                                    href={`/workorder/work_run/${c.work_run.work_run_id}`}
+                                                                    target='_blank'
+                                                                    rel='noopener noreferrer'
+                                                                    className='text-primary text-hover-primary text-decoration-underline'
+                                                                    title='เปิด Work Run ในแท็บใหม่'
+                                                                >
+                                                                    #{c.work_run.work_run_id}
+                                                                </a>
+                                                            </td>
                                                             <td className='text-center'>
                                                                 <span className={`badge ${WORK_RUN_BADGE[c.work_run.status] ?? 'badge-light-secondary'} fw-bold fs-8`}>
                                                                     {c.work_run.status}

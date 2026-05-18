@@ -3,6 +3,7 @@ import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from 'react-bootstrap';
 import Swal from "sweetalert2";
+import { getLaborSplit, estimateLiveLaborSplit, LaborCostSplit } from '../../../utils/labor_cost_utils';
 import { getEmployeeList, getEmployeeTotalCount } from '../../../services/employee';
 import { getMachineList, getMachineTotalCount } from '../../../services/machineService';
 import {
@@ -633,8 +634,10 @@ const WorkRunDetail: React.FC = () => {
         for (const a of workRun.assignments) {
             const seconds = calcElapsedSeconds(a, breaks);
             const isWorking = a.to_time === null;
-            const salary = a.employee?.salary_base ?? 0;
-            const hourlyRate = salary / 30 / 8;
+            const baseSalary = (a.employee as any)?.base_salary ?? 0;
+            const dayRate = (a.employee as any)?.day_rate ?? 0;
+            // Live estimate: base/30/8 + day/8 (per hour). OT multipliers applied by backend on completion.
+            const hourlyRate = (baseSalary / 30 / 8) + (dayRate / 8);
             const cost = hourlyRate * seconds / 3600;
             if (map.has(a.employee_id)) {
                 const existing = map.get(a.employee_id)!;
@@ -655,6 +658,23 @@ const WorkRunDetail: React.FC = () => {
         () => laborBreakdown.reduce((s, a) => s + a.cost, 0),
         [laborBreakdown]
     );
+
+    /**
+     * Labor split into base / day / ot.
+     * For COMPLETED runs, read the authoritative values stored on WorkRunCost.
+     * For live runs, fall back to an estimate (base+day only — OT/holiday/weekend
+     * multipliers are computed by backend at completion and not displayed live).
+     */
+    const laborSplit: LaborCostSplit = useMemo(() => {
+        const isCompleted = (workRun?.status || '').toUpperCase() === 'COMPLETED';
+        if (isCompleted && workRun?.cost) {
+            return getLaborSplit(workRun.cost as any);
+        }
+        return estimateLiveLaborSplit(workRun?.assignments ?? [], workRun?.breaks ?? []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [workRun, costTick]);
+
+    const isLaborEstimate = (workRun?.status || '').toUpperCase() !== 'COMPLETED';
 
     const finalMaterialCost = useMemo(() => {
         // For completed runs, use the stored actual material cost for accuracy.
@@ -1049,10 +1069,13 @@ const WorkRunDetail: React.FC = () => {
         // For completed runs, calculate an effective overall labor rate to ensure the graph
         // ends at the exact stored final cost.
         let effectiveLaborRate = 0;
-        if (isCompleted && workRun.cost?.labor_cost != null) {
+        const storedLabor = workRun.cost
+            ? ((workRun.cost as any).base_labor_cost ?? 0) + ((workRun.cost as any).day_labor_cost ?? 0) + ((workRun.cost as any).ot_labor_cost ?? 0)
+            : null;
+        if (isCompleted && storedLabor != null) {
             const totalLaborSec = (workRun.assignments ?? []).reduce((sum, a) => sum + calcElapsedSeconds(a, breaks), 0);
             if (totalLaborSec > 0) {
-                effectiveLaborRate = workRun.cost.labor_cost / totalLaborSec;
+                effectiveLaborRate = storedLabor / totalLaborSec;
             }
         }
 
@@ -1090,11 +1113,12 @@ const WorkRunDetail: React.FC = () => {
                     const sec = effectiveSec(a, t);
                     labor += effectiveLaborRate * sec;
                 });
-            } else { // Otherwise, calculate live from salary.
+            } else { // Otherwise, calculate live from pay rates (base + day; OT handled at finalize).
                 (workRun.assignments ?? []).forEach(a => {
                     const sec = effectiveSec(a, t);
-                    const salary = a.employee?.salary_base ?? 0;
-                    labor += (salary / 30 / 8 / 3600) * sec;
+                    const baseSalary = (a.employee as any)?.base_salary ?? 0;
+                    const dayRate = (a.employee as any)?.day_rate ?? 0;
+                    labor += ((baseSalary / 30 / 8 / 3600) + (dayRate / 8 / 3600)) * sec;
                 });
             }
             const elapsedMin = Math.round((t - startMs) / 60000);
@@ -1797,12 +1821,24 @@ const WorkRunDetail: React.FC = () => {
                                                             </span>
                                                             <span className="text-muted fs-8">{formatDurationMs(a.seconds * 1000)}</span>
                                                         </div>
-                                                        <div className="d-flex gap-3 fs-8 text-muted">
+                                                        <div className="d-flex gap-3 fs-8 text-muted flex-wrap">
                                                             <span>
                                                                 <i className="bi bi-cash-stack me-1 text-success" />
-                                                                {a.employee?.salary_base
-                                                                    ? `฿${a.employee.salary_base.toLocaleString()}/เดือน`
-                                                                    : <span className="fst-italic">ไม่มีเงินเดือน</span>}
+                                                                {(a.employee as any)?.base_salary
+                                                                    ? `ฐาน ฿${(a.employee as any).base_salary.toLocaleString()}/ด.`
+                                                                    : null}
+                                                            </span>
+                                                            <span>
+                                                                <i className="bi bi-calendar-day me-1 text-primary" />
+                                                                {(a.employee as any)?.day_rate
+                                                                    ? `รายวัน ฿${(a.employee as any).day_rate.toLocaleString()}/วัน`
+                                                                    : null}
+                                                            </span>
+                                                            <span>
+                                                                <i className="bi bi-lightning me-1 text-warning" />
+                                                                {(a.employee as any)?.ot_hourly_rate
+                                                                    ? `OT ฿${(a.employee as any).ot_hourly_rate.toLocaleString()}/ชม.`
+                                                                    : null}
                                                             </span>
                                                             <span>
                                                                 <i className="bi bi-clock me-1" />
@@ -1877,20 +1913,48 @@ const WorkRunDetail: React.FC = () => {
                                     </span>
                                 </div>
 
-                                {/* ค่าพนักงาน */}
-                                <div className="d-flex justify-content-between align-items-center mb-4">
-                                    <div className="d-flex align-items-center gap-2">
+                                {/* ค่าพนักงาน — split */}
+                                <div className="mb-2">
+                                    <div className="d-flex align-items-center gap-2 mb-2">
                                         <span className="symbol symbol-25px">
                                             <span className="symbol-label">
                                                 <i className="bi bi-people fs-8"></i>
                                             </span>
                                         </span>
-                                        <span className="text-gray-600 fs-7">ค่าพนักงาน</span>
+                                        <span className="text-gray-700 fs-7 fw-bold">ค่าพนักงาน</span>
+                                        {isLaborEstimate && (
+                                            <span className="badge badge-light-warning fs-9">ประมาณการ</span>
+                                        )}
                                     </div>
-                                    <span className="fw-semibold text-gray-800 fs-7">฿{totalLaborCost.toFixed(2)}</span>
+                                    <div className="ps-7">
+                                        <div className="d-flex justify-content-between align-items-center mb-2">
+                                            <span className="text-gray-600 fs-8">
+                                                <i className="bi bi-cash-stack me-1 text-success" />เงินเดือนฐาน
+                                            </span>
+                                            <span className="fw-semibold text-gray-800 fs-8">฿{laborSplit.base.toFixed(2)}</span>
+                                        </div>
+                                        <div className="d-flex justify-content-between align-items-center mb-2">
+                                            <span className="text-gray-600 fs-8">
+                                                <i className="bi bi-calendar-day me-1 text-primary" />ค่าแรงรายวัน
+                                            </span>
+                                            <span className="fw-semibold text-gray-800 fs-8">฿{laborSplit.day.toFixed(2)}</span>
+                                        </div>
+                                        <div className="d-flex justify-content-between align-items-center mb-2">
+                                            <span className="text-gray-600 fs-8">
+                                                <i className="bi bi-lightning me-1 text-warning" />ค่า OT / วันหยุด
+                                            </span>
+                                            <span className="fw-semibold text-gray-800 fs-8">
+                                                {isLaborEstimate ? <span className="text-muted fst-italic">รอ finalize</span> : `฿${laborSplit.ot.toFixed(2)}`}
+                                            </span>
+                                        </div>
+                                        <div className="d-flex justify-content-between align-items-center pt-1 border-top">
+                                            <span className="text-gray-700 fs-8 fw-bold">รวมค่าพนักงาน</span>
+                                            <span className="fw-bold text-gray-900 fs-7">฿{laborSplit.total.toFixed(2)}</span>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="separator separator-dashed mb-4"></div>
+                                <div className="separator separator-dashed my-4"></div>
 
                                 {/* รวมต้นทุน */}
                                 <div className="d-flex justify-content-between align-items-center">
@@ -1900,7 +1964,7 @@ const WorkRunDetail: React.FC = () => {
                                             finalMaterialCost +
                                             machineCostActual.reduce((s, m) => s + m.depreciationCost, 0) +
                                             machineCostActual.reduce((s, m) => s + m.maintenanceCost, 0) +
-                                            totalLaborCost
+                                            laborSplit.total
                                         ).toFixed(2)}
                                     </span>
                                 </div>

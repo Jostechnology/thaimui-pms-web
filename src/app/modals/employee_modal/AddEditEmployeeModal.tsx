@@ -23,7 +23,9 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
     const [citizenId, setCitizenId] = useState('');
     const [address, setAddress] = useState('');
     const [status, setStatus] = useState<string>('ทำงานอยู่');
-    const [salary_base, setSalaryBase] = useState<number | string>('');
+    const [baseSalary, setBaseSalary] = useState<number | string>('');
+    const [dayRate, setDayRate] = useState<number | string>('');
+    const [otHourlyRate, setOtHourlyRate] = useState<number | string>('');
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -39,7 +41,9 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                 setCitizenId(employee.citizen_id || '');
                 setAddress(employee.address || '');
                 setStatus(employee.status || 'ทำงานอยู่');
-                setSalaryBase(employee.salary_base ? formatWithCommas(employee.salary_base) : '');
+                setBaseSalary(employee.base_salary ? formatWithCommas(employee.base_salary) : '');
+                setDayRate(employee.day_rate ? formatWithCommas(employee.day_rate) : '');
+                setOtHourlyRate(employee.ot_hourly_rate ? formatWithCommas(employee.ot_hourly_rate) : '');
             } else {
                 resetForm();
             }
@@ -54,7 +58,9 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
         setCitizenId('');
         setAddress('');
         setStatus('ทำงานอยู่');
-        setSalaryBase('');
+        setBaseSalary('');
+        setDayRate('');
+        setOtHourlyRate('');
         setErrors({});
     };
 
@@ -83,9 +89,17 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
         const emailErr = validateEmail(email);
         if (emailErr) newErrors.email = emailErr;
 
-        if (salary_base !== '') {
-            const salaryErr = validateNonNegativeNumber(salary_base, 'ฐานเงินเดือน');
-            if (salaryErr) newErrors.salary_base = salaryErr;
+        if (baseSalary !== '') {
+            const err = validateNonNegativeNumber(baseSalary, 'เงินเดือนฐาน');
+            if (err) newErrors.base_salary = err;
+        }
+        if (dayRate !== '') {
+            const err = validateNonNegativeNumber(dayRate, 'ค่าแรงรายวัน');
+            if (err) newErrors.day_rate = err;
+        }
+        if (otHourlyRate !== '') {
+            const err = validateNonNegativeNumber(otHourlyRate, 'ค่า OT ต่อชั่วโมง');
+            if (err) newErrors.ot_hourly_rate = err;
         }
 
         setErrors(newErrors);
@@ -105,7 +119,9 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                 email: email,
                 address: address,
                 status: status,
-                salary_base: salary_base ? parseCommaNumber(String(salary_base)) : 0,
+                base_salary: baseSalary ? parseCommaNumber(String(baseSalary)) : 0,
+                day_rate: dayRate ? parseCommaNumber(String(dayRate)) : 0,
+                ot_hourly_rate: otHourlyRate ? parseCommaNumber(String(otHourlyRate)) : 0,
                 user_id: employee?.user_id,
                 ...(isEditMode ? { employee_id: employee?.employee_id } : {})
             };
@@ -222,7 +238,7 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                             </div>
 
                             <div className="row g-9 mb-8">
-                                <div className="col-md-6 fv-row">
+                                <div className="col-md-12 fv-row">
                                     <label className="required fs-6 fw-semibold mb-2">สถานะพนักงาน</label>
                                     <select
                                         className="form-select form-select-solid"
@@ -234,20 +250,57 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                                         ))}
                                     </select>
                                 </div>
-                                <div className="col-md-6 fv-row">
-                                    <label className="fs-6 fw-semibold mb-2">ฐานเงินเดือน</label>
+                            </div>
+
+                            <h3 className="mb-5 text-primary">ค่าตอบแทน</h3>
+                            <div className="row g-9 mb-8">
+                                <div className="col-md-4 fv-row">
+                                    <label className="fs-6 fw-semibold mb-2">เงินเดือนฐาน (บาท/เดือน)</label>
                                     <input
                                         type="text"
-                                        className={`form-control form-control-lg ${errors.salary_base ? "is-invalid" : ""}`}
+                                        className={`form-control form-control-lg ${errors.base_salary ? "is-invalid" : ""}`}
                                         placeholder="0"
-                                        value={salary_base}
+                                        value={baseSalary}
                                         onChange={e => {
                                             const { displayValue } = handleCommaNumberInput(e.target.value);
-                                            setSalaryBase(displayValue);
-                                            clearError('salary_base');
+                                            setBaseSalary(displayValue);
+                                            clearError('base_salary');
                                         }}
                                     />
-                                    {errors.salary_base && <div className="invalid-feedback">{errors.salary_base}</div>}
+                                    <div className="form-text">จ่ายประจำทุกเดือนแม้ไม่มีงาน</div>
+                                    {errors.base_salary && <div className="invalid-feedback">{errors.base_salary}</div>}
+                                </div>
+                                <div className="col-md-4 fv-row">
+                                    <label className="fs-6 fw-semibold mb-2">ค่าแรงรายวัน (บาท/วัน)</label>
+                                    <input
+                                        type="text"
+                                        className={`form-control form-control-lg ${errors.day_rate ? "is-invalid" : ""}`}
+                                        placeholder="0"
+                                        value={dayRate}
+                                        onChange={e => {
+                                            const { displayValue } = handleCommaNumberInput(e.target.value);
+                                            setDayRate(displayValue);
+                                            clearError('day_rate');
+                                        }}
+                                    />
+                                    <div className="form-text">จ่ายเมื่อมาทำงานในเวลาปกติ</div>
+                                    {errors.day_rate && <div className="invalid-feedback">{errors.day_rate}</div>}
+                                </div>
+                                <div className="col-md-4 fv-row">
+                                    <label className="fs-6 fw-semibold mb-2">ค่า OT (บาท/ชั่วโมง)</label>
+                                    <input
+                                        type="text"
+                                        className={`form-control form-control-lg ${errors.ot_hourly_rate ? "is-invalid" : ""}`}
+                                        placeholder="0"
+                                        value={otHourlyRate}
+                                        onChange={e => {
+                                            const { displayValue } = handleCommaNumberInput(e.target.value);
+                                            setOtHourlyRate(displayValue);
+                                            clearError('ot_hourly_rate');
+                                        }}
+                                    />
+                                    <div className="form-text">นอกเวลา/วันหยุดจะคูณตัวคูณตามกะ</div>
+                                    {errors.ot_hourly_rate && <div className="invalid-feedback">{errors.ot_hourly_rate}</div>}
                                 </div>
                             </div>
 

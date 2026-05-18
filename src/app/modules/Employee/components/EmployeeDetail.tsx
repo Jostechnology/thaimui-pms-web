@@ -106,11 +106,17 @@ const EmployeeDetail: React.FC = () => {
                                     <div className="d-flex flex-wrap flex-stack">
                                         <div className="d-flex flex-column flex-grow-1 pe-8">
                                             <div className="d-flex flex-wrap">
-                                                <div className="border border-gray-300 border-dashed rounded min-w-125px py-3 px-4 me-6 mb-3">
-                                                    <div className="d-flex align-items-center">
-                                                        <div className="fs-2 fw-bolder counted">{formatSalary(employee.salary_base)}</div>
-                                                    </div>
-                                                    <div className="fw-bold fs-6 text-gray-400">เงินเดือนฐาน</div>
+                                                <div className="border border-gray-300 border-dashed rounded min-w-125px py-3 px-4 me-3 mb-3">
+                                                    <div className="fs-3 fw-bolder counted">{formatSalary(employee.base_salary)}</div>
+                                                    <div className="fw-bold fs-7 text-gray-400">เงินเดือนฐาน (฿/เดือน)</div>
+                                                </div>
+                                                <div className="border border-gray-300 border-dashed rounded min-w-125px py-3 px-4 me-3 mb-3">
+                                                    <div className="fs-3 fw-bolder counted">{formatSalary(employee.day_rate)}</div>
+                                                    <div className="fw-bold fs-7 text-gray-400">ค่าแรงรายวัน (฿/วัน)</div>
+                                                </div>
+                                                <div className="border border-gray-300 border-dashed rounded min-w-125px py-3 px-4 mb-3">
+                                                    <div className="fs-3 fw-bolder counted">{formatSalary(employee.ot_hourly_rate)}</div>
+                                                    <div className="fw-bold fs-7 text-gray-400">ค่า OT (฿/ชม.)</div>
                                                 </div>
                                             </div>
                                         </div>

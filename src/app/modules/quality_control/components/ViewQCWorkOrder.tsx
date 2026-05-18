@@ -211,6 +211,9 @@ const ViewQCWorkOrder: React.FC = () => {
         return testResultDetails.map(tr => {
             const stored = tr.cost ?? null;
             if (tr.session_status === 'COMPLETED' && stored) {
+                const baseLabor = (stored as any).base_labor_cost ?? 0;
+                const dayLabor = (stored as any).day_labor_cost ?? 0;
+                const otLabor = (stored as any).ot_labor_cost ?? 0;
                 return {
                     test_result_id: tr.test_result_id,
                     test_result_code: tr.test_result_code,
@@ -218,7 +221,10 @@ const ViewQCWorkOrder: React.FC = () => {
                     material: stored.material_cost ?? 0,
                     depreciation: stored.depreciation_cost ?? 0,
                     maintenance: stored.maintenance_cost ?? 0,
-                    labor: stored.labor_cost ?? 0,
+                    base_labor: baseLabor,
+                    day_labor: dayLabor,
+                    ot_labor: otLabor,
+                    labor: baseLabor + dayLabor + otLabor,
                     total: stored.total_cost ?? 0,
                 };
             }
@@ -239,11 +245,15 @@ const ViewQCWorkOrder: React.FC = () => {
                 maintenance += running ? (m.cost?.maintenance_rate_per_second ?? 0) * sec : (m.cost?.maintenance_cost ?? 0);
             });
 
-            const labor = (tr.assignments ?? []).reduce((sum: number, a: any) => {
+            let baseLabor = 0, dayLabor = 0;
+            (tr.assignments ?? []).forEach((a: any) => {
                 const sec = calcSec(a, breaks);
-                const salary = a.employee?.salary_base ?? 0;
-                return sum + (salary / 30 / 8 / 3600) * sec;
-            }, 0);
+                const baseSalary = a.employee?.base_salary ?? 0;
+                const dayRate = a.employee?.day_rate ?? 0;
+                baseLabor += (baseSalary / 30 / 8 / 3600) * sec;
+                dayLabor += (dayRate / 8 / 3600) * sec;
+            });
+            const labor = baseLabor + dayLabor;
 
             return {
                 test_result_id: tr.test_result_id,
@@ -252,6 +262,9 @@ const ViewQCWorkOrder: React.FC = () => {
                 material,
                 depreciation,
                 maintenance,
+                base_labor: baseLabor,
+                day_labor: dayLabor,
+                ot_labor: 0,
                 labor,
                 total: material + depreciation + maintenance + labor,
             };
@@ -264,10 +277,13 @@ const ViewQCWorkOrder: React.FC = () => {
                 material: acc.material + r.material,
                 depreciation: acc.depreciation + r.depreciation,
                 maintenance: acc.maintenance + r.maintenance,
+                base_labor: acc.base_labor + r.base_labor,
+                day_labor: acc.day_labor + r.day_labor,
+                ot_labor: acc.ot_labor + r.ot_labor,
                 labor: acc.labor + r.labor,
                 total: acc.total + r.total,
             }),
-            { material: 0, depreciation: 0, maintenance: 0, labor: 0, total: 0 }
+            { material: 0, depreciation: 0, maintenance: 0, base_labor: 0, day_labor: 0, ot_labor: 0, labor: 0, total: 0 }
         ), [testResultCosts]);
 
     const handleExportPDF = async () => {
@@ -859,7 +875,10 @@ const ViewQCWorkOrder: React.FC = () => {
                                         <th className="text-end">ค่าวัตถุดิบ</th>
                                         <th className="text-end">ค่าเสื่อมราคา</th>
                                         <th className="text-end">ค่าซ่อมบำรุง</th>
-                                        <th className="text-end">ค่าพนักงาน</th>
+                                        <th className="text-end" title="เงินเดือนฐาน prorate">ฐาน</th>
+                                        <th className="text-end" title="ค่าแรงรายวัน prorate">รายวัน</th>
+                                        <th className="text-end" title="OT / วันหยุด (คำนวนตอน finalize)">OT</th>
+                                        <th className="text-end">ค่าพนักงานรวม</th>
                                         <th className="text-end">รวม</th>
                                     </tr>
                                 </thead>
@@ -885,7 +904,16 @@ const ViewQCWorkOrder: React.FC = () => {
                                             <td className="text-end text-gray-700">
                                                 {r.maintenance > 0 ? `฿${r.maintenance.toFixed(4)}` : <span className="text-muted">-</span>}
                                             </td>
-                                            <td className="text-end text-gray-700">
+                                            <td className="text-end text-gray-700 fs-8">
+                                                {r.base_labor > 0 ? `฿${r.base_labor.toFixed(2)}` : <span className="text-muted">-</span>}
+                                            </td>
+                                            <td className="text-end text-gray-700 fs-8">
+                                                {r.day_labor > 0 ? `฿${r.day_labor.toFixed(2)}` : <span className="text-muted">-</span>}
+                                            </td>
+                                            <td className="text-end text-gray-700 fs-8">
+                                                {r.ot_labor > 0 ? `฿${r.ot_labor.toFixed(2)}` : <span className="text-muted">-</span>}
+                                            </td>
+                                            <td className="text-end text-gray-700 fw-bold">
                                                 {r.labor > 0 ? `฿${r.labor.toFixed(2)}` : <span className="text-muted">-</span>}
                                             </td>
                                             <td className="text-end fw-bold text-primary">
@@ -906,7 +934,16 @@ const ViewQCWorkOrder: React.FC = () => {
                                         <td className="text-end py-5" style={{ color: '#fd7e14' }}>
                                             ฿{totalCosts.maintenance.toLocaleString('th-TH', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                                         </td>
-                                        <td className="text-end py-5" style={{ color: '#198754' }}>
+                                        <td className="text-end py-5 fs-8" style={{ color: '#198754' }}>
+                                            ฿{totalCosts.base_labor.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="text-end py-5 fs-8" style={{ color: '#0d6efd' }}>
+                                            ฿{totalCosts.day_labor.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="text-end py-5 fs-8" style={{ color: '#ffc107' }}>
+                                            ฿{totalCosts.ot_labor.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="text-end py-5 fw-bold" style={{ color: '#198754' }}>
                                             ฿{totalCosts.labor.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </td>
                                         <td className="text-end fs-5 py-5" style={{ color: '#dc3545' }}>

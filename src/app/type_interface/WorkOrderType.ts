@@ -85,7 +85,9 @@ export interface WorkRunCost {
     material_cost: number | null;
     depreciation_cost: number | null;
     maintenance_cost: number | null;
-    labor_cost: number | null;
+    base_labor_cost: number | null;
+    day_labor_cost: number | null;
+    ot_labor_cost: number | null;
     total_cost: number | null;
 }
 
@@ -248,11 +250,16 @@ export interface WorkRunEmployeeBreakdown {
     employee_first_name: string;
     employee_last_name: string;
     status: string;
-    salary_at_run: number;
-    hourly_rate: number;
+    base_salary_at_run: number;
+    day_rate_at_run: number;
+    ot_hourly_rate_at_run: number;
     from_time: string | null;
     to_time: string | null;
     time_spent_seconds: number;
+    effective_seconds: number;
+    base_cost: number;
+    day_cost: number;
+    ot_cost: number;
     net_cost: number;
 }
 
@@ -274,6 +281,9 @@ export interface WorkRunCostDetailData {
     start_date: string | null;
     end_date: string | null;
     total_work_seconds: number;
+    total_base_labor_cost: number;
+    total_day_labor_cost: number;
+    total_ot_labor_cost: number;
     total_labor_cost: number;
     employee_breakdown: WorkRunEmployeeBreakdown[];
     machine_breakdown: WorkRunMachineBreakdown[];

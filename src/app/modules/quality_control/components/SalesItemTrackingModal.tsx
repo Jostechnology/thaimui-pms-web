@@ -186,9 +186,15 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
                                     <div className="card-body py-4">
                                         <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
                                             <div>
-                                                <span className="fw-bold text-gray-900 fs-6">
+                                                <a
+                                                    href={`/workorder/workorders_view/${data.work_order.work_order_id}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="fw-bold fs-6 text-primary text-hover-primary"
+                                                >
                                                     ใบสั่งผลิต #{data.work_order.work_order_code}
-                                                </span>
+                                                    <i className="bi bi-box-arrow-up-right ms-2 fs-7"></i>
+                                                </a>
                                                 <span className="text-muted fs-7 ms-3">
                                                     จำนวน <span className="fw-bold text-gray-700">{data.work_order.quantity}</span> ชิ้น
                                                 </span>
@@ -204,7 +210,15 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
                                                 <div className="d-flex flex-column gap-2">
                                                     {data.work_order.work_runs.map((run) => (
                                                         <div key={run.work_run_id} className="d-flex align-items-center flex-wrap gap-3 border rounded px-4 py-3">
-                                                            <span className="fw-bold text-gray-800 fs-7">#{run.lot_number}</span>
+                                                            <a
+                                                                href={`/workorder/work_run/${run.work_run_id}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="fw-bold fs-7 text-primary text-hover-primary"
+                                                            >
+                                                                #{run.lot_number}
+                                                                <i className="bi bi-box-arrow-up-right ms-1 fs-8"></i>
+                                                            </a>
                                                             <StatusBadge status={run.status} map={WORK_ORDER_STATUS} />
                                                             <span className="text-muted fs-8">
                                                                 <i className="bi bi-box-seam me-1"></i>qty: {run.quantity}
@@ -252,9 +266,15 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
                                             <div className="card-body py-4">
                                                 <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
                                                     <div>
-                                                        <span className="fw-bold text-gray-900 fs-6">
+                                                        <a
+                                                            href={`/quality_control/qc_workorders_list/view/${qc.qc_work_order_id}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="fw-bold fs-6 text-primary text-hover-primary"
+                                                        >
                                                             ใบสั่งเทส #{qc.qc_work_order_code}
-                                                        </span>
+                                                            <i className="bi bi-box-arrow-up-right ms-2 fs-7"></i>
+                                                        </a>
                                                         <span className="text-muted fs-7 ms-3">
                                                             จำนวน <span className="fw-bold text-gray-700">{qc.quantity}</span> ชิ้น
                                                         </span>
@@ -288,7 +308,17 @@ const SalesItemTrackingModal: React.FC<Props> = ({ show, onHide, salesItemId }) 
                                                                 <tbody>
                                                                     {qc.test_results.map((tr, idx) => (
                                                                         <tr key={tr.test_result_id}>
-                                                                            <td className="text-muted">{idx + 1}</td>
+                                                                            <td>
+                                                                                <a
+                                                                                    href={`/quality_control/test_result/${tr.test_result_id}`}
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    className="fw-bold text-primary text-hover-primary"
+                                                                                >
+                                                                                    #{idx + 1}
+                                                                                    <i className="bi bi-box-arrow-up-right ms-1 fs-8"></i>
+                                                                                </a>
+                                                                            </td>
                                                                             <td>
                                                                                 {tr.session_status === 'COMPLETED'
                                                                                     ? <span className="badge badge-light-success fw-bold">เสร็จสิ้น</span>
