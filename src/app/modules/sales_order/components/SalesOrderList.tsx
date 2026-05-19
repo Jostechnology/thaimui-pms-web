@@ -3,7 +3,7 @@ import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { getSalesOrderList, SalesOrderSummary } from '../../../services/salesOrder';
+import { deleteSalesOrderByDocNum, getSalesOrderList, SalesOrderSummary } from '../../../services/salesOrder';
 import { useTableParams } from '../../../hooks/useTableParams';
 import TablePaginator from '../../../custom_components/TablePaginator';
 import TableActionButton from '../../../custom_components/TableActionButton';
@@ -15,7 +15,7 @@ const SalesOrderList: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { setLoading, setUnLoading } = useAppLoading();
-    const { alertMessage } = useAlertModal();
+    const { alertMessage, openAlertModal, openTwoBtnAlertModal, resetModal } = useAlertModal();
 
     const [salesOrders, setSalesOrders] = useState<SalesOrderSummary[]>([]);
     const [dataLoading, setDataLoading] = useState<boolean>(false);
@@ -72,6 +72,30 @@ const SalesOrderList: React.FC = () => {
     useEffect(() => {
         fetchSalesOrders();
     }, [currentPage, keyword, pageConfig, startDate, endDate]);
+
+    const handleDelete = (so: SalesOrderSummary) => {
+        openTwoBtnAlertModal(
+            `ต้องการลบใบสั่งขาย #${so.doc_num} (${so.card_name}) และข้อมูลที่เกี่ยวข้องทั้งหมด — ใบสั่งผลิต, ใบสั่งเทส, ผลทดสอบ, รายการเบิกสินค้า — ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`,
+            async () => {
+                setLoading();
+                try {
+                    const res = await deleteSalesOrderByDocNum(so.doc_num);
+                    if (res && res.success) {
+                        openAlertModal(`ลบใบสั่งขาย #${so.doc_num} สำเร็จ`, resetModal, true);
+                        await fetchSalesOrders();
+                    } else {
+                        alertMessage(res?.message || "ลบใบสั่งขายไม่สำเร็จ");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alertMessage("เกิดข้อผิดพลาดในการลบใบสั่งขาย");
+                } finally {
+                    setUnLoading();
+                }
+            },
+            resetModal,
+        );
+    };
 
     return (
         <Content>
@@ -294,8 +318,9 @@ const SalesOrderList: React.FC = () => {
                                                 <td className='text-end'>
                                                     <TableActionButton
                                                         isEditBtnShow={false}
-                                                        isDeleteBtnShow={false}
+                                                        isDeleteBtnShow={true}
                                                         handleView={() => navigate(`/sales_order/view/${so.doc_entry}`)}
+                                                        handleDelete={() => handleDelete(so)}
                                                     />
                                                 </td>
                                             </tr>

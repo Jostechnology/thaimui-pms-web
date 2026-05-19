@@ -110,6 +110,25 @@ export const assignBranchToSalesOrder = async (doc_entry: number, branch_id: num
     }
 }
 
+export const deleteSalesOrderByDocNum = async (doc_num: number) => {
+    try {
+        const response = await front_api(
+            "DELETE",
+            `/sales_order/cascade/${doc_num}`,
+            {},
+            { wrapData: false }
+        );
+
+        if (!response) return false;
+
+        const result = await response.json();
+        return response.ok ? { ...result, success: true } : { ...result, success: false };
+    } catch (error) {
+        console.error("deleteSalesOrderByDocNum Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+}
+
 export const getSalesOrderById = async (doc_entry: number) => {
     try {
         const endpoint = `/sales_order/get_by_doc_entry/${doc_entry}`;
