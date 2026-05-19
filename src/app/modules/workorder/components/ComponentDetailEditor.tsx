@@ -13,6 +13,7 @@ import {
 import { getWorkOrderById } from '../../../services/workorder';
 import type { WorkOrder, ItemComponent } from '../../../type_interface/WorkOrderType';
 import type { ComponentTemplate, TemplateSection } from '../../../type_interface/ComponentTemplateType';
+import { packIntoRows } from '../../../type_interface/ComponentTemplateType';
 import { downloadComponentDocument } from '../../../services/documentGeneratorService';
 import TemplateSectionForm from './TemplateSectionForm';
 
@@ -210,19 +211,28 @@ const ComponentDetailEditor: React.FC = () => {
                     </div>
                     <div className='card-body pt-0 pb-6'>
                         <div className='d-flex flex-column gap-6'>
-                            {selectedTemplate.sections.map((sec: TemplateSection) => (
-                                <div key={sec.key} className='border rounded p-4'>
-                                    <TemplateSectionForm
-                                        section={sec}
-                                        data={formData[sec.key] || {}}
-                                        onUpdate={data => updateSectionData(sec.key, data)}
-                                        workOrderDocNum={workOrder?.doc_num}
-                                        salesItemName={workOrder?.sales_item?.item_name}
-                                        salesItemCode={workOrder?.sales_item?.item_code}
-                                        salesItemNum={workOrder?.sales_item?.quantity}
-                                        componentName={component?.component_name}
-                                        materialUsages={component?.material_usages}
-                                    />
+                            {packIntoRows(selectedTemplate.sections).map((row, ri) => (
+                                <div key={ri} className='row g-4'>
+                                    {row.map((sec: TemplateSection) => {
+                                        const w = (sec as any).width ?? 12;
+                                        return (
+                                            <div key={sec.key} className={`col-md-${w}`}>
+                                                <div className='border rounded p-4 h-100'>
+                                                    <TemplateSectionForm
+                                                        section={sec}
+                                                        data={formData[sec.key] || {}}
+                                                        onUpdate={data => updateSectionData(sec.key, data)}
+                                                        workOrderDocNum={workOrder?.doc_num}
+                                                        salesItemName={workOrder?.sales_item?.item_name}
+                                                        salesItemCode={workOrder?.sales_item?.item_code}
+                                                        salesItemNum={workOrder?.sales_item?.quantity}
+                                                        componentName={component?.component_name}
+                                                        materialUsages={component?.material_usages}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             ))}
                         </div>

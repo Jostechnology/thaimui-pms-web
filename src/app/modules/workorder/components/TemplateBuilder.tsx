@@ -25,7 +25,7 @@ import type {
     MaterialItemType,
     MaterialRow,
 } from '../../../type_interface/ComponentTemplateType';
-import { MATERIAL_ITEM_TYPES } from '../../../type_interface/ComponentTemplateType';
+import { MATERIAL_ITEM_TYPES, packIntoRows } from '../../../type_interface/ComponentTemplateType';
 
 // ─── Helpers ─────────────────────────────────────────────────
 let _keyCounter = 0;
@@ -1347,7 +1347,20 @@ const TemplateBuilder: React.FC = () => {
                                             )}
                                         </span>
                                     </div>
-                                    <div className='d-flex gap-1' onClick={e => e.stopPropagation()}>
+                                    <div className='d-flex gap-1 align-items-center' onClick={e => e.stopPropagation()}>
+                                        <select
+                                            className='form-select form-select-sm me-1'
+                                            style={{ width: 100 }}
+                                            title='ความกว้างของ Section'
+                                            value={(section as any).width ?? 12}
+                                            onChange={e => updateSection(idx, { ...section, width: Number(e.target.value) } as any)}>
+                                            <option value={12}>เต็มแถว</option>
+                                            <option value={9}>3/4</option>
+                                            <option value={8}>2/3</option>
+                                            <option value={6}>1/2</option>
+                                            <option value={4}>1/3</option>
+                                            <option value={3}>1/4</option>
+                                        </select>
                                         <button className='btn btn-sm btn-icon btn-light' title='ขึ้น'
                                             disabled={idx === 0} onClick={() => moveSection(idx, -1)}>
                                             <i className='bi bi-chevron-up'></i>
@@ -1397,14 +1410,28 @@ const TemplateBuilder: React.FC = () => {
                                     <div className='text-center mb-4'>
                                         <h4 className='fw-bold'>{templateName || 'ชื่อ Template'}</h4>
                                     </div>
-                                    {sections.map((section, idx) => (
-                                        <div key={section.key}
-                                            className={`mb-4 ${expandedIdx === idx ? 'border border-primary rounded p-3' : ''}`}
-                                            style={{ cursor: 'pointer' }}
-                                            onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}>
-                                            {renderSectionPreview(section)}
-                                        </div>
-                                    ))}
+                                    {(() => {
+                                        let flatIdx = -1;
+                                        return packIntoRows(sections).map((row, ri) => (
+                                            <div key={ri} className='row g-3 mb-4'>
+                                                {row.map(section => {
+                                                    flatIdx++;
+                                                    const idx = flatIdx;
+                                                    const w = (section as any).width ?? 12;
+                                                    return (
+                                                        <div key={section.key} className={`col-md-${w}`}>
+                                                            <div
+                                                                className={`h-100 ${expandedIdx === idx ? 'border border-primary rounded p-3' : ''}`}
+                                                                style={{ cursor: 'pointer' }}
+                                                                onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}>
+                                                                {renderSectionPreview(section)}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        ));
+                                    })()}
                                 </div>
                             )}
                         </div>

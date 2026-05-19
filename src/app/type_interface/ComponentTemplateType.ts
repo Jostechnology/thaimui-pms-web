@@ -11,6 +11,13 @@ export type SectionType =
     | 'fixed_row_table'
     | 'image_upload';
 
+// ─── Layout ──────────────────────────────────────────────────
+// Section row-share width (bootstrap 1-12). Default 12 = full row.
+// Renderer packs consecutive sections greedily: width sum ≤12 = same row.
+export interface SectionLayout {
+    width?: number;
+}
+
 // ─── Header Section ──────────────────────────────────────────
 export interface HeaderField {
     key: string;
@@ -20,7 +27,7 @@ export interface HeaderField {
     colspan?: number;
 }
 
-export interface HeaderSection {
+export interface HeaderSection extends SectionLayout {
     type: 'header';
     key: string;
     title: string;
@@ -83,7 +90,7 @@ export interface MaterialRow {
     slingLegs?: number; // only used when itemType === 'SLING'
 }
 
-export interface TableSection {
+export interface TableSection extends SectionLayout {
     type: 'material_table';
     key: string;
     title: string;
@@ -105,7 +112,7 @@ export interface KeyValueField {
     colspan?: number;
 }
 
-export interface KeyValueSection {
+export interface KeyValueSection extends SectionLayout {
     type: 'key_value';
     key: string;
     title: string;
@@ -122,7 +129,7 @@ export interface CheckboxItem {
     textFieldLabel?: string;
 }
 
-export interface CheckboxGroupSection {
+export interface CheckboxGroupSection extends SectionLayout {
     type: 'checkbox_group';
     key: string;
     title: string;
@@ -138,7 +145,7 @@ export interface ImageOption {
     imageBase64?: string;   // only set when user uploads a new file; sent to backend for processing
 }
 
-export interface ImageSelectSection {
+export interface ImageSelectSection extends SectionLayout {
     type: 'image_select';
     key: string;
     title: string;
@@ -153,7 +160,7 @@ export interface SignatureField {
     role?: string;
 }
 
-export interface SignatureSection {
+export interface SignatureSection extends SectionLayout {
     type: 'signature';
     key: string;
     title: string;
@@ -161,7 +168,7 @@ export interface SignatureSection {
 }
 
 // ─── Note Section ────────────────────────────────────────────
-export interface NoteSection {
+export interface NoteSection extends SectionLayout {
     type: 'note';
     key: string;
     title: string;
@@ -188,7 +195,7 @@ export interface FixedRowTableRow {
     cells: FixedRowCell[];
 }
 
-export interface FixedRowTableSection {
+export interface FixedRowTableSection extends SectionLayout {
     type: 'fixed_row_table';
     key: string;
     title: string;
@@ -197,7 +204,7 @@ export interface FixedRowTableSection {
 }
 
 // ─── Image Upload Section ───────────────────────────────────
-export interface ImageUploadSection {
+export interface ImageUploadSection extends SectionLayout {
     type: 'image_upload';
     key: string;
     title: string;
@@ -206,7 +213,7 @@ export interface ImageUploadSection {
 }
 
 // ─── Spacer Section ──────────────────────────────────────────
-export interface SpacerSection {
+export interface SpacerSection extends SectionLayout {
     type: 'spacer';
     key: string;
     height?: number;
@@ -224,6 +231,25 @@ export type TemplateSection =
     | SpacerSection
     | FixedRowTableSection
     | ImageUploadSection;
+
+// ─── Layout helper ───────────────────────────────────────────
+// Greedily pack sections into rows of width ≤12.
+// width omitted/≥12 = own row. width sum ≤12 = same row.
+export function packIntoRows(sections: TemplateSection[]): TemplateSection[][] {
+    const rows: TemplateSection[][] = [];
+    let cur: TemplateSection[] = [];
+    let used = 0;
+    const flush = () => { if (cur.length) { rows.push(cur); cur = []; used = 0; } };
+    for (const s of sections) {
+        const raw = (s as SectionLayout).width;
+        const w = !raw || raw >= 12 ? 12 : raw < 1 ? 12 : raw;
+        if (w >= 12) { flush(); rows.push([s]); continue; }
+        if (used + w > 12) flush();
+        cur.push(s); used += w;
+    }
+    flush();
+    return rows;
+}
 
 // ─── Template ────────────────────────────────────────────────
 export interface ComponentTemplate {
