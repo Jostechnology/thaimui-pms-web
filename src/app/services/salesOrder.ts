@@ -1,6 +1,8 @@
 import { front_api } from "./apiConfig";
 import { getIsAllBranch } from "../helpers/appHelpers";
 
+export type UrgencyLevel = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+
 export interface SalesOrderSummary {
     test_total: number;
     test_has_qcworkorder: number;
@@ -27,6 +29,7 @@ export interface SalesOrderSummary {
     produce_has_workorder: number;
     item_group : string
     status: 'INPROGRESS' | 'COMPLETED';
+    urgency_level: UrgencyLevel | null;
 }
 
 export const getSalesOrderList = async (
@@ -34,7 +37,10 @@ export const getSalesOrderList = async (
     per_page: number,
     search: string = "",
     start_date: string = "",
-    end_date: string = ""
+    end_date: string = "",
+    urgency_level: UrgencyLevel | "" = "",
+    sort_by: string = "",
+    sort_order: "asc" | "desc" = "desc"
 ) => {
     try {
         const params = new URLSearchParams({
@@ -45,6 +51,11 @@ export const getSalesOrderList = async (
         if (search) params.append("search", search);
         if (start_date) params.append("start_date", start_date);
         if (end_date) params.append("end_date", end_date);
+        if (urgency_level) params.append("urgency_level", urgency_level);
+        if (sort_by) {
+            params.append("sort_by", sort_by);
+            params.append("sort_order", sort_order);
+        }
 
         const endpoint = getIsAllBranch()
             ? `/all_branch/sales_order/get_all`

@@ -3,13 +3,27 @@ import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { deleteSalesOrderByDocNum, getSalesOrderList, SalesOrderSummary } from '../../../services/salesOrder';
+import { deleteSalesOrderByDocNum, getSalesOrderList, SalesOrderSummary, UrgencyLevel } from '../../../services/salesOrder';
 import { useTableParams } from '../../../hooks/useTableParams';
 import TablePaginator from '../../../custom_components/TablePaginator';
 import TableActionButton from '../../../custom_components/TableActionButton';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import { toDateOnly } from '../../../utils/validate_utils';
+
+const URGENCY_LABEL: Record<UrgencyLevel, string> = {
+    LOW: 'ต่ำ',
+    NORMAL: 'ปกติ',
+    HIGH: 'สูง',
+    URGENT: 'เร่งด่วน',
+};
+
+const URGENCY_BADGE: Record<UrgencyLevel, string> = {
+    LOW: 'badge-light-secondary',
+    NORMAL: 'badge-light-primary',
+    HIGH: 'badge-light-warning',
+    URGENT: 'badge-light-danger',
+};
 
 const SalesOrderList: React.FC = () => {
     const navigate = useNavigate();
@@ -28,6 +42,13 @@ const SalesOrderList: React.FC = () => {
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
     const [startDate, endDate] = dateRange;
+    const [urgencyFilter, setUrgencyFilter] = useState<UrgencyLevel | "">("");
+    const [urgencySort, setUrgencySort] = useState<"" | "asc" | "desc">("");
+
+    const cycleUrgencySort = () => {
+        setUrgencySort((s) => (s === "" ? "desc" : s === "desc" ? "asc" : ""));
+        setCurrentPage(1);
+    };
 
     useTableParams({
         currentPage,
@@ -49,7 +70,10 @@ const SalesOrderList: React.FC = () => {
                 pageConfig,
                 keyword,
                 toDateOnly(startDate) ?? "",
-                toDateOnly(endDate) ?? ""
+                toDateOnly(endDate) ?? "",
+                urgencyFilter,
+                urgencySort ? "urgency_level" : "",
+                urgencySort || "desc"
             );
             if (result && result.success) {
                 setSalesOrders(result.data.items || []);
@@ -71,7 +95,7 @@ const SalesOrderList: React.FC = () => {
 
     useEffect(() => {
         fetchSalesOrders();
-    }, [currentPage, keyword, pageConfig, startDate, endDate]);
+    }, [currentPage, keyword, pageConfig, startDate, endDate, urgencyFilter, urgencySort]);
 
     const handleDelete = (so: SalesOrderSummary) => {
         openTwoBtnAlertModal(
@@ -158,6 +182,21 @@ const SalesOrderList: React.FC = () => {
                             }
                         />
                         <select
+                            className='form-select form-select-solid w-140px'
+                            value={urgencyFilter}
+                            onChange={(e) => {
+                                setUrgencyFilter(e.target.value as UrgencyLevel | "");
+                                setCurrentPage(1);
+                            }}
+                            disabled={dataLoading}
+                        >
+                            <option value=''>ทุกความเร่งด่วน</option>
+                            <option value='URGENT'>เร่งด่วน</option>
+                            <option value='HIGH'>สูง</option>
+                            <option value='NORMAL'>ปกติ</option>
+                            <option value='LOW'>ต่ำ</option>
+                        </select>
+                        <select
                             className='form-select form-select-solid w-100px'
                             value={pageConfig}
                             onChange={(e) => {
@@ -181,6 +220,22 @@ const SalesOrderList: React.FC = () => {
                                     <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
                                         <th className='min-w-100px'>Doc Num</th>
                                         <th className='min-w-100px'>ข้อมูลลูกค้า</th>
+                                        <th
+                                            className='min-w-110px text-center'
+                                            role='button'
+                                            onClick={cycleUrgencySort}
+                                            title='คลิกเพื่อเรียงตามความเร่งด่วน'
+                                        >
+                                            ความเร่งด่วน{' '}
+                                            <i
+                                                className={`bi ${urgencySort === 'desc'
+                                                    ? 'bi-sort-down text-primary'
+                                                    : urgencySort === 'asc'
+                                                        ? 'bi-sort-up text-primary'
+                                                        : 'bi-arrow-down-up text-muted'
+                                                    }`}
+                                            ></i>
+                                        </th>
                                         <th className='min-w-150px'>ตัวแทนขาย</th>
                                         <th className='min-w-150px'>สาขา</th>
                                         <th className='min-w-200px'>ความคืบหน้า</th>
@@ -192,7 +247,7 @@ const SalesOrderList: React.FC = () => {
                                 <tbody className='text-gray-600 fw-semibold'>
                                     {dataLoading ? (
                                         <tr>
-                                            <td colSpan={8} className='text-center p-20'>
+                                            <td colSpan={9} className='text-center p-20'>
                                                 <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
                                                 <span className="ms-3 text-gray-500">กำลังดึงข้อมูล...</span>
                                             </td>
@@ -207,6 +262,15 @@ const SalesOrderList: React.FC = () => {
                                                 <td>
                                                     <span className='text-gray-800 fw-bold text-hover-primary fs-6'>{so.card_name}</span>
                                                     <span className='text-muted fw-semibold d-block fs-8'>{so.card_code}</span>
+                                                </td>
+                                                <td className='text-center'>
+                                                    {so.urgency_level ? (
+                                                        <span className={`badge ${URGENCY_BADGE[so.urgency_level]} fw-bold px-3 py-2`}>
+                                                            {URGENCY_LABEL[so.urgency_level]}
+                                                        </span>
+                                                    ) : (
+                                                        <span className='text-muted fs-8'>-</span>
+                                                    )}
                                                 </td>
                                                 <td>
                                                     <div className="d-flex align-items-center">
@@ -327,7 +391,7 @@ const SalesOrderList: React.FC = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={8} className='text-center p-20'>
+                                            <td colSpan={9} className='text-center p-20'>
                                                 <div className='d-flex flex-column flex-center'>
                                                     <i className='bi bi-search fs-3x text-gray-300 mb-4'></i>
                                                     <span className='text-gray-500'>ไม่พบข้อมูลใบสั่งขายในระบบ</span>

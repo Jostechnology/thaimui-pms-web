@@ -64,6 +64,18 @@ const PickingRequestList: React.FC = () => {
     const [updateTarget, setUpdateTarget] = useState<PickingRequest | null>(null);
     const [updateForm, setUpdateForm] = useState<UpdateStatusForm>({ status: '', wms_reference: '', remark: '' });
     const [updateSaving, setUpdateSaving] = useState(false);
+    const [verifyQty, setVerifyQty] = useState<Record<number, string>>({});
+
+    const isVerifyMode = updateTarget?.status === 'SENT' && updateForm.status === 'SUCCESS';
+
+    const initVerifyQty = (item: PickingRequest) => {
+        const map: Record<number, string> = {};
+        item.items.forEach((line) => {
+            const v = line.qty_received_actual ?? line.quantity;
+            map[line.picking_request_item_id] = String(v);
+        });
+        setVerifyQty(map);
+    };
 
     // Reset to page 1 when filters/keyword change
     const prevRef = useRef({ keyword, statusFilter, pageConfig });
@@ -142,18 +154,48 @@ const PickingRequestList: React.FC = () => {
 
     const openUpdateModal = (item: PickingRequest) => {
         const nextStatuses = STATUS_TRANSITIONS[item.status] ?? [];
+        const firstStatus = nextStatuses[0] ?? '';
         setUpdateTarget(item);
-        setUpdateForm({ status: nextStatuses[0] ?? '', wms_reference: item.wms_reference ?? '', remark: '' });
+        setUpdateForm({ status: firstStatus, wms_reference: item.wms_reference ?? '', remark: '' });
+        initVerifyQty(item);
+    };
+
+    const handleStatusChange = (next: string) => {
+        setUpdateForm((f) => ({ ...f, status: next }));
+        if (updateTarget && updateTarget.status === 'SENT' && next === 'SUCCESS') {
+            initVerifyQty(updateTarget);
+        }
     };
 
     const handleUpdateSubmit = async () => {
         if (!updateTarget || !updateForm.status) return;
+
+        let items;
+        if (isVerifyMode) {
+            const parsed: { picking_request_item_id: number; qty_received_actual: number }[] = [];
+            for (const line of updateTarget.items) {
+                const raw = verifyQty[line.picking_request_item_id];
+                if (raw === undefined || raw === '') {
+                    Swal.fire('ผิดพลาด!', `กรุณาระบุจำนวนรับจริงของ ${line.item_code}`, 'error');
+                    return;
+                }
+                const n = Number(raw);
+                if (!Number.isInteger(n) || n < 0) {
+                    Swal.fire('ผิดพลาด!', `จำนวนรับจริงของ ${line.item_code} ต้องเป็นจำนวนเต็ม >= 0`, 'error');
+                    return;
+                }
+                parsed.push({ picking_request_item_id: line.picking_request_item_id, qty_received_actual: n });
+            }
+            items = parsed;
+        }
+
         setUpdateSaving(true);
         try {
             const res = await updatePickingRequestStatus(updateTarget.picking_request_id, {
                 status: updateForm.status,
                 wms_reference: updateForm.wms_reference.trim() || undefined,
                 remark: updateForm.remark.trim() || undefined,
+                items,
             });
             if (res.success) {
                 Swal.fire({ title: 'อัปเดตสถานะสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false });
@@ -361,21 +403,41 @@ const PickingRequestList: React.FC = () => {
                                                                         <tr className='fw-bold text-gray-700 text-uppercase fs-8'>
                                                                             <th className='w-120px'>รหัสสินค้า</th>
                                                                             <th>ชื่อสินค้า</th>
-                                                                            <th className='w-80px text-center'>จำนวน</th>
+                                                                            <th className='w-80px text-center'>ขอเบิก</th>
+                                                                            <th className='w-90px text-center'>รับจริง</th>
                                                                             <th className='w-70px text-center'>หน่วย</th>
                                                                             <th className='w-200px'>หมายเหตุ</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
-                                                                        {item.items.map((line) => (
-                                                                            <tr key={line.picking_request_item_id}>
-                                                                                <td className='fw-bold text-gray-700'>{line.item_code}</td>
-                                                                                <td className='text-gray-800'>{line.item_name}</td>
-                                                                                <td className='text-center fw-bold text-gray-800'>{line.quantity}</td>
-                                                                                <td className='text-center text-gray-600'>{line.unit}</td>
-                                                                                <td className='text-gray-500'>{line.remark ?? '-'}</td>
-                                                                            </tr>
-                                                                        ))}
+                                                                        {item.items.map((line) => {
+                                                                            const actual = line.qty_received_actual;
+                                                                            const hasActual = actual !== null && actual !== undefined;
+                                                                            const diff = hasActual ? (actual as number) - line.quantity : 0;
+                                                                            return (
+                                                                                <tr key={line.picking_request_item_id}>
+                                                                                    <td className='fw-bold text-gray-700'>{line.item_code}</td>
+                                                                                    <td className='text-gray-800'>{line.item_name}</td>
+                                                                                    <td className='text-center fw-bold text-gray-800'>{line.quantity}</td>
+                                                                                    <td className='text-center fw-bold'>
+                                                                                        {hasActual ? (
+                                                                                            <>
+                                                                                                <span className={diff < 0 ? 'text-danger' : diff > 0 ? 'text-success' : 'text-gray-800'}>{actual}</span>
+                                                                                                {diff !== 0 && (
+                                                                                                    <span className={`ms-1 fs-8 ${diff < 0 ? 'text-danger' : 'text-success'}`}>
+                                                                                                        ({diff > 0 ? `+${diff}` : diff})
+                                                                                                    </span>
+                                                                                                )}
+                                                                                            </>
+                                                                                        ) : (
+                                                                                            <span className='text-muted'>-</span>
+                                                                                        )}
+                                                                                    </td>
+                                                                                    <td className='text-center text-gray-600'>{line.unit}</td>
+                                                                                    <td className='text-gray-500'>{line.remark ?? '-'}</td>
+                                                                                </tr>
+                                                                            );
+                                                                        })}
                                                                     </tbody>
                                                                 </table>
                                                             </div>
@@ -411,11 +473,11 @@ const PickingRequestList: React.FC = () => {
             </div>
 
             {/* Update Status Modal */}
-            <Modal show={updateTarget !== null} onHide={() => setUpdateTarget(null)} centered>
+            <Modal show={updateTarget !== null} onHide={() => setUpdateTarget(null)} centered size={isVerifyMode ? 'lg' : undefined}>
                 <Modal.Header closeButton>
                     <Modal.Title className='fw-bold'>
-                        <i className='bi bi-arrow-repeat me-2 text-primary'></i>
-                        อัปเดตสถานะ — {updateTarget?.picking_request_code || `Picking Request #${updateTarget?.picking_request_id}`}
+                        <i className={`bi ${isVerifyMode ? 'bi-clipboard-check' : 'bi-arrow-repeat'} me-2 text-primary`}></i>
+                        {isVerifyMode ? 'ตรวจรับและยืนยัน' : 'อัปเดตสถานะ'} — {updateTarget?.picking_request_code || `Picking Request #${updateTarget?.picking_request_id}`}
                     </Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
@@ -424,13 +486,71 @@ const PickingRequestList: React.FC = () => {
                         <select
                             className='form-select form-select-solid'
                             value={updateForm.status}
-                            onChange={(e) => setUpdateForm((f) => ({ ...f, status: e.target.value }))}
+                            onChange={(e) => handleStatusChange(e.target.value)}
                         >
                             {(STATUS_TRANSITIONS[updateTarget?.status ?? ''] ?? []).map((s) => (
                                 <option key={s} value={s}>{STATUS_LABEL[s] ?? s}</option>
                             ))}
                         </select>
                     </div>
+
+                    {isVerifyMode && updateTarget && (
+                        <div className='mb-5'>
+                            <label className='form-label fw-bold'>ตรวจสอบจำนวนรับจริง</label>
+                            <div className='alert alert-light-warning border border-warning d-flex align-items-start py-3 mb-3'>
+                                <i className='bi bi-info-circle-fill fs-3 text-warning me-3 mt-1'></i>
+                                <div className='fs-7 text-gray-700'>
+                                    ระบุจำนวนที่ได้รับจริงต่อรายการ ค่าเริ่มต้นคือจำนวนที่ขอเบิก
+                                    หากรับมาน้อยกว่าที่ขอ ระบบจะใช้จำนวนนี้ในการตัดสต๊อก และบันทึกส่วนต่างไว้สำหรับรายงานของขาด
+                                </div>
+                            </div>
+                            <div className='table-responsive'>
+                                <table className='table table-bordered align-middle fs-7 mb-0 bg-white'>
+                                    <thead className='table-light'>
+                                        <tr className='fw-bold text-gray-700 text-uppercase fs-8'>
+                                            <th>รหัสสินค้า</th>
+                                            <th>ชื่อสินค้า</th>
+                                            <th className='w-100px text-center'>ขอเบิก</th>
+                                            <th className='w-130px text-center'>รับจริง</th>
+                                            <th className='w-100px text-center'>ส่วนต่าง</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {updateTarget.items.map((line) => {
+                                            const raw = verifyQty[line.picking_request_item_id] ?? '';
+                                            const parsed = Number(raw);
+                                            const valid = raw !== '' && Number.isInteger(parsed) && parsed >= 0;
+                                            const diff = valid ? parsed - line.quantity : 0;
+                                            const diffColor = diff < 0 ? 'text-danger' : diff > 0 ? 'text-success' : 'text-muted';
+                                            return (
+                                                <tr key={line.picking_request_item_id}>
+                                                    <td className='fw-bold text-gray-700'>{line.item_code}</td>
+                                                    <td className='text-gray-800'>{line.item_name}</td>
+                                                    <td className='text-center fw-bold text-gray-800'>
+                                                        {line.quantity} <span className='text-muted fw-semibold'>{line.unit}</span>
+                                                    </td>
+                                                    <td>
+                                                        <input
+                                                            type='number'
+                                                            min={0}
+                                                            step={1}
+                                                            className={`form-control form-control-sm text-center ${!valid ? 'is-invalid' : ''}`}
+                                                            value={raw}
+                                                            onChange={(e) => setVerifyQty((m) => ({ ...m, [line.picking_request_item_id]: e.target.value }))}
+                                                        />
+                                                    </td>
+                                                    <td className={`text-center fw-bold ${diffColor}`}>
+                                                        {valid ? (diff > 0 ? `+${diff}` : diff) : '-'}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
                     <div className='mb-5'>
                         <label className='form-label fw-bold'>WMS Reference (ไม่บังคับ)</label>
                         <input

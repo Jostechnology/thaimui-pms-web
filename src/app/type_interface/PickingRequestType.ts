@@ -7,6 +7,7 @@ export interface PickingRequestListItem {
     item_code: string;
     item_name: string;
     quantity: number;
+    qty_received_actual: number | null;
     unit: string;
     remark: string | null;
     qty_available : number
@@ -87,6 +88,7 @@ export interface PickingRequestItemDetail {
     item_code: string;
     item_name: string;
     quantity: number;
+    qty_received_actual: number | null;
     unit: string;
     sales_item_id: number | null;
     material_list_id: number | null;
@@ -131,10 +133,16 @@ export interface PickingRequestPayload {
     items: PickingRequestItemPayload[];
 }
 
+export interface PickingRequestVerifyItem {
+    picking_request_item_id: number;
+    qty_received_actual: number;
+}
+
 export interface PickingRequestStatusPayload {
     status: string;
     wms_reference?: string;
     remark?: string;
+    items?: PickingRequestVerifyItem[];
 }
 
 export type PickingItemAdjustmentReason = 'MISCOUNT' | 'SPILLAGE' | 'CORRECTION' | 'OTHER';

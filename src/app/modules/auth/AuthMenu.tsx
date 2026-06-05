@@ -94,6 +94,15 @@ export const mainRoutesConfig: MainRouteType[] = [
         permission: [],
     },
     {
+        module_code: "REPORT",
+        path: "/reports",
+        title: "รายงาน",
+        fontIcon: "bi-file-earmark-bar-graph",
+        icon: "bi bi-file-earmark-bar-graph",
+        subMenu: [],
+        permission: [],
+    },
+    {
         module_code: "SETTING",
         path: "/setting",
         title: "ตั้งค่า",
@@ -339,5 +348,13 @@ export const subRoutesConfig: SubRouteType[] = [
         title: "",
         permission: [],
         display : false
-    }
+    },
+    {
+        module_code: "REPORT_LIST",
+        main_module_code: "REPORT",
+        path: "/reports/list",
+        title: "รายการรายงาน",
+        permission: [],
+        display: true,
+    },
 ]

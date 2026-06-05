@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from 'react-query';
@@ -6,7 +6,32 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
     PieChart, Pie, Legend
 } from 'recharts';
-import { getSalesOrderList, SalesOrderSummary } from '../../../services/salesOrder';
+import { getSalesOrderList, SalesOrderSummary, UrgencyLevel } from '../../../services/salesOrder';
+
+const URGENCY_LABEL: Record<UrgencyLevel, string> = {
+    LOW: 'ต่ำ',
+    NORMAL: 'ปกติ',
+    HIGH: 'สูง',
+    URGENT: 'เร่งด่วน',
+};
+
+const URGENCY_BADGE: Record<UrgencyLevel, string> = {
+    LOW: 'badge-light-secondary',
+    NORMAL: 'badge-light-primary',
+    HIGH: 'badge-light-warning',
+    URGENT: 'badge-light-danger',
+};
+
+const URGENCY_RANK: Record<UrgencyLevel, number> = {
+    LOW: 1, NORMAL: 2, HIGH: 3, URGENT: 4,
+};
+
+const URGENCY_KPI_META: { level: UrgencyLevel; bg: string; iconColor: string; icon: string }[] = [
+    { level: 'URGENT', bg: 'bg-light-danger', iconColor: 'text-danger', icon: 'bi-exclamation-octagon-fill' },
+    { level: 'HIGH', bg: 'bg-light-warning', iconColor: 'text-warning', icon: 'bi-arrow-up-circle-fill' },
+    { level: 'NORMAL', bg: 'bg-light-primary', iconColor: 'text-primary', icon: 'bi-dash-circle-fill' },
+    { level: 'LOW', bg: 'bg-light-secondary', iconColor: 'text-gray-600', icon: 'bi-arrow-down-circle-fill' },
+];
 
 const SalesOrderDashboard: React.FC = () => {
     const navigate = useNavigate();
@@ -70,11 +95,37 @@ const SalesOrderDashboard: React.FC = () => {
             }));
     }, [salesOrders]);
 
-    const recentOrders = useMemo(() => {
-        return [...salesOrders]
-            .sort((a, b) => new Date(b.created_date).getTime() - new Date(a.created_date).getTime())
-            .slice(0, 10);
+    const [urgencyFilter, setUrgencyFilter] = useState<UrgencyLevel | "">("");
+    const [urgencySort, setUrgencySort] = useState<"" | "asc" | "desc">("");
+
+    const cycleUrgencySort = () => {
+        setUrgencySort((s) => (s === "" ? "desc" : s === "desc" ? "asc" : ""));
+    };
+
+    const urgencyCounts = useMemo(() => {
+        const c: Record<UrgencyLevel, number> = { LOW: 0, NORMAL: 0, HIGH: 0, URGENT: 0 };
+        salesOrders.forEach((so) => {
+            if (so.urgency_level) c[so.urgency_level] += 1;
+        });
+        return c;
     }, [salesOrders]);
+
+    const recentOrders = useMemo(() => {
+        const filtered = urgencyFilter
+            ? salesOrders.filter((so) => so.urgency_level === urgencyFilter)
+            : salesOrders;
+        const sorted = [...filtered];
+        if (urgencySort) {
+            sorted.sort((a, b) => {
+                const ra = a.urgency_level ? URGENCY_RANK[a.urgency_level] : 0;
+                const rb = b.urgency_level ? URGENCY_RANK[b.urgency_level] : 0;
+                return urgencySort === 'desc' ? rb - ra : ra - rb;
+            });
+        } else {
+            sorted.sort((a, b) => new Date(b.created_date).getTime() - new Date(a.created_date).getTime());
+        }
+        return sorted.slice(0, 10);
+    }, [salesOrders, urgencyFilter, urgencySort]);
 
     if (isLoading) {
         return (
@@ -201,6 +252,27 @@ const SalesOrderDashboard: React.FC = () => {
                 ))}
             </div>
 
+            {/* ==================== URGENCY KPI ==================== */}
+            <div className='row g-5 g-xl-8 mb-8'>
+                {URGENCY_KPI_META.map((meta) => (
+                    <div key={meta.level} className='col'>
+                        <div className='card card-flush shadow-sm border-0 h-100'>
+                            <div className='card-body d-flex align-items-center py-5 px-5'>
+                                <div className='symbol symbol-50px me-4'>
+                                    <span className={`symbol-label ${meta.bg} rounded-circle`}>
+                                        <i className={`bi ${meta.icon} ${meta.iconColor} fs-2x`}></i>
+                                    </span>
+                                </div>
+                                <div className='d-flex flex-column'>
+                                    <span className='fs-2hx fw-bold text-gray-900 lh-1 ls-n2'>{urgencyCounts[meta.level]}</span>
+                                    <span className='text-gray-800 fw-bold fs-7 mt-1'>ความเร่งด่วน: {URGENCY_LABEL[meta.level]}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
             {/* ==================== CHARTS SECTION ==================== */}
             <div className='row g-5 g-xl-8 mb-8'>
                 {/* --- Branch Distribution Bar Chart --- */}
@@ -268,7 +340,18 @@ const SalesOrderDashboard: React.FC = () => {
                     <h3 className='card-title align-items-start flex-column'>
                         <span className='card-label fw-bold text-gray-900'>ใบสั่งขายล่าสุด</span>
                     </h3>
-                    <div className='card-toolbar'>
+                    <div className='card-toolbar d-flex align-items-center gap-3'>
+                        <select
+                            className='form-select form-select-sm form-select-solid w-140px'
+                            value={urgencyFilter}
+                            onChange={(e) => setUrgencyFilter(e.target.value as UrgencyLevel | "")}
+                        >
+                            <option value=''>ทุกความเร่งด่วน</option>
+                            <option value='URGENT'>เร่งด่วน</option>
+                            <option value='HIGH'>สูง</option>
+                            <option value='NORMAL'>ปกติ</option>
+                            <option value='LOW'>ต่ำ</option>
+                        </select>
                         <button className='btn btn-sm btn-light-primary fw-bold' onClick={() => navigate('/sales_order/list')}>
                             ดูทั้งหมด <i className='bi bi-arrow-right ms-1'></i>
                         </button>
@@ -281,6 +364,22 @@ const SalesOrderDashboard: React.FC = () => {
                                 <tr className='text-start text-muted fw-bold fs-7 text-uppercase gs-0 border-bottom border-gray-200'>
                                     <th className='min-w-120px'>Doc Num</th>
                                     <th className='min-w-200px'>ลูกค้า</th>
+                                    <th
+                                        className='min-w-110px text-center'
+                                        role='button'
+                                        onClick={cycleUrgencySort}
+                                        title='คลิกเพื่อเรียงตามความเร่งด่วน'
+                                    >
+                                        ความเร่งด่วน{' '}
+                                        <i
+                                            className={`bi ${urgencySort === 'desc'
+                                                ? 'bi-sort-down text-primary'
+                                                : urgencySort === 'asc'
+                                                    ? 'bi-sort-up text-primary'
+                                                    : 'bi-arrow-down-up text-muted'
+                                                }`}
+                                        ></i>
+                                    </th>
                                     <th className='min-w-150px'>ตัวแทนขาย</th>
                                     <th className='min-w-150px'>สาขา</th>
                                     <th className='min-w-100px text-center'>สินค้า/ใบสั่งผลิต</th>
@@ -297,6 +396,15 @@ const SalesOrderDashboard: React.FC = () => {
                                                 <span className='text-gray-800 fw-bold fs-6'>{so.card_name}</span>
                                                 <span className='text-muted fs-8'>{so.card_code}</span>
                                             </div>
+                                        </td>
+                                        <td className='text-center'>
+                                            {so.urgency_level ? (
+                                                <span className={`badge ${URGENCY_BADGE[so.urgency_level]} fw-bold px-3 py-2`}>
+                                                    {URGENCY_LABEL[so.urgency_level]}
+                                                </span>
+                                            ) : (
+                                                <span className='text-muted fs-8'>-</span>
+                                            )}
                                         </td>
                                         <td><span className='text-gray-700'>{so.slp_name || '-'}</span></td>
                                         <td><span className='text-gray-700'>{so.bpl_name || '-'}</span></td>
@@ -323,7 +431,7 @@ const SalesOrderDashboard: React.FC = () => {
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={7} className='text-center py-10 text-muted'>ไม่พบข้อมูลรายการล่าสุด</td>
+                                        <td colSpan={8} className='text-center py-10 text-muted'>ไม่พบข้อมูลรายการล่าสุด</td>
                                     </tr>
                                 )}
                             </tbody>

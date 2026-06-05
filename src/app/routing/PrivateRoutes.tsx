@@ -16,6 +16,7 @@ const SalesOrderPage = lazy(() => import("../modules/sales_order/SalesOrderPage"
 const TrackingPage = lazy(() => import("../modules/Tracking/trackingPage"));
 const DocumentsPage = lazy(() => import("../modules/documents/documentPage"))
 const PhaseTemplatePage = lazy(() => import("../modules/phase_template/PhaseTemplatePage"));
+const ReportsPage = lazy(() => import("../modules/reports/ReportsPage"));
 const PrivateRoutes = () => {
   return (
     <Routes>
@@ -125,6 +126,14 @@ const PrivateRoutes = () => {
                 <CostCalculationPage />
               </SuspensedView>
             }
+        />
+        <Route
+          path="reports/*"
+          element={
+            <SuspensedView>
+              <ReportsPage />
+            </SuspensedView>
+          }
         />
       </Route>
     </Routes>
