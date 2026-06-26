@@ -107,6 +107,36 @@ export const getInspectionChecklist = async (itemGroup: string | null, testType:
     }
 };
 
+export const addTestResultPhotos = async (testResultId: number, photos: { image_base64: string; caption?: string }[]): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "POST",
+            `/test_result/${testResultId}/photo`,
+            { photos },
+            { wrapData: false }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("addTestResultPhotos Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการอัปโหลดรูป" };
+    }
+};
+
+export const deleteTestResultPhoto = async (photoId: number): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "DELETE",
+            `/test_result/photo/${photoId}`,
+            {},
+            { wrapData: false }
+        );
+        return await handleResponse(response);
+    } catch (error) {
+        console.error("deleteTestResultPhoto Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการลบรูป" };
+    }
+};
+
 export const finalizeTestResult = async (testResultId: number, data: any): Promise<APIResponse> => {
     try {
         const response = await front_api(

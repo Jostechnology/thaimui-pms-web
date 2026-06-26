@@ -14,6 +14,8 @@ import {
     resumeTestResult,
     finalizeTestResult,
     getInspectionChecklist,
+    addTestResultPhotos,
+    deleteTestResultPhoto,
     deleteTestResult,
     createTestResultRequiredItems,
     getTestResultPickRequests,
@@ -338,6 +340,8 @@ const ViewTestResultSession: React.FC = () => {
     const [finalizeSaving, setFinalizeSaving] = useState(false);
     const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>({});
     const [checklistLoading, setChecklistLoading] = useState(false);
+    const [sessionPhotos, setSessionPhotos] = useState<any[]>([]);
+    const [photoUploading, setPhotoUploading] = useState(false);
 
     // for timeline
     const [autoZoom, setAutoZoom] = useState(true);
@@ -1191,6 +1195,7 @@ const ViewTestResultSession: React.FC = () => {
         });
         setFinalizeActuals(actuals);
         setExpandedItems({});
+        setSessionPhotos(testResult.photos ?? []);
         setFinalizeForm({
             test_method: "",
             test_type: "",
@@ -1222,6 +1227,42 @@ const ViewTestResultSession: React.FC = () => {
             } : prev);
         } finally {
             setChecklistLoading(false);
+        }
+    };
+
+    const fileToDataUrl = (file: File): Promise<string> =>
+        new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+    const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!testResult) return;
+        const files = Array.from(e.target.files ?? []);
+        e.target.value = ""; // allow re-selecting the same file
+        if (files.length === 0) return;
+        setPhotoUploading(true);
+        try {
+            const photos = await Promise.all(files.map(async f => ({ image_base64: await fileToDataUrl(f) })));
+            const res = await addTestResultPhotos(testResult.test_result_id, photos);
+            if (res.success) {
+                setSessionPhotos(res.data?.photos ?? []);
+            } else {
+                Swal.fire("ผิดพลาด!", res.message || "อัปโหลดรูปไม่สำเร็จ", "error");
+            }
+        } finally {
+            setPhotoUploading(false);
+        }
+    };
+
+    const handleDeletePhoto = async (photoId: number) => {
+        const res = await deleteTestResultPhoto(photoId);
+        if (res.success) {
+            setSessionPhotos(res.data?.photos ?? []);
+        } else {
+            Swal.fire("ผิดพลาด!", res.message || "ลบรูปไม่สำเร็จ", "error");
         }
     };
 
@@ -2811,6 +2852,34 @@ const ViewTestResultSession: React.FC = () => {
                                     </div>
                                 </div>
                             )}
+
+                            {/* Test evidence photos (session-level) */}
+                            <div className="mb-3">
+                                <div className="d-flex align-items-center gap-3 mb-3">
+                                    <h6 className="fw-bold text-gray-700 mb-0">
+                                        <i className="bi bi-camera me-2 text-info" />รูปหลักฐานการทดสอบ
+                                    </h6>
+                                    <label className="btn btn-sm btn-light-info fw-bold mb-0">
+                                        {photoUploading ? <><span className="spinner-border spinner-border-sm me-2" />กำลังอัปโหลด...</> : <><i className="bi bi-upload me-1" />เพิ่มรูป</>}
+                                        <input type="file" accept="image/*" multiple className="d-none" onChange={handlePhotoSelect} disabled={photoUploading} />
+                                    </label>
+                                </div>
+                                {sessionPhotos.length > 0 ? (
+                                    <div className="d-flex flex-wrap gap-3">
+                                        {sessionPhotos.map((p: any) => (
+                                            <div key={p.photo_id} className="position-relative border rounded" style={{ width: 110, height: 110 }}>
+                                                <img src={p.url} alt={p.caption ?? ""} className="w-100 h-100 rounded" style={{ objectFit: "cover" }} />
+                                                <button type="button" className="btn btn-icon btn-xs btn-danger position-absolute top-0 end-0 m-1"
+                                                    onClick={() => handleDeletePhoto(p.photo_id)} title="ลบรูป" style={{ width: 22, height: 22 }}>
+                                                    <i className="bi bi-x fs-7" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-muted fs-8">ยังไม่มีรูป</div>
+                                )}
+                            </div>
                         </>
                     )}
                 </Modal.Body>
