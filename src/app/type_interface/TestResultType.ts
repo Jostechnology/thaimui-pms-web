@@ -50,6 +50,28 @@ export interface TestResultCost {
     total_cost: number | null;
 }
 
+export interface TestResultPhoto {
+    photo_id: number;
+    caption: string | null;
+    sequence: number;
+    url: string | null;
+    created_date: string;
+    created_by: string;
+}
+
+export interface TestResultSpec {
+    spec_id?: number;
+    construction: string | null;
+    grade: string | null;
+    coating: string | null;
+    diameter: number | null;
+    nominal_length: number | null;
+    tensile_strength: number | null;
+    manufacturer: string | null;
+    batch_no: string | null;
+    termination: string | null;
+}
+
 export interface TestResultDetail {
     test_result_id: number;
     test_result_code: string;
@@ -58,6 +80,7 @@ export interface TestResultDetail {
     claimed_qty: number;
     overall_status: 'PASSED' | 'FAILED' | null;
     test_method: string | null;
+    test_type: 'PROOF_LOAD' | 'BREAKING' | 'VISUAL' | 'DIMENSIONAL' | null;
     standard_reference: string | null;
     remark: string | null;
     created_date: string;
@@ -69,5 +92,7 @@ export interface TestResultDetail {
     work_run_sources: any[];
     picking_item_sources: any[];
     test_result_items: any[];
+    photos: TestResultPhoto[];
+    spec: TestResultSpec | null;
     cost: TestResultCost | null;
 }
