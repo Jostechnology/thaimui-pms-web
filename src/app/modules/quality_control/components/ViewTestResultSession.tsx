@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import * as XLSX from 'xlsx';
 import { useParams, useNavigate } from "react-router-dom";
 import { Modal } from "react-bootstrap";
 import Swal from "sweetalert2";
@@ -241,6 +242,20 @@ interface FinalizeItemForm {
     // Verdict + checklist
     fail_reason: string;
     checks: CheckRow[];
+    // Breaking-test load curve (sampled points)
+    load_curve: { t: number; load: number }[];
+}
+
+interface SpecForm {
+    construction: string;
+    grade: string;
+    coating: string;
+    diameter: string;
+    nominal_length: string;
+    tensile_strength: string;
+    manufacturer: string;
+    batch_no: string;
+    termination: string;
 }
 
 interface FinalizeForm {
@@ -249,8 +264,26 @@ interface FinalizeForm {
     standard_reference: string;
     overall_status: "PASSED" | "FAILED";
     remark: string;
+    spec: SpecForm;
     items: FinalizeItemForm[];
 }
+
+const emptySpec = (): SpecForm => ({
+    construction: "", grade: "", coating: "", diameter: "", nominal_length: "",
+    tensile_strength: "", manufacturer: "", batch_no: "", termination: "",
+});
+
+const SPEC_FIELDS: { field: keyof SpecForm; label: string; numeric?: boolean }[] = [
+    { field: "construction", label: "Construction (e.g. 6x36 IWRC)" },
+    { field: "grade", label: "Grade (e.g. 1960 N/mm²)" },
+    { field: "coating", label: "Coating (e.g. GAL)" },
+    { field: "diameter", label: "Diameter (mm)", numeric: true },
+    { field: "nominal_length", label: "Nominal Length (m)", numeric: true },
+    { field: "tensile_strength", label: "Tensile Strength (N/mm²)", numeric: true },
+    { field: "manufacturer", label: "Manufacturer" },
+    { field: "batch_no", label: "Batch No." },
+    { field: "termination", label: "Termination / Fitting" },
+];
 
 const TEST_TYPE_OPTIONS: { value: TestTypeValue; label: string }[] = [
     { value: "", label: "— เลือกประเภท —" },
@@ -276,6 +309,7 @@ const emptyFinalizeItem = (unit_number: number, description: string): FinalizeIt
     min_breaking_load: "",
     fail_reason: "",
     checks: [],
+    load_curve: [],
 });
 
 interface RequiredItemRow {
@@ -1202,6 +1236,7 @@ const ViewTestResultSession: React.FC = () => {
             standard_reference: "",
             overall_status: "PASSED",
             remark: "",
+            spec: emptySpec(),
             items: Array.from({ length: qty }, (_, i) => emptyFinalizeItem(i + 1, desc)),
         });
         setShowFinalizeForm(true);
@@ -1274,6 +1309,53 @@ const ViewTestResultSession: React.FC = () => {
             return { ...prev, items };
         });
 
+    // Parse a CSV/XLSX file (first two columns = time, load) into curve points.
+    const handleLoadCurveImport = async (i: number, file: File | undefined) => {
+        if (!file) return;
+        try {
+            const buf = await file.arrayBuffer();
+            const wb = XLSX.read(buf, { type: "array" });
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
+            const points = rows
+                .map(r => ({ t: Number(r?.[0]), load: Number(r?.[1]) }))
+                .filter(p => Number.isFinite(p.t) && Number.isFinite(p.load));
+            if (points.length === 0) {
+                Swal.fire("ผิดพลาด!", "ไม่พบข้อมูล (คอลัมน์ 1 = เวลา, คอลัมน์ 2 = โหลด)", "warning");
+                return;
+            }
+            updateItem(i, { load_curve: points });
+        } catch {
+            Swal.fire("ผิดพลาด!", "อ่านไฟล์ไม่สำเร็จ", "error");
+        }
+    };
+
+    const addCurvePoint = (i: number) =>
+        setFinalizeForm(prev => {
+            if (!prev) return prev;
+            const items = [...prev.items];
+            items[i] = { ...items[i], load_curve: [...items[i].load_curve, { t: 0, load: 0 }] };
+            return { ...prev, items };
+        });
+
+    const updateCurvePoint = (i: number, pi: number, key: "t" | "load", value: number) =>
+        setFinalizeForm(prev => {
+            if (!prev) return prev;
+            const items = [...prev.items];
+            const load_curve = [...items[i].load_curve];
+            load_curve[pi] = { ...load_curve[pi], [key]: value };
+            items[i] = { ...items[i], load_curve };
+            return { ...prev, items };
+        });
+
+    const removeCurvePoint = (i: number, pi: number) =>
+        setFinalizeForm(prev => {
+            if (!prev) return prev;
+            const items = [...prev.items];
+            items[i] = { ...items[i], load_curve: items[i].load_curve.filter((_, x) => x !== pi) };
+            return { ...prev, items };
+        });
+
     const updateItemCheck = (i: number, ci: number, patch: Partial<CheckRow>) =>
         setFinalizeForm(prev => {
             if (!prev) return prev;
@@ -1293,9 +1375,16 @@ const ViewTestResultSession: React.FC = () => {
                 .map(([id, qty]) => ({ test_result_required_item_id: Number(id), qty_used: Number(qty) }));
             const numOrNull = (v: string) => v === "" ? null : parseFloat(v);
             const intOrNull = (v: string) => v === "" ? null : parseInt(v, 10);
+            const spec = {
+                ...finalizeForm.spec,
+                diameter: numOrNull(finalizeForm.spec.diameter),
+                nominal_length: numOrNull(finalizeForm.spec.nominal_length),
+                tensile_strength: numOrNull(finalizeForm.spec.tensile_strength),
+            };
             const payload = {
                 ...finalizeForm,
                 test_type: finalizeForm.test_type || null,
+                spec,
                 items: finalizeForm.items.map(it => ({
                     ...it,
                     wll_measured: numOrNull(it.wll_measured),
@@ -1309,6 +1398,7 @@ const ViewTestResultSession: React.FC = () => {
                     checks: it.checks
                         .filter(c => c.check_name)
                         .map((c, idx) => ({ check_name: c.check_name, status: c.status, note: c.note || null, sequence: idx })),
+                    load_curve: it.load_curve.length ? it.load_curve : null,
                 })),
                 ...(material_actuals.length > 0 ? { material_actuals } : {}),
             };
@@ -2645,6 +2735,29 @@ const ViewTestResultSession: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* Product spec (per-session snapshot) */}
+                            <div className="border rounded p-4 mb-6 bg-light-primary bg-opacity-10">
+                                <h6 className="fw-bold text-gray-700 mb-3">
+                                    <i className="bi bi-rulers me-2 text-primary" />ข้อมูลจำเพาะสินค้า (Product Spec)
+                                </h6>
+                                <div className="row g-3">
+                                    {SPEC_FIELDS.map(({ field, label, numeric }) => (
+                                        <div key={field} className="col-md-4">
+                                            <label className="form-label fw-semibold fs-8">{label}</label>
+                                            <input
+                                                type="text"
+                                                className="form-control form-control-sm"
+                                                value={finalizeForm.spec[field]}
+                                                onChange={e => {
+                                                    const v = numeric ? toDecimalInput(e.target.value) : e.target.value;
+                                                    setFinalizeForm(prev => prev ? { ...prev, spec: { ...prev.spec, [field]: v } } : prev);
+                                                }}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
                             {/* Per-item table */}
                             <h6 className="fw-bold text-gray-700 mb-3">ผลรายหน่วย</h6>
                             <div className="table-responsive mb-5">
@@ -2749,6 +2862,60 @@ const ViewTestResultSession: React.FC = () => {
                                                                     <input type="text" className="form-control form-control-sm" value={item.min_breaking_load}
                                                                         onChange={e => updateItem(i, { min_breaking_load: toDecimalInput(e.target.value) })} placeholder="0.00" />
                                                                 </div>
+                                                            </div>
+                                                        )}
+                                                        {/* Load curve — breaking test only */}
+                                                        {finalizeForm.test_type === "BREAKING" && (
+                                                            <div className="mb-3">
+                                                                <div className="d-flex align-items-center gap-3 mb-2">
+                                                                    <h6 className="fw-bold text-gray-700 fs-8 mb-0">กราฟ Load–Time</h6>
+                                                                    <label className="btn btn-xs btn-light-primary fw-bold mb-0">
+                                                                        <i className="bi bi-filetype-csv me-1" />นำเข้า CSV/Excel
+                                                                        <input type="file" accept=".csv,.xlsx,.xls" className="d-none"
+                                                                            onChange={e => { handleLoadCurveImport(i, e.target.files?.[0]); e.target.value = ""; }} />
+                                                                    </label>
+                                                                    <button type="button" className="btn btn-xs btn-light fw-bold" onClick={() => addCurvePoint(i)}>
+                                                                        <i className="bi bi-plus" />เพิ่มจุด
+                                                                    </button>
+                                                                    {item.load_curve.length > 0 && (
+                                                                        <span className="text-muted fs-8">{item.load_curve.length} จุด</span>
+                                                                    )}
+                                                                </div>
+                                                                {item.load_curve.length > 0 && (
+                                                                    <div className="row g-3">
+                                                                        <div className="col-md-7">
+                                                                            <ResponsiveContainer width="100%" height={180}>
+                                                                                <LineChart data={item.load_curve} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                                                                                    <CartesianGrid strokeDasharray="3 3" />
+                                                                                    <XAxis dataKey="t" type="number" tick={{ fontSize: 10 }} label={{ value: "Time (s)", position: "insideBottom", offset: -3, fontSize: 10 }} />
+                                                                                    <YAxis tick={{ fontSize: 10 }} label={{ value: "Load", angle: -90, position: "insideLeft", fontSize: 10 }} />
+                                                                                    <Tooltip />
+                                                                                    <Line type="monotone" dataKey="load" stroke="#d9214e" dot={false} strokeWidth={2} />
+                                                                                </LineChart>
+                                                                            </ResponsiveContainer>
+                                                                        </div>
+                                                                        <div className="col-md-5">
+                                                                            <div className="table-responsive" style={{ maxHeight: 180, overflowY: "auto" }}>
+                                                                                <table className="table table-bordered table-sm fs-8 mb-0">
+                                                                                    <thead className="table-light"><tr className="fw-bold text-center"><th>Time (s)</th><th>Load</th><th className="w-30px" /></tr></thead>
+                                                                                    <tbody>
+                                                                                        {item.load_curve.map((pt, pi) => (
+                                                                                            <tr key={pi}>
+                                                                                                <td><input type="number" className="form-control form-control-sm text-center border-0" value={pt.t}
+                                                                                                    onChange={e => updateCurvePoint(i, pi, "t", Number(e.target.value))} /></td>
+                                                                                                <td><input type="number" className="form-control form-control-sm text-center border-0" value={pt.load}
+                                                                                                    onChange={e => updateCurvePoint(i, pi, "load", Number(e.target.value))} /></td>
+                                                                                                <td className="text-center">
+                                                                                                    <button type="button" className="btn btn-icon btn-xs btn-light-danger" onClick={() => removeCurvePoint(i, pi)}><i className="bi bi-x" /></button>
+                                                                                                </td>
+                                                                                            </tr>
+                                                                                        ))}
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
                                                         {item.result === "FAILED" && (
