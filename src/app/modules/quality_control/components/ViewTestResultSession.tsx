@@ -13,6 +13,7 @@ import {
     pauseTestResult,
     resumeTestResult,
     finalizeTestResult,
+    getInspectionChecklist,
     deleteTestResult,
     createTestResultRequiredItems,
     getTestResultPickRequests,
@@ -211,6 +212,14 @@ const TestResultLiveTimer = ({ testResult }: { testResult: TestResultDetail }) =
 
 // ─── interfaces ──────────────────────────────────────────────────────────────
 
+type TestTypeValue = "" | "PROOF_LOAD" | "BREAKING" | "VISUAL" | "DIMENSIONAL";
+
+interface CheckRow {
+    check_name: string;
+    status: "PASS" | "FAIL" | "NA";
+    note: string;
+}
+
 interface FinalizeItemForm {
     unit_number: number;
     serial_no: string;
@@ -219,15 +228,53 @@ interface FinalizeItemForm {
     description: string;
     result: "PASSED" | "FAILED";
     remark: string;
+    // Proof load params/measurements
+    required_load: string;
+    hold_time_sec: string;
+    length_before: string;
+    length_after: string;
+    // Breaking test
+    breaking_force: string;
+    min_breaking_load: string;
+    // Verdict + checklist
+    fail_reason: string;
+    checks: CheckRow[];
 }
 
 interface FinalizeForm {
     test_method: string;
+    test_type: TestTypeValue;
     standard_reference: string;
     overall_status: "PASSED" | "FAILED";
     remark: string;
     items: FinalizeItemForm[];
 }
+
+const TEST_TYPE_OPTIONS: { value: TestTypeValue; label: string }[] = [
+    { value: "", label: "— เลือกประเภท —" },
+    { value: "PROOF_LOAD", label: "Proof Load Test" },
+    { value: "BREAKING", label: "Breaking Test" },
+    { value: "VISUAL", label: "Visual Inspection" },
+    { value: "DIMENSIONAL", label: "Dimensional" },
+];
+
+const emptyFinalizeItem = (unit_number: number, description: string): FinalizeItemForm => ({
+    unit_number,
+    serial_no: "",
+    wll_measured: "",
+    load_test_value: "",
+    description,
+    result: "PASSED",
+    remark: "",
+    required_load: "",
+    hold_time_sec: "",
+    length_before: "",
+    length_after: "",
+    breaking_force: "",
+    min_breaking_load: "",
+    fail_reason: "",
+    checks: [],
+});
 
 interface RequiredItemRow {
     qc_item_id?: number;
@@ -289,6 +336,8 @@ const ViewTestResultSession: React.FC = () => {
     const [finalizeForm, setFinalizeForm] = useState<FinalizeForm | null>(null);
     const [finalizeActuals, setFinalizeActuals] = useState<Record<number, string>>({});
     const [finalizeSaving, setFinalizeSaving] = useState(false);
+    const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>({});
+    const [checklistLoading, setChecklistLoading] = useState(false);
 
     // for timeline
     const [autoZoom, setAutoZoom] = useState(true);
@@ -1141,23 +1190,58 @@ const ViewTestResultSession: React.FC = () => {
             if (key != null) actuals[key] = "";
         });
         setFinalizeActuals(actuals);
+        setExpandedItems({});
         setFinalizeForm({
             test_method: "",
+            test_type: "",
             standard_reference: "",
             overall_status: "PASSED",
             remark: "",
-            items: Array.from({ length: qty }, (_, i) => ({
-                unit_number: i + 1,
-                serial_no: "",
-                wll_measured: "",
-                load_test_value: "",
-                description: desc,
-                result: "PASSED",
-                remark: "",
-            })),
+            items: Array.from({ length: qty }, (_, i) => emptyFinalizeItem(i + 1, desc)),
         });
         setShowFinalizeForm(true);
     };
+
+    // When test_type changes, fetch the default checklist and seed every unit's checks.
+    const handleTestTypeChange = async (test_type: TestTypeValue) => {
+        setFinalizeForm(prev => prev ? { ...prev, test_type } : prev);
+        if (!test_type) {
+            setFinalizeForm(prev => prev ? { ...prev, items: prev.items.map(it => ({ ...it, checks: [] })) } : prev);
+            return;
+        }
+        const itemGroup = qcWorkOrder?.sales_item?.item_group ?? null;
+        setChecklistLoading(true);
+        try {
+            const res = await getInspectionChecklist(itemGroup, test_type);
+            const names: string[] = res.success && Array.isArray(res.data) ? res.data : [];
+            const checks: CheckRow[] = names.map(check_name => ({ check_name, status: "NA", note: "" }));
+            // Replace checks on every unit (fresh copy per item so edits don't alias)
+            setFinalizeForm(prev => prev ? {
+                ...prev,
+                items: prev.items.map(it => ({ ...it, checks: checks.map(c => ({ ...c })) })),
+            } : prev);
+        } finally {
+            setChecklistLoading(false);
+        }
+    };
+
+    const updateItem = (i: number, patch: Partial<FinalizeItemForm>) =>
+        setFinalizeForm(prev => {
+            if (!prev) return prev;
+            const items = [...prev.items];
+            items[i] = { ...items[i], ...patch };
+            return { ...prev, items };
+        });
+
+    const updateItemCheck = (i: number, ci: number, patch: Partial<CheckRow>) =>
+        setFinalizeForm(prev => {
+            if (!prev) return prev;
+            const items = [...prev.items];
+            const checks = [...items[i].checks];
+            checks[ci] = { ...checks[ci], ...patch };
+            items[i] = { ...items[i], checks };
+            return { ...prev, items };
+        });
 
     const handleFinalize = async () => {
         if (!finalizeForm || !testResult) return;
@@ -1166,12 +1250,24 @@ const ViewTestResultSession: React.FC = () => {
             const material_actuals = Object.entries(finalizeActuals)
                 .filter(([, v]) => v !== "")
                 .map(([id, qty]) => ({ test_result_required_item_id: Number(id), qty_used: Number(qty) }));
+            const numOrNull = (v: string) => v === "" ? null : parseFloat(v);
+            const intOrNull = (v: string) => v === "" ? null : parseInt(v, 10);
             const payload = {
                 ...finalizeForm,
+                test_type: finalizeForm.test_type || null,
                 items: finalizeForm.items.map(it => ({
                     ...it,
-                    wll_measured: it.wll_measured === "" ? null : parseFloat(it.wll_measured),
-                    load_test_value: it.load_test_value === "" ? null : parseFloat(it.load_test_value),
+                    wll_measured: numOrNull(it.wll_measured),
+                    load_test_value: numOrNull(it.load_test_value),
+                    required_load: numOrNull(it.required_load),
+                    hold_time_sec: intOrNull(it.hold_time_sec),
+                    length_before: numOrNull(it.length_before),
+                    length_after: numOrNull(it.length_after),
+                    breaking_force: numOrNull(it.breaking_force),
+                    min_breaking_load: numOrNull(it.min_breaking_load),
+                    checks: it.checks
+                        .filter(c => c.check_name)
+                        .map((c, idx) => ({ check_name: c.check_name, status: c.status, note: c.note || null, sequence: idx })),
                 })),
                 ...(material_actuals.length > 0 ? { material_actuals } : {}),
             };
@@ -2459,6 +2555,21 @@ const ViewTestResultSession: React.FC = () => {
                         <>
                             {/* Metadata */}
                             <div className="row g-4 mb-6">
+                                <div className="col-md-3">
+                                    <label className="form-label fw-bold">
+                                        ประเภทการทดสอบ
+                                        {checklistLoading && <span className="spinner-border spinner-border-sm ms-2" />}
+                                    </label>
+                                    <select
+                                        className="form-select"
+                                        value={finalizeForm.test_type}
+                                        onChange={e => handleTestTypeChange(e.target.value as TestTypeValue)}
+                                    >
+                                        {TEST_TYPE_OPTIONS.map(o => (
+                                            <option key={o.value} value={o.value}>{o.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
                                 {[
                                     { label: "วิธีการทดสอบ", field: "test_method" as const, type: "text", placeholder: "e.g. Proof Load Test" },
                                     { label: "มาตรฐานอ้างอิง", field: "standard_reference" as const, type: "text", placeholder: "e.g. BS EN 13414" },
@@ -2499,6 +2610,7 @@ const ViewTestResultSession: React.FC = () => {
                                 <table className="table table-bordered align-middle fs-7 mb-0">
                                     <thead className="table-light">
                                         <tr className="fw-bold text-gray-700 text-center">
+                                            <th className="w-40px"></th>
                                             <th className="w-60px">ลำดับ</th>
                                             <th className="text-start">คำอธิบาย</th>
                                             <th className="w-120px">Serial No.</th>
@@ -2510,7 +2622,15 @@ const ViewTestResultSession: React.FC = () => {
                                     </thead>
                                     <tbody>
                                         {finalizeForm.items.map((item, i) => (
-                                            <tr key={i}>
+                                            <React.Fragment key={i}>
+                                            <tr>
+                                                <td className="text-center">
+                                                    <button type="button" className="btn btn-icon btn-sm btn-light-primary"
+                                                        onClick={() => setExpandedItems(prev => ({ ...prev, [i]: !prev[i] }))}
+                                                        title="รายละเอียดการทดสอบ">
+                                                        <i className={`bi ${expandedItems[i] ? "bi-chevron-down" : "bi-chevron-right"}`} />
+                                                    </button>
+                                                </td>
                                                 <td className="text-center fw-bold text-gray-600">{item.unit_number}</td>
                                                 <td>
                                                     <input type="text" className="form-control form-control-sm" value={item.description}
@@ -2544,10 +2664,104 @@ const ViewTestResultSession: React.FC = () => {
                                                 </td>
                                                 <td>
                                                     <input type="text" className="form-control form-control-sm" value={item.remark}
-                                                        onChange={e => setFinalizeForm(prev => { if (!prev) return prev; const items = [...prev.items]; items[i] = { ...items[i], remark: e.target.value }; return { ...prev, items }; })}
+                                                        onChange={e => updateItem(i, { remark: e.target.value })}
                                                         placeholder="-" />
                                                 </td>
                                             </tr>
+                                            {expandedItems[i] && (
+                                                <tr className="bg-light">
+                                                    <td colSpan={8} className="p-4">
+                                                        {/* Test parameters — conditional on test_type */}
+                                                        {(finalizeForm.test_type === "PROOF_LOAD" || finalizeForm.test_type === "") && (
+                                                            <div className="row g-3 mb-3">
+                                                                <div className="col-md-3">
+                                                                    <label className="form-label fw-bold fs-8">Required Load (เป้าหมาย)</label>
+                                                                    <input type="text" className="form-control form-control-sm" value={item.required_load}
+                                                                        onChange={e => updateItem(i, { required_load: toDecimalInput(e.target.value) })} placeholder="0.00" />
+                                                                </div>
+                                                                <div className="col-md-3">
+                                                                    <label className="form-label fw-bold fs-8">Hold Time (วินาที)</label>
+                                                                    <input type="text" className="form-control form-control-sm" value={item.hold_time_sec}
+                                                                        onChange={e => updateItem(i, { hold_time_sec: formatIntegerInput(e.target.value) })} placeholder="0" />
+                                                                </div>
+                                                                <div className="col-md-3">
+                                                                    <label className="form-label fw-bold fs-8">Length Before</label>
+                                                                    <input type="text" className="form-control form-control-sm" value={item.length_before}
+                                                                        onChange={e => updateItem(i, { length_before: toDecimalInput(e.target.value) })} placeholder="0.00" />
+                                                                </div>
+                                                                <div className="col-md-3">
+                                                                    <label className="form-label fw-bold fs-8">Length After</label>
+                                                                    <input type="text" className="form-control form-control-sm" value={item.length_after}
+                                                                        onChange={e => updateItem(i, { length_after: toDecimalInput(e.target.value) })} placeholder="0.00" />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {finalizeForm.test_type === "BREAKING" && (
+                                                            <div className="row g-3 mb-3">
+                                                                <div className="col-md-3">
+                                                                    <label className="form-label fw-bold fs-8">Breaking Force</label>
+                                                                    <input type="text" className="form-control form-control-sm" value={item.breaking_force}
+                                                                        onChange={e => updateItem(i, { breaking_force: toDecimalInput(e.target.value) })} placeholder="0.00" />
+                                                                </div>
+                                                                <div className="col-md-3">
+                                                                    <label className="form-label fw-bold fs-8">Min Breaking Load</label>
+                                                                    <input type="text" className="form-control form-control-sm" value={item.min_breaking_load}
+                                                                        onChange={e => updateItem(i, { min_breaking_load: toDecimalInput(e.target.value) })} placeholder="0.00" />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {item.result === "FAILED" && (
+                                                            <div className="row g-3 mb-3">
+                                                                <div className="col-md-6">
+                                                                    <label className="form-label fw-bold fs-8 text-danger">เหตุผลที่ไม่ผ่าน (Fail Reason)</label>
+                                                                    <input type="text" className="form-control form-control-sm" value={item.fail_reason}
+                                                                        onChange={e => updateItem(i, { fail_reason: e.target.value })} placeholder="ระบุเหตุผล" />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {/* Inspection checklist */}
+                                                        {item.checks.length > 0 ? (
+                                                            <>
+                                                                <h6 className="fw-bold text-gray-700 fs-8 mb-2">รายการตรวจสอบ (Checklist)</h6>
+                                                                <table className="table table-bordered table-sm fs-8 mb-0">
+                                                                    <thead className="table-light">
+                                                                        <tr className="fw-bold text-gray-700">
+                                                                            <th className="text-start">รายการ</th>
+                                                                            <th className="w-120px text-center">ผล</th>
+                                                                            <th className="w-200px">หมายเหตุ</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {item.checks.map((chk, ci) => (
+                                                                            <tr key={ci}>
+                                                                                <td className="text-start">{chk.check_name}</td>
+                                                                                <td className="text-center">
+                                                                                    <select
+                                                                                        className={`form-select form-select-sm fw-bold ${chk.status === "PASS" ? "text-success" : chk.status === "FAIL" ? "text-danger" : "text-muted"}`}
+                                                                                        value={chk.status}
+                                                                                        onChange={e => updateItemCheck(i, ci, { status: e.target.value as CheckRow["status"] })}
+                                                                                    >
+                                                                                        <option value="NA">N/A</option>
+                                                                                        <option value="PASS">PASS</option>
+                                                                                        <option value="FAIL">FAIL</option>
+                                                                                    </select>
+                                                                                </td>
+                                                                                <td>
+                                                                                    <input type="text" className="form-control form-control-sm" value={chk.note}
+                                                                                        onChange={e => updateItemCheck(i, ci, { note: e.target.value })} placeholder="-" />
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </>
+                                                        ) : (
+                                                            <div className="text-muted fs-8">เลือกประเภทการทดสอบด้านบนเพื่อโหลดรายการตรวจสอบ</div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            </React.Fragment>
                                         ))}
                                     </tbody>
                                 </table>
