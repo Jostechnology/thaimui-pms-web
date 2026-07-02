@@ -52,8 +52,11 @@ export const ChartCard: React.FC<ChartCardProps> = ({
 
 export interface DonutDatum { name: string; value: number; fill?: string }
 
-export const DonutChart: React.FC<{ data: DonutDatum[] }> = ({ data }) => (
-    <PieChart>
+/** ResponsiveContainer injects width/height into its direct child — forward them to the raw chart. */
+interface Sized { width?: number; height?: number }
+
+export const DonutChart: React.FC<{ data: DonutDatum[] } & Sized> = ({ data, width, height }) => (
+    <PieChart width={width} height={height}>
         <Pie data={data} cx='50%' cy='45%' innerRadius={60} outerRadius={105} paddingAngle={3} dataKey='value' nameKey='name' stroke='none'>
             {data.map((d, i) => <Cell key={i} fill={d.fill || PALETTE[i % PALETTE.length]} />)}
         </Pie>
@@ -68,12 +71,19 @@ export const DonutChart: React.FC<{ data: DonutDatum[] }> = ({ data }) => (
 
 export interface BarDatum { name: string; value: number; fill?: string }
 
+/** Map signed {name,value} points to per-bar colored BarDatum (red ↓ / green ↑). */
+export const toDivergingBars = (
+    data: { name: string; value: number }[],
+    neg = '#F1416C',
+    pos = '#50CD89',
+): BarDatum[] => data.map((d) => ({ name: d.name, value: d.value, fill: d.value < 0 ? neg : pos }));
+
 export const SimpleBarChart: React.FC<{
     data: BarDatum[]; color?: string; layout?: 'horizontal' | 'vertical';
-}> = ({ data, color = '#009EF7', layout = 'horizontal' }) => {
+} & Sized> = ({ data, color = '#009EF7', layout = 'horizontal', width, height }) => {
     const vertical = layout === 'vertical';
     return (
-        <BarChart data={data} layout={layout} margin={{ top: 10, right: 20, left: vertical ? 10 : 0, bottom: 10 }}>
+        <BarChart width={width} height={height} data={data} layout={layout} margin={{ top: 10, right: 20, left: vertical ? 10 : 0, bottom: 10 }}>
             <CartesianGrid strokeDasharray='3 3' stroke='#f1f1f4' horizontal={!vertical} vertical={vertical} />
             {vertical
                 ? <><XAxis type='number' tick={{ fill: '#a1a5b7', fontSize: 11 }} axisLine={false} tickLine={false} /><YAxis type='category' dataKey='name' tick={{ fill: '#5e6278', fontSize: 11 }} width={130} axisLine={false} tickLine={false} /></>
@@ -94,8 +104,8 @@ export interface SeriesDef { key: string; name: string; color: string }
 
 export const GroupedBarChart: React.FC<{
     data: Record<string, unknown>[]; xKey: string; series: SeriesDef[];
-}> = ({ data, xKey, series }) => (
-    <BarChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
+} & Sized> = ({ data, xKey, series, width, height }) => (
+    <BarChart width={width} height={height} data={data} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
         <CartesianGrid strokeDasharray='3 3' stroke='#f1f1f4' />
         <XAxis dataKey={xKey} tick={{ fill: '#5e6278', fontSize: 11 }} axisLine={false} tickLine={false} />
         <YAxis tick={{ fill: '#a1a5b7', fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -111,8 +121,8 @@ export const GroupedBarChart: React.FC<{
 
 export const TrendLine: React.FC<{
     data: Record<string, unknown>[]; xKey: string; series: SeriesDef[];
-}> = ({ data, xKey, series }) => (
-    <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
+} & Sized> = ({ data, xKey, series, width, height }) => (
+    <LineChart width={width} height={height} data={data} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
         <CartesianGrid strokeDasharray='3 3' stroke='#f1f1f4' />
         <XAxis dataKey={xKey} tick={{ fill: '#a1a5b7', fontSize: 10 }} axisLine={false} tickLine={false} />
         <YAxis tick={{ fill: '#a1a5b7', fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -128,8 +138,8 @@ export const TrendLine: React.FC<{
 
 export const ScatterCard: React.FC<{
     data: Record<string, unknown>[]; xKey: string; yKey: string; xName: string; yName: string; color?: string;
-}> = ({ data, xKey, yKey, xName, yName, color = '#7239EA' }) => (
-    <ScatterChart margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
+} & Sized> = ({ data, xKey, yKey, xName, yName, color = '#7239EA', width, height }) => (
+    <ScatterChart width={width} height={height} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
         <CartesianGrid strokeDasharray='3 3' stroke='#f1f1f4' />
         <XAxis type='number' dataKey={xKey} name={xName} tick={{ fill: '#a1a5b7', fontSize: 11 }} axisLine={false} tickLine={false} />
         <YAxis type='number' dataKey={yKey} name={yName} tick={{ fill: '#a1a5b7', fontSize: 11 }} axisLine={false} tickLine={false} />

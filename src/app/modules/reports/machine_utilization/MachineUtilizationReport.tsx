@@ -4,7 +4,10 @@ import ReportShell from '../_shared/ReportShell';
 import KpiCards from '../_shared/KpiCards';
 import ReportTable, { Column } from '../_shared/ReportTable';
 import { ChartCard, DonutChart, SimpleBarChart, GroupedBarChart } from '../_shared/charts';
-import { DateRangeFilter, fmtNum } from '../_shared/filters';
+import { fmtNum } from '../_shared/filters';
+import { lastNDaysToToday } from '../_shared/datePresets';
+import { MachinePicker } from '../_shared/ReportPickers';
+import { FilterField } from '../_shared/FilterPopover';
 import { useReport } from '../_shared/useReport';
 
 interface Row {
@@ -28,16 +31,17 @@ interface Summary {
 }
 
 const MachineUtilizationReport: React.FC = () => {
-    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(lastNDaysToToday(7));
     const [startDate, endDate] = dateRange;
-    const [machineId, setMachineId] = useState('');
+    const [machineId, setMachineId] = useState<number | undefined>(undefined);
 
     const enabled = !!(startDate && endDate);
+    const activeFilterCount = machineId ? 1 : 0;
 
     const params = useMemo(() => ({
         from: toDateOnly(startDate) ?? undefined,
         to: toDateOnly(endDate) ?? undefined,
-        machine_id: machineId ? Number(machineId) : undefined,
+        machine_id: machineId,
     }), [startDate, endDate, machineId]);
 
     const r = useReport<Row, Summary>('machine_utilization', params, enabled);
@@ -72,10 +76,16 @@ const MachineUtilizationReport: React.FC = () => {
             onExport={() => r.handleExport('machine_utilization.xlsx')}
             exporting={r.exporting}
             exportDisabled={!enabled}
-            filters={<>
-                <DateRangeFilter startDate={startDate} endDate={endDate} onChange={setDateRange} placeholder='เลือกช่วงวันที่ (จำเป็น)' />
-                <input type='number' className='form-control form-control-sm form-control-solid w-180px' placeholder='Filter Machine ID' value={machineId} onChange={(e) => setMachineId(e.target.value)} />
-            </>}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
+            activeFilterCount={activeFilterCount}
+            onClearFilters={() => setMachineId(undefined)}
+            filterPopover={
+                <FilterField label='เครื่องจักร'>
+                    <MachinePicker value={machineId} onChange={setMachineId} />
+                </FilterField>
+            }
         >
             {summary && <KpiCards cards={[
                 { label: 'จำนวนเครื่อง', value: summary.machine_count, icon: 'bi-cpu', bg: 'bg-light-primary', color: 'text-primary' },

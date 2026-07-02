@@ -41,11 +41,12 @@ export function useReport<TRow = Record<string, unknown>, TSummary = Record<stri
             const res = await previewReport<TRow, TSummary>(code, params, page, perPage);
             if (res.success && res.data) {
                 const d = res.data as Record<string, unknown>;
+                const pagination = (d.pagination as Record<string, unknown>) || {};
                 setRows((d.rows as TRow[]) || []);
-                setSummary((d.summary as TSummary) ?? null);
-                setPages((d.pages as number) || 0);
-                setTotal((d.total as number) || 0);
-                const { rows: _r, summary: _s, total: _t, page: _p, pages: _pg, per_page: _pp, ...rest } = d;
+                setSummary((d.meta as TSummary) ?? null);
+                setPages((pagination.total_pages as number) || 0);
+                setTotal((pagination.total as number) || 0);
+                const { rows: _r, meta: _m, pagination: _pg, ...rest } = d;
                 setExtra(rest);
             } else {
                 alertMessage(res.message || 'ดึงข้อมูลรายงานไม่สำเร็จ');

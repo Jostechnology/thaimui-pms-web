@@ -5,7 +5,10 @@ import KpiCards from '../_shared/KpiCards';
 import ReportTable, { Column } from '../_shared/ReportTable';
 import GanttChart, { GanttTask, GanttViewMode } from '../_shared/GanttChart';
 import { ChartCard, SimpleBarChart, TrendLine, BarDatum } from '../_shared/charts';
-import { DateRangeFilter, fmtNum, fmtDateTime } from '../_shared/filters';
+import { fmtNum, fmtDateTime } from '../_shared/filters';
+import { lastNDaysToToday } from '../_shared/datePresets';
+import { EmployeePicker } from '../_shared/ReportPickers';
+import { FilterField } from '../_shared/FilterPopover';
 import { useReport } from '../_shared/useReport';
 
 interface Row {
@@ -40,19 +43,20 @@ interface Summary {
 }
 
 const WorkerTimeReport: React.FC = () => {
-    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(lastNDaysToToday(7));
     const [startDate, endDate] = dateRange;
-    const [employeeId, setEmployeeId] = useState('');
+    const [employeeId, setEmployeeId] = useState<number | undefined>(undefined);
     const [viewMode, setViewMode] = useState<GanttViewMode>('Day');
 
     const requiredOk = !!(startDate && endDate);
+    const activeFilterCount = employeeId ? 1 : 0;
 
     const params = useMemo(() => {
         const out: Record<string, unknown> = {};
         const f = toDateOnly(startDate); const t = toDateOnly(endDate);
         if (f) out.from = f;
         if (t) out.to = t;
-        if (employeeId) out.employee_id = Number(employeeId);
+        if (employeeId) out.employee_id = employeeId;
         return out;
     }, [startDate, endDate, employeeId]);
 
@@ -92,17 +96,24 @@ const WorkerTimeReport: React.FC = () => {
             onExport={() => r.handleExport('worker_time.xlsx')}
             exporting={r.exporting}
             exportDisabled={!requiredOk}
-            filters={<>
-                <DateRangeFilter startDate={startDate} endDate={endDate} onChange={setDateRange} placeholder='เลือกช่วงวันที่ (จำเป็น)' />
-                <input type='number' className='form-control form-control-sm form-control-solid w-180px'
-                    placeholder='Filter Employee ID' value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} />
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
+            activeFilterCount={activeFilterCount}
+            onClearFilters={() => setEmployeeId(undefined)}
+            filters={
                 <select className='form-select form-select-sm form-select-solid w-110px'
                     value={viewMode} onChange={(e) => setViewMode(e.target.value as GanttViewMode)}>
                     <option value='Day'>วัน</option>
                     <option value='Week'>สัปดาห์</option>
                     <option value='Month'>เดือน</option>
                 </select>
-            </>}
+            }
+            filterPopover={
+                <FilterField label='พนักงาน'>
+                    <EmployeePicker value={employeeId} onChange={setEmployeeId} />
+                </FilterField>
+            }
         >
             {summary && <KpiCards cards={[
                 { label: 'การมอบหมายงาน', value: summary.assignments_count, icon: 'bi-list-task', bg: 'bg-light-primary', color: 'text-primary' },

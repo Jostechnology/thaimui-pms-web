@@ -4,8 +4,16 @@ import ReportShell from '../_shared/ReportShell';
 import KpiCards from '../_shared/KpiCards';
 import ReportTable, { Column } from '../_shared/ReportTable';
 import { ChartCard, DonutChart, SimpleBarChart } from '../_shared/charts';
-import { DateRangeFilter, fmtNum, fmtDate } from '../_shared/filters';
+import { fmtNum, fmtDate } from '../_shared/filters';
+import { firstOfMonthToToday } from '../_shared/datePresets';
+import { EnumMultiSelect } from '../_shared/ReportPickers';
+import { FilterField } from '../_shared/FilterPopover';
 import { useReport } from '../_shared/useReport';
+
+const STATUS_OPTIONS = [
+    { value: 'INPROGRESS', label: 'กำลังทำ' },
+    { value: 'COMPLETED', label: 'เสร็จสิ้น' },
+];
 
 interface Row {
     doc_entry: number;
@@ -30,16 +38,17 @@ interface Summary {
 }
 
 const SoCycleTimeReport: React.FC = () => {
-    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(firstOfMonthToToday());
     const [startDate, endDate] = dateRange;
-    const [status, setStatus] = useState('');
+    const [status, setStatus] = useState<string[]>([]);
 
     const enabled = !!(startDate && endDate);
+    const activeFilterCount = status.length ? 1 : 0;
 
     const params = useMemo(() => ({
         from: toDateOnly(startDate) ?? undefined,
         to: toDateOnly(endDate) ?? undefined,
-        status: status || undefined,
+        status: status.length ? status.join(',') : undefined,
     }), [startDate, endDate, status]);
 
     const r = useReport<Row, Summary>('so_cycle_time', params, enabled);
@@ -66,14 +75,16 @@ const SoCycleTimeReport: React.FC = () => {
             onExport={() => r.handleExport('so_cycle_time.xlsx')}
             exporting={r.exporting}
             exportDisabled={!enabled}
-            filters={<>
-                <DateRangeFilter startDate={startDate} endDate={endDate} onChange={setDateRange} placeholder='เลือกช่วงวันที่ (จำเป็น)' />
-                <select className='form-select form-select-solid w-160px' value={status} onChange={(e) => setStatus(e.target.value)}>
-                    <option value=''>ทุกสถานะ</option>
-                    <option value='INPROGRESS'>กำลังทำ</option>
-                    <option value='COMPLETED'>เสร็จสิ้น</option>
-                </select>
-            </>}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
+            activeFilterCount={activeFilterCount}
+            onClearFilters={() => setStatus([])}
+            filterPopover={
+                <FilterField label='สถานะ (เลือกได้หลายอัน)'>
+                    <EnumMultiSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} />
+                </FilterField>
+            }
         >
             {summary && <KpiCards cards={[
                 { label: 'จำนวน SO', value: summary.total_orders, icon: 'bi-receipt', bg: 'bg-light-primary', color: 'text-primary' },

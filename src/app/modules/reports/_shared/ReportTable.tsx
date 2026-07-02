@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import TablePaginator from '../../../custom_components/TablePaginator';
 
 export interface Column<T> {
@@ -7,6 +7,10 @@ export interface Column<T> {
     align?: 'start' | 'center' | 'end';
     minWidth?: number;
     render?: (row: T) => React.ReactNode;
+    /** Disable click-to-sort on this column. */
+    noSort?: boolean;
+    /** Custom value used for sorting (defaults to row[key]). */
+    sortValue?: (row: T) => number | string | null | undefined;
 }
 
 interface ReportTableProps<T> {
@@ -22,15 +26,47 @@ interface ReportTableProps<T> {
     perPage?: number;
     setPerPage?: (n: number) => void;
     toolbarExtra?: React.ReactNode;
+    /** Enable click-to-sort on column headers (sorts the loaded rows). Default true. */
+    sortable?: boolean;
 }
 
 const alignClass = (a?: string) => (a === 'end' ? 'text-end' : a === 'center' ? 'text-center' : 'text-start');
 
+const compareVals = (a: unknown, b: unknown): number => {
+    const an = a === null || a === undefined || a === '';
+    const bn = b === null || b === undefined || b === '';
+    if (an && bn) return 0;
+    if (an) return -1;
+    if (bn) return 1;
+    if (typeof a === 'number' && typeof b === 'number') return a - b;
+    return String(a).localeCompare(String(b), 'th', { numeric: true });
+};
+
 /** Generic report detail table + paginator driven by column defs. */
 function ReportTable<T>({
     title, columns, rows, rowKey, page, setPage, pages, total, perPage, setPerPage, toolbarExtra,
+    sortable = true,
 }: ReportTableProps<T>) {
     const paginated = page !== undefined && setPage !== undefined;
+    const [sortKey, setSortKey] = useState<string | null>(null);
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+    const toggleSort = (col: Column<T>) => {
+        if (!sortable || col.noSort) return;
+        if (sortKey === col.key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+        else { setSortKey(col.key); setSortDir('asc'); }
+    };
+
+    const sortedRows = useMemo(() => {
+        if (!sortable || !sortKey) return rows;
+        const col = columns.find((c) => c.key === sortKey);
+        if (!col) return rows;
+        const val = (r: T) => (col.sortValue ? col.sortValue(r) : (r as Record<string, unknown>)[col.key]);
+        const sorted = [...rows].sort((a, b) => compareVals(val(a), val(b)));
+        if (sortDir === 'desc') sorted.reverse();
+        return sorted;
+    }, [rows, columns, sortKey, sortDir, sortable]);
+
     return (
         <div className='card card-flush shadow-sm border-0'>
             <div className='card-header border-0 pt-6'>
@@ -53,13 +89,24 @@ function ReportTable<T>({
                     <table className='table align-middle table-row-dashed fs-7 gy-3'>
                         <thead>
                             <tr className='text-start text-muted fw-bold fs-8 text-uppercase gs-0 border-bottom border-gray-200'>
-                                {columns.map((c) => (
-                                    <th key={c.key} className={`${alignClass(c.align)} ${c.minWidth ? `min-w-${c.minWidth}px` : ''}`}>{c.label}</th>
-                                ))}
+                                {columns.map((c) => {
+                                    const canSort = sortable && !c.noSort;
+                                    const active = sortKey === c.key;
+                                    return (
+                                        <th key={c.key}
+                                            className={`${alignClass(c.align)} ${c.minWidth ? `min-w-${c.minWidth}px` : ''} ${canSort ? 'cursor-pointer user-select-none' : ''}`}
+                                            onClick={() => toggleSort(c)}>
+                                            {c.label}
+                                            {canSort && (
+                                                <i className={`bi ms-1 ${active ? (sortDir === 'asc' ? 'bi-sort-up' : 'bi-sort-down') : 'bi-arrow-down-up text-gray-400'}`}></i>
+                                            )}
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody className='text-gray-700 fw-semibold'>
-                            {rows.length > 0 ? rows.map((r) => (
+                            {sortedRows.length > 0 ? sortedRows.map((r) => (
                                 <tr key={rowKey(r)}>
                                     {columns.map((c) => (
                                         <td key={c.key} className={alignClass(c.align)}>

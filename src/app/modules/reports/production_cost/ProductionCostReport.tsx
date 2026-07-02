@@ -3,8 +3,11 @@ import { toDateOnly } from '../../../utils/validate_utils';
 import ReportShell from '../_shared/ReportShell';
 import KpiCards from '../_shared/KpiCards';
 import ReportTable, { Column } from '../_shared/ReportTable';
-import { ChartCard, DonutChart, SimpleBarChart, TrendLine, DonutDatum, BarDatum } from '../_shared/charts';
-import { DateRangeFilter, fmtNum, fmtDate } from '../_shared/filters';
+import { ChartCard, DonutChart, SimpleBarChart, TrendLine, ScatterCard, DonutDatum, BarDatum } from '../_shared/charts';
+import { fmtNum, fmtDate } from '../_shared/filters';
+import { firstOfMonthToToday } from '../_shared/datePresets';
+import { WorkOrderPicker } from '../_shared/ReportPickers';
+import { FilterField } from '../_shared/FilterPopover';
 import { useReport } from '../_shared/useReport';
 
 interface Row {
@@ -35,16 +38,17 @@ interface Summary {
 }
 
 const ProductionCostReport: React.FC = () => {
-    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(firstOfMonthToToday());
     const [startDate, endDate] = dateRange;
-    const [workOrderId, setWorkOrderId] = useState('');
+    const [workOrderId, setWorkOrderId] = useState<number | undefined>(undefined);
 
     const enabled = !!(startDate && endDate);
+    const activeFilterCount = workOrderId ? 1 : 0;
 
     const params = useMemo(() => ({
         from: toDateOnly(startDate) ?? undefined,
         to: toDateOnly(endDate) ?? undefined,
-        work_order_id: workOrderId ? Number(workOrderId) : undefined,
+        work_order_id: workOrderId,
     }), [startDate, endDate, workOrderId]);
 
     const r = useReport<Row, Summary>('production_cost', params, enabled);
@@ -53,6 +57,7 @@ const ProductionCostReport: React.FC = () => {
     const costMix = (r.breakdown.cost_mix as { name: string; value: number }[]) || [];
     const byWorkrun = (r.breakdown.by_workrun as { label: string; total_cost: number }[]) || [];
     const byDay = (r.breakdown.by_day as { day: string; total_cost: number }[]) || [];
+    const costScatter = (r.breakdown.cost_scatter as { name: string; qty: number; unit_cost: number }[]) || [];
 
     const costMixData: DonutDatum[] = useMemo(() => costMix.map((x) => ({ name: x.name, value: x.value })), [costMix]);
     const byWorkrunData: BarDatum[] = useMemo(() => byWorkrun.map((x) => ({ name: x.label, value: x.total_cost })), [byWorkrun]);
@@ -77,16 +82,16 @@ const ProductionCostReport: React.FC = () => {
             onExport={() => r.handleExport('production_cost.xlsx')}
             exporting={r.exporting}
             exportDisabled={!enabled}
-            filters={<>
-                <DateRangeFilter startDate={startDate} endDate={endDate} onChange={setDateRange} placeholder='เลือกช่วงวันที่ (จำเป็น)' />
-                <input
-                    type='number'
-                    className='form-control form-control-sm form-control-solid w-180px'
-                    placeholder='Filter Work Order ID'
-                    value={workOrderId}
-                    onChange={(e) => setWorkOrderId(e.target.value)}
-                />
-            </>}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
+            activeFilterCount={activeFilterCount}
+            onClearFilters={() => setWorkOrderId(undefined)}
+            filterPopover={
+                <FilterField label='ใบสั่งผลิต (Work Order)'>
+                    <WorkOrderPicker value={workOrderId} onChange={setWorkOrderId} />
+                </FilterField>
+            }
         >
             {summary && <KpiCards cards={[
                 { label: 'จำนวน WorkRun', value: summary.workrun_count, icon: 'bi-gear', bg: 'bg-light-primary', color: 'text-primary' },
@@ -104,6 +109,12 @@ const ProductionCostReport: React.FC = () => {
                 </ChartCard>
                 <ChartCard title='แนวโน้มต้นทุนรายวัน' colClass='col-xl-4' hasData={byDay.length > 0}>
                     <TrendLine data={byDay} xKey='day' series={[{ key: 'total_cost', name: 'ต้นทุน', color: '#009EF7' }]} />
+                </ChartCard>
+            </div>
+
+            <div className='row g-5 g-xl-8 mb-8'>
+                <ChartCard title='ปริมาณผลิต vs ต้นทุน/หน่วย' colClass='col-12' height={320} hasData={costScatter.length > 0}>
+                    <ScatterCard data={costScatter} xKey='qty' yKey='unit_cost' xName='ผลิตได้ (ใช้ได้)' yName='ต้นทุน/หน่วย' color='#009EF7' />
                 </ChartCard>
             </div>
 

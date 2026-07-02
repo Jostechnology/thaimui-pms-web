@@ -1,5 +1,5 @@
 import { front_api } from "./apiConfig";
-import type { ReportDefinition, ReportPreviewResult } from "../type_interface/ReportType";
+import type { ReportDefinition, ReportPreviewResult, ReportRunDetail } from "../type_interface/ReportType";
 
 interface APIResponse<T = unknown> {
     success: boolean;
@@ -15,8 +15,14 @@ const handleResponse = async <T,>(response: Response | false | undefined): Promi
 };
 
 export const getReportDefinitions = async (): Promise<APIResponse<{ items: ReportDefinition[] }>> => {
-    const response = await front_api("GET", "/reports/definitions", {}, { wrapData: false });
-    return handleResponse(response);
+    const response = await front_api("GET", "/get_report_definitions", {}, { wrapData: false });
+    const res = await handleResponse<ReportDefinition[]>(response);
+    // BE returns data as a flat list; normalise to {items} for the gallery.
+    if (res.success) {
+        const list = Array.isArray(res.data) ? res.data : [];
+        return { success: true, data: { items: list } };
+    }
+    return { success: false, message: res.message };
 };
 
 export const previewReport = async <TRow = Record<string, unknown>, TSummary = Record<string, unknown>>(
@@ -27,7 +33,7 @@ export const previewReport = async <TRow = Record<string, unknown>, TSummary = R
 ): Promise<APIResponse<ReportPreviewResult<TRow, TSummary>>> => {
     const response = await front_api(
         "POST",
-        "/reports/preview",
+        "/preview_report",
         { code, params, page, per_page },
         { wrapData: false },
     );
@@ -39,25 +45,26 @@ export const exportReportXlsx = async (
     params: Record<string, unknown>,
     filename?: string,
 ): Promise<{ success: boolean; message?: string }> => {
+    // New BE persists a run and returns a presigned MinIO URL per format.
     const response = await front_api(
         "POST",
-        "/reports/export",
-        { code, params, format: "xlsx" },
+        "/create_report_run",
+        { code, params, formats: ["xlsx"] },
         { wrapData: false },
     );
-    if (!response) return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
-    if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        return { success: false, message: err.error || "ส่งออกไฟล์ล้มเหลว" };
+    const res = await handleResponse<ReportRunDetail>(response);
+    if (!res.success || !res.data) {
+        return { success: false, message: res.message || "ส่งออกไฟล์ล้มเหลว" };
     }
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
+    const url = res.data.file_urls?.xlsx;
+    if (!url) {
+        return { success: false, message: "ไม่พบไฟล์ที่ส่งออก" };
+    }
     const link = document.createElement("a");
     link.href = url;
     link.download = filename || `${code}.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
     return { success: true };
 };

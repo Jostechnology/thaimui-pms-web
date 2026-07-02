@@ -4,7 +4,8 @@ import ReportShell from '../_shared/ReportShell';
 import KpiCards from '../_shared/KpiCards';
 import ReportTable, { Column } from '../_shared/ReportTable';
 import { ChartCard, DonutChart, SimpleBarChart, ScatterCard, DonutDatum } from '../_shared/charts';
-import { DateRangeFilter, fmtNum } from '../_shared/filters';
+import { fmtNum } from '../_shared/filters';
+import { firstOfMonthToToday } from '../_shared/datePresets';
 import { useReport } from '../_shared/useReport';
 
 interface Row {
@@ -28,7 +29,7 @@ interface Summary {
 const QUALITY_FILL: Record<string, string> = { 'ใช้ได้': '#50CD89', 'ของเสีย': '#F1416C' };
 
 const EmployeeProductivityReport: React.FC = () => {
-    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(firstOfMonthToToday());
     const [startDate, endDate] = dateRange;
 
     const enabled = !!(startDate && endDate);
@@ -67,9 +68,9 @@ const EmployeeProductivityReport: React.FC = () => {
             onExport={() => r.handleExport('employee_productivity.xlsx')}
             exporting={r.exporting}
             exportDisabled={!enabled}
-            filters={<>
-                <DateRangeFilter startDate={startDate} endDate={endDate} onChange={setDateRange} placeholder='เลือกช่วงวันที่ (จำเป็น)' />
-            </>}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
         >
             {summary && <KpiCards cards={[
                 { label: 'จำนวนพนักงาน', value: summary.employees, icon: 'bi-people', bg: 'bg-light-primary', color: 'text-primary' },

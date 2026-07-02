@@ -31,6 +31,7 @@ interface ClaimForm {
 
 interface WorkRunOption {
     work_run_id: number;
+    lot_number: string | null;
     status: string;
     quantity: number;
     tested_qty: number;
@@ -286,7 +287,7 @@ const TestResultSection: React.FC<Props> = ({
                                                         <td className="text-center">
                                                             <input type="checkbox" className="form-check-input" checked={isChecked} onChange={() => toggleWorkRunAllocation(wr.work_run_id)} />
                                                         </td>
-                                                        <td className="fw-bold">Work Run #{wr.work_run_id}</td>
+                                                        <td className="fw-bold">{wr.lot_number || `WR#${wr.work_run_id}`}</td>
                                                         <td className="text-center">
                                                             <span className={`badge fw-bold ${wr.status === "COMPLETED" ? "badge-light-success" : "badge-light-warning"}`}>{wr.status}</span>
                                                         </td>

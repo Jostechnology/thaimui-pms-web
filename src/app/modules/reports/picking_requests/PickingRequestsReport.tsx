@@ -3,8 +3,11 @@ import { toDateOnly } from '../../../utils/validate_utils';
 import ReportShell from '../_shared/ReportShell';
 import KpiCards from '../_shared/KpiCards';
 import ReportTable, { Column } from '../_shared/ReportTable';
-import { ChartCard, DonutChart, SimpleBarChart, GroupedBarChart, DonutDatum } from '../_shared/charts';
-import { DateRangeFilter, fmtNum, fmtDate } from '../_shared/filters';
+import { ChartCard, DonutChart, SimpleBarChart, GroupedBarChart, DonutDatum, toDivergingBars } from '../_shared/charts';
+import { fmtNum, fmtDate } from '../_shared/filters';
+import { firstOfMonthToToday } from '../_shared/datePresets';
+import { EnumMultiSelect } from '../_shared/ReportPickers';
+import { FilterField } from '../_shared/FilterPopover';
 import { useReport } from '../_shared/useReport';
 
 type Status = 'PENDING' | 'SENT' | 'SUCCESS' | 'FAILED';
@@ -33,21 +36,23 @@ interface Summary {
 }
 
 const STATUS_LABEL: Record<Status, string> = { PENDING: 'รอดำเนินการ', SENT: 'ส่งแล้ว', SUCCESS: 'สำเร็จ', FAILED: 'ล้มเหลว' };
+const STATUS_OPTIONS = (['PENDING', 'SENT', 'SUCCESS', 'FAILED'] as Status[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }));
 const STATUS_BADGE: Record<Status, string> = { PENDING: 'badge-light-warning', SENT: 'badge-light-primary', SUCCESS: 'badge-light-success', FAILED: 'badge-light-danger' };
 const STATUS_COLOR: Record<Status, string> = { PENDING: '#FFC700', SENT: '#009EF7', SUCCESS: '#50CD89', FAILED: '#F1416C' };
 
 const PickingRequestsReport: React.FC = () => {
-    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(firstOfMonthToToday());
     const [startDate, endDate] = dateRange;
-    const [statusFilter, setStatusFilter] = useState<'' | Status>('');
+    const [statusFilter, setStatusFilter] = useState<Status[]>([]);
 
     // valid only when range is empty or fully picked
     const enabled = !((startDate && !endDate) || (!startDate && endDate));
+    const activeFilterCount = statusFilter.length ? 1 : 0;
 
     const params = useMemo(() => ({
         from: toDateOnly(startDate) ?? undefined,
         to: toDateOnly(endDate) ?? undefined,
-        status: statusFilter || undefined,
+        status: statusFilter.length ? statusFilter.join(',') : undefined,
     }), [startDate, endDate, statusFilter]);
 
     const r = useReport<Row, Summary>('picking_requests', params, enabled);
@@ -55,6 +60,7 @@ const PickingRequestsReport: React.FC = () => {
 
     const byStatus = (r.breakdown.by_status as { status: Status; count: number }[]) || [];
     const byDay = (r.breakdown.by_day as { day: string; qty_requested: number; qty_received: number }[]) || [];
+    const deltaTop = (r.breakdown.delta_top as { name: string; value: number }[]) || [];
 
     const statusPie: DonutDatum[] = useMemo(
         () => byStatus.filter((s) => s.count > 0).map((s) => ({ name: STATUS_LABEL[s.status] ?? s.status, value: s.count, fill: STATUS_COLOR[s.status] })),
@@ -84,16 +90,19 @@ const PickingRequestsReport: React.FC = () => {
             description='สรุปคำขอเบิก, ส่วนต่างจากการตรวจรับ และส่งออก Excel'
             onExport={() => r.handleExport('picking_requests.xlsx')}
             exporting={r.exporting}
-            filters={<>
-                <DateRangeFilter startDate={startDate} endDate={endDate} onChange={setDateRange} />
-                <select className='form-select form-select-solid w-160px' value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as '' | Status)}>
-                    <option value=''>ทุกสถานะ</option>
-                    <option value='PENDING'>รอดำเนินการ</option>
-                    <option value='SENT'>ส่งแล้ว</option>
-                    <option value='SUCCESS'>สำเร็จ</option>
-                    <option value='FAILED'>ล้มเหลว</option>
-                </select>
-            </>}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            activeFilterCount={activeFilterCount}
+            onClearFilters={() => setStatusFilter([])}
+            filterPopover={
+                <FilterField label='สถานะ (เลือกได้หลายอัน)'>
+                    <EnumMultiSelect
+                        value={statusFilter}
+                        onChange={(v) => setStatusFilter(v as Status[])}
+                        options={STATUS_OPTIONS}
+                    />
+                </FilterField>
+            }
         >
             {summary && <KpiCards cards={[
                 { label: 'จำนวนใบขอเบิก', value: summary.total_requests, icon: 'bi-box-seam', bg: 'bg-light-primary', color: 'text-primary' },
@@ -114,6 +123,12 @@ const PickingRequestsReport: React.FC = () => {
                         { key: 'qty_requested', name: 'ขอเบิก', color: '#009EF7' },
                         { key: 'qty_received', name: 'รับจริง', color: '#50CD89' },
                     ]} />
+                </ChartCard>
+            </div>
+
+            <div className='row g-5 g-xl-8 mb-8'>
+                <ChartCard title='ส่วนต่างรับจริง vs ขอเบิก ราย SO (Top 15)' colClass='col-12' height={340} hasData={deltaTop.length > 0}>
+                    <SimpleBarChart data={toDivergingBars(deltaTop)} layout='vertical' />
                 </ChartCard>
             </div>
 

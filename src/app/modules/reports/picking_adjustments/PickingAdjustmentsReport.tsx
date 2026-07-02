@@ -3,9 +3,20 @@ import { toDateOnly } from '../../../utils/validate_utils';
 import ReportShell from '../_shared/ReportShell';
 import KpiCards from '../_shared/KpiCards';
 import ReportTable, { Column } from '../_shared/ReportTable';
-import { ChartCard, DonutChart, SimpleBarChart, TrendLine } from '../_shared/charts';
-import { DateRangeFilter, fmtDate } from '../_shared/filters';
+import { ChartCard, DonutChart, SimpleBarChart, TrendLine, toDivergingBars } from '../_shared/charts';
+import { fmtDate } from '../_shared/filters';
+import { firstOfMonthToToday } from '../_shared/datePresets';
+import { EnumMultiSelect } from '../_shared/ReportPickers';
+import { FilterField } from '../_shared/FilterPopover';
 import { useReport } from '../_shared/useReport';
+
+const REASON_OPTIONS = [
+    { value: 'MISCOUNT', label: 'นับผิด' },
+    { value: 'SPILLAGE', label: 'ของหก' },
+    { value: 'CORRECTION', label: 'แก้ไข' },
+    { value: 'REALLOCATE', label: 'ย้าย' },
+    { value: 'OTHER', label: 'อื่นๆ' },
+];
 
 interface Row {
     adjustment_id: number;
@@ -30,16 +41,17 @@ interface Summary {
 }
 
 const PickingAdjustmentsReport: React.FC = () => {
-    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(firstOfMonthToToday());
     const [startDate, endDate] = dateRange;
-    const [reason, setReason] = useState('');
+    const [reason, setReason] = useState<string[]>([]);
 
     const enabled = !!(startDate && endDate);
+    const activeFilterCount = reason.length ? 1 : 0;
 
     const params = useMemo(() => ({
         from: toDateOnly(startDate) ?? undefined,
         to: toDateOnly(endDate) ?? undefined,
-        reason: reason || undefined,
+        reason: reason.length ? reason.join(',') : undefined,
     }), [startDate, endDate, reason]);
 
     const r = useReport<Row, Summary>('picking_adjustments', params, enabled);
@@ -64,17 +76,16 @@ const PickingAdjustmentsReport: React.FC = () => {
             onExport={() => r.handleExport('picking_adjustments.xlsx')}
             exporting={r.exporting}
             exportDisabled={!enabled}
-            filters={<>
-                <DateRangeFilter startDate={startDate} endDate={endDate} onChange={setDateRange} placeholder='เลือกช่วงวันที่ (จำเป็น)' />
-                <select className='form-select form-select-solid w-160px' value={reason} onChange={(e) => setReason(e.target.value)}>
-                    <option value=''>ทั้งหมด</option>
-                    <option value='MISCOUNT'>นับผิด</option>
-                    <option value='SPILLAGE'>ของหก</option>
-                    <option value='CORRECTION'>แก้ไข</option>
-                    <option value='REALLOCATE'>ย้าย</option>
-                    <option value='OTHER'>อื่นๆ</option>
-                </select>
-            </>}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
+            activeFilterCount={activeFilterCount}
+            onClearFilters={() => setReason([])}
+            filterPopover={
+                <FilterField label='เหตุผล (เลือกได้หลายอัน)'>
+                    <EnumMultiSelect value={reason} onChange={setReason} options={REASON_OPTIONS} />
+                </FilterField>
+            }
         >
             {summary && <KpiCards cards={[
                 { label: 'จำนวนการปรับ', value: summary.adjustments_count, icon: 'bi-pencil-square', bg: 'bg-light-primary', color: 'text-primary' },
@@ -88,7 +99,7 @@ const PickingAdjustmentsReport: React.FC = () => {
                     <DonutChart data={byReason.map((x) => ({ name: x.reason, value: x.count }))} />
                 </ChartCard>
                 <ChartCard title='ส่วนต่างตามเหตุผล' colClass='col-xl-4' hasData={byReason.length > 0}>
-                    <SimpleBarChart data={byReason.map((x) => ({ name: x.reason, value: x.delta_sum }))} />
+                    <SimpleBarChart data={toDivergingBars(byReason.map((x) => ({ name: x.reason, value: x.delta_sum })))} />
                 </ChartCard>
                 <ChartCard title='แนวโน้มรายวัน' colClass='col-xl-4' hasData={byDay.length > 0}>
                     <TrendLine data={byDay} xKey='day' series={[{ key: 'count', name: 'จำนวน', color: '#009EF7' }]} />

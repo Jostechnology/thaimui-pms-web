@@ -1,6 +1,6 @@
 import EnvConfig from "../environments/envConfig";
 import axios from "axios";
-import { getSignaturePermTree, getTokenFromLocal, getTokenRefresh, giveAccessDenied } from "../helpers/appHelpers";
+import { getTokenFromLocal, getTokenRefresh, giveAccessDenied } from "../helpers/appHelpers";
 import { authTokenDedicated, isTokenExpired } from "../helpers/authenticationHelpers";
 import { refresh } from "./dedicated_auth";
 
@@ -53,7 +53,6 @@ export const front_api = async (
 
 		const defaultHeaders = {
 			Authorization: `Bearer ${getTokenFromLocal() || ""}`,
-			"X-Permission-Token" : getSignaturePermTree() || ""
 		}
 
 		const publicPaths = ["/login", "/register", "/select-branch", "/select-all-branch", "/verify_token"];

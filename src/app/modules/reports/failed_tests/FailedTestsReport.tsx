@@ -4,7 +4,8 @@ import ReportShell from '../_shared/ReportShell';
 import KpiCards from '../_shared/KpiCards';
 import ReportTable, { Column } from '../_shared/ReportTable';
 import { ChartCard, DonutChart, SimpleBarChart, TrendLine } from '../_shared/charts';
-import { DateRangeFilter, fmtNum, fmtDate } from '../_shared/filters';
+import { fmtNum, fmtDate } from '../_shared/filters';
+import { lastNDaysToToday } from '../_shared/datePresets';
 import { useReport } from '../_shared/useReport';
 
 interface Row {
@@ -29,7 +30,7 @@ interface Summary {
 }
 
 const FailedTestsReport: React.FC = () => {
-    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(lastNDaysToToday(30));
     const [startDate, endDate] = dateRange;
 
     const enabled = !!(startDate && endDate);
@@ -71,7 +72,9 @@ const FailedTestsReport: React.FC = () => {
             onExport={() => r.handleExport('failed_tests.xlsx')}
             exporting={r.exporting}
             exportDisabled={!enabled}
-            filters={<DateRangeFilter startDate={startDate} endDate={endDate} onChange={setDateRange} placeholder='เลือกช่วงวันที่ (จำเป็น)' />}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
         >
             {summary && <KpiCards cards={[
                 { label: 'การทดสอบที่ไม่ผ่าน', value: summary.failed_tests, icon: 'bi-x-octagon', bg: 'bg-light-danger', color: 'text-danger' },

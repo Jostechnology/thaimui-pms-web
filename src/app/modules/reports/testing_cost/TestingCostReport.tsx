@@ -3,8 +3,9 @@ import { toDateOnly } from '../../../utils/validate_utils';
 import ReportShell from '../_shared/ReportShell';
 import KpiCards from '../_shared/KpiCards';
 import ReportTable, { Column } from '../_shared/ReportTable';
-import { ChartCard, DonutChart, TrendLine, DonutDatum } from '../_shared/charts';
-import { DateRangeFilter, fmtNum } from '../_shared/filters';
+import { ChartCard, DonutChart, TrendLine, ScatterCard, DonutDatum } from '../_shared/charts';
+import { fmtNum } from '../_shared/filters';
+import { firstOfMonthToToday } from '../_shared/datePresets';
 import { useReport } from '../_shared/useReport';
 
 interface Row {
@@ -35,7 +36,7 @@ interface Summary {
 }
 
 const TestingCostReport: React.FC = () => {
-    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(firstOfMonthToToday());
     const [startDate, endDate] = dateRange;
 
     const enabled = !!(startDate && endDate);
@@ -51,6 +52,7 @@ const TestingCostReport: React.FC = () => {
     const costMix = (r.breakdown.cost_mix as { name: string; value: number }[]) || [];
     const byStatus = (r.breakdown.by_status as { status: string; count: number }[]) || [];
     const byDay = (r.breakdown.by_day as { day: string; total_cost: number }[]) || [];
+    const costScatter = (r.breakdown.cost_scatter as { name: string; qty: number; unit_cost: number }[]) || [];
 
     const costMixData: DonutDatum[] = useMemo(() => costMix.map((x) => ({ name: x.name, value: x.value })), [costMix]);
     const byStatusData: DonutDatum[] = useMemo(() => byStatus.map((x) => ({ name: x.status, value: x.count })), [byStatus]);
@@ -74,9 +76,9 @@ const TestingCostReport: React.FC = () => {
             onExport={() => r.handleExport('testing_cost.xlsx')}
             exporting={r.exporting}
             exportDisabled={!enabled}
-            filters={
-                <DateRangeFilter startDate={startDate} endDate={endDate} onChange={setDateRange} placeholder='เลือกช่วงวันที่ (จำเป็น)' />
-            }
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
         >
             {summary && <KpiCards cards={[
                 { label: 'จำนวนผลทดสอบ', value: summary.test_result_count, icon: 'bi-clipboard-data', bg: 'bg-light-primary', color: 'text-primary' },
@@ -94,6 +96,12 @@ const TestingCostReport: React.FC = () => {
                 </ChartCard>
                 <ChartCard title='แนวโน้มต้นทุนรายวัน' colClass='col-xl-4' hasData={byDay.length > 0}>
                     <TrendLine data={byDay} xKey='day' series={[{ key: 'total_cost', name: 'ต้นทุน', color: '#009EF7' }]} />
+                </ChartCard>
+            </div>
+
+            <div className='row g-5 g-xl-8 mb-8'>
+                <ChartCard title='จำนวนทดสอบ vs ต้นทุน/หน่วย' colClass='col-12' height={320} hasData={costScatter.length > 0}>
+                    <ScatterCard data={costScatter} xKey='qty' yKey='unit_cost' xName='จำนวนที่ทดสอบ' yName='ต้นทุน/หน่วย' color='#7239EA' />
                 </ChartCard>
             </div>
 

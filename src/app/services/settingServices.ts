@@ -1,10 +1,7 @@
 import { front_api } from "./apiConfig";
 import {
     getUsernameLocal, getUserIdFromLocal,
-    getRoleId,
-    savePermTree,
-    saveSignaturePermTree,
-    getSignaturePermTree
+    getRoleId
 } from "../helpers/appHelpers";
 
 // ------------------------------------- path -------------------------------------
@@ -93,11 +90,9 @@ export const getRolePermission = async (role_id: any, other_role=false) => {
 
     try {
         const result = await response.json();
-        console.log(result);
 
-        const base64Encoded = result.data.module_tree;
-        const jsonStr = atob(base64Encoded);
-        const moduleTree = JSON.parse(jsonStr);
+        // module_tree is now a plain flat list: ['MODULE_CODE.method', ...]
+        const moduleTree = (result.data.module_tree ?? []) as string[];
 
         const result_perm = {
             "success": result.data.success,
@@ -105,14 +100,6 @@ export const getRolePermission = async (role_id: any, other_role=false) => {
             "message": result.data.message || result.message || ""
         };
 
-        // ป้องกัน overwrite เมื่อดูสิทธิ์ของ role อื่น (เช่น ใน Role Management)
-        const isOwnRole = !role_id || String(role_id) === String(currentRoleId);
-        if (isOwnRole) {
-            savePermTree(base64Encoded);
-            saveSignaturePermTree(result.data.signature);
-        }
-
-        console.log(result_perm)
         return result_perm;
     } catch (e) {
         console.error(e);
@@ -173,8 +160,7 @@ export const createModule = async (formData: any) => {
     const request = {
         ...formData,
         username: getUsernameLocal(),
-        user_id: getUserIdFromLocal(),
-        permission_token: getSignaturePermTree()
+        user_id: getUserIdFromLocal()
     };
 
     // logsPath("POST", create_module);
@@ -198,8 +184,7 @@ export const createRole = async (formData: any) => {
     const request = {
         ...formData,
         username: getUsernameLocal(),
-        user_id: getUserIdFromLocal(),
-        permission_token: getSignaturePermTree()
+        user_id: getUserIdFromLocal()
     };
 
     // logsPath("POST", create_role_permission);
@@ -224,8 +209,7 @@ export const editModule = async (formData: any, moduleId: any) => {
     const request = {
         ...formData,
         username: getUsernameLocal(),
-        user_id: getUserIdFromLocal(),
-        permission_token: getSignaturePermTree()
+        user_id: getUserIdFromLocal()
     };
 
     // logsPath("PUT", edit_module);
@@ -249,8 +233,7 @@ export const editRole = async (formData: any) => {
     const request = {
         ...formData,
         username: getUsernameLocal(),
-        user_id: getUserIdFromLocal(),
-        permission_token: getSignaturePermTree()
+        user_id: getUserIdFromLocal()
     };
 
     // logsPath("PUT", upsert_role_permission);
@@ -274,8 +257,7 @@ export const deleteModule = async (module_id: number) => {
     const fullPath = delete_module + module_id;
     const body = {
         module_id: module_id,
-        username: getUsernameLocal(),
-        permission_token: getSignaturePermTree()
+        username: getUsernameLocal()
     };
 
     // logsPath("DELETE", delete_module);
