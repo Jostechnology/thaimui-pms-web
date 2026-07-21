@@ -142,28 +142,9 @@ export const completeWorkRun = async (
     }
 };
 
-export const getWorkRunPickRequests = async (workRunId: number): Promise<APIResponse> => {
+export const startWorkRun = async (workRunId: number): Promise<APIResponse> => {
     try {
-        const response = await front_api("GET", `/work_run/${workRunId}/pick_requests`, {}, { wrapData: false });
-        return await handleResponse(response);
-    } catch (e) {
-        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
-    }
-};
-
-export interface MaterialSourceEntry {
-    required_item_id: number;
-    sources: { picking_request_item_id: number; qty: number }[];
-}
-
-export interface StartWorkRunPayload {
-    allocation_mode: 'auto' | 'manual';
-    material_sources?: MaterialSourceEntry[];
-}
-
-export const startWorkRun = async (workRunId: number, payload: StartWorkRunPayload): Promise<APIResponse> => {
-    try {
-        const response = await front_api("POST", `/work_run/${workRunId}/start`, payload, { wrapData: false });
+        const response = await front_api("POST", `/work_run/${workRunId}/start`, {}, { wrapData: false });
         return await handleResponse(response);
     } catch (e) {
         return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };

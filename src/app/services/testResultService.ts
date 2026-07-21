@@ -182,36 +182,12 @@ export const createTestResultRequiredItems = async (testResultId: number, items:
     }
 };
 
-export const getTestResultPickRequests = async (testResultId: number): Promise<APIResponse> => {
-    try {
-        const response = await front_api(
-            "GET",
-            `/test_result/${testResultId}/pick_requests`,
-            {},
-            { wrapData: false }
-        );
-        return await handleResponse(response);
-    } catch (error) {
-        console.error("getTestResultPickRequests Error:", error);
-        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
-    }
-};
-
-export interface StartTestResultPayload {
-    allocation_mode: 'auto' | 'manual';
-    sales_item_sources?: { picking_request_item_id: number; qty: number }[];
-    material_sources?: {
-        required_item_id: number;
-        sources: { picking_request_item_id: number; qty: number }[];
-    }[];
-}
-
-export const startTestResult = async (testResultId: number, payload: StartTestResultPayload): Promise<APIResponse> => {
+export const startTestResult = async (testResultId: number): Promise<APIResponse> => {
     try {
         const response = await front_api(
             "POST",
             `/test_result/${testResultId}/start`,
-            payload,
+            {},
             { wrapData: false }
         );
         return await handleResponse(response);

@@ -34,6 +34,7 @@ export type Machine = {
     is_active: boolean;
     is_second_hand: boolean;
     accumulated_hours: number | null;
+    photo_url?: string | null;
     machine_type_id: number | null;
     machine_type: {
         machine_type_id: number;

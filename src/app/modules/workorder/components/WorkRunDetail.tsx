@@ -20,9 +20,7 @@ import {
     updateWorkRunRequiredItem,
     deleteWorkRunRequiredItem,
     getWorkRunMaterialOfWorkOrder,
-    getWorkRunPickRequests,
 } from '../../../services/workRunService';
-import type { MaterialSourceEntry } from '../../../services/workRunService';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import type { WorkRunDetail as WorkRunDetailType, WorkRunRequiredItem, WorkRunBreak } from '../../../type_interface/WorkOrderType';
@@ -118,7 +116,6 @@ const WorkRunLiveTimer: React.FC<{ workRun: WorkRunDetailType | null }> = ({ wor
 import type { Machine } from '../../../type_interface/MachineType';
 import { formatIntegerInput } from '../../../utils/input_format_utils';
 import { validateRequired, validatePositiveNumber } from '../../../utils/validate_utils';
-import { PickingRequest, PickingRequestListItem } from '../../../type_interface/PickingRequestType';
 import { Material } from '../../../type_interface/MaterialType';
 
 interface Employee {
@@ -128,6 +125,8 @@ interface Employee {
     employee_last_name: string;
     status: string;
     user_id: number;
+    is_active?: boolean;
+    photo_url?: string | null;
 }
 
 const WorkRunDetail: React.FC = () => {
@@ -173,11 +172,6 @@ const WorkRunDetail: React.FC = () => {
 
     // Start modal
     const [showStartModal, setShowStartModal] = useState(false);
-    const [allocationMode, setAllocationMode] = useState<'auto' | 'manual'>('auto');
-    const [pickRequests, setPickRequests] = useState<PickingRequest[]>([]);
-    const [pickRequestsLoading, setPickRequestsLoading] = useState(false);
-    // manual allocations: { [required_item_id]: { [picking_request_item_id]: qty_string } }
-    const [manualAllocations, setManualAllocations] = useState<Record<number, Record<number, string>>>({});
 
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
@@ -248,7 +242,7 @@ const WorkRunDetail: React.FC = () => {
     useEffect(() => {
         if (showAssignEmpModal && allEmployees.length === 0) {
             setEmpLoading(true);
-            getEmployeeList(1, 10, '').then(res => {
+            getEmployeeList(1, 200, '').then(res => {
                 setAllEmployees(res?.success && Array.isArray(res.data?.items) ? res.data.items : []);
             }).catch(() => setAllEmployees([])).finally(() => setEmpLoading(false));
         }
@@ -258,7 +252,7 @@ const WorkRunDetail: React.FC = () => {
     useEffect(() => {
         if (showAssignMachineModal && allMachines.length === 0) {
             setMachineLoading(true);
-            getMachineList(1, 200, '', '').then(res => {
+            getMachineList(1, 200, '', '', 'all').then(res => {
                 setAllMachines(res?.success && Array.isArray(res.data?.items) ? res.data.items : []);
             }).catch(() => setAllMachines([])).finally(() => setMachineLoading(false));
         }
@@ -273,16 +267,6 @@ const WorkRunDetail: React.FC = () => {
             }).catch(() => setMaterialList([])).finally(() => setMaterialLoading(false));
         }
     }, [showRequiredItemModal]);
-
-    // Fetch pick requests when start modal opens
-    useEffect(() => {
-        if (showStartModal) {
-            setPickRequestsLoading(true);
-            getWorkRunPickRequests(Number(workRunId)).then(res => {
-                setPickRequests(res?.success && Array.isArray(res.data) ? res.data : []);
-            }).catch(() => setPickRequests([])).finally(() => setPickRequestsLoading(false));
-        }
-    }, [showStartModal]);
 
     // ปิด popover เมื่อ click outside
     useEffect(() => {
@@ -699,63 +683,17 @@ const WorkRunDetail: React.FC = () => {
 
     // --- Lifecycle ---
     const openStartModal = () => {
-        setAllocationMode('auto');
-        setManualAllocations({});
-        setPickRequests([]);
         setShowStartModal(true);
     };
 
     const closeStartModal = () => {
         setShowStartModal(false);
-        setAllocationMode('auto');
-        setManualAllocations({});
-    };
-
-    const handleManualQtyChange = (requiredItemId: number, pickItemId: number, value: string) => {
-        const formatted = formatIntegerInput(value);
-        setManualAllocations(prev => ({
-            ...prev,
-            [requiredItemId]: { ...(prev[requiredItemId] ?? {}), [pickItemId]: formatted },
-        }));
-    };
-
-    // Flatten all pick request items matching a required item by item_code
-    const getPickItemsForRequired = (requiredItem: { item_code: string }) => {
-        const result: (PickingRequestListItem & { picking_request_code: string })[] = [];
-        pickRequests.forEach(pr => {
-            pr.items.forEach(item => {
-                if (item.item_code === requiredItem.item_code && item.qty_available > 0) {
-                    result.push({ ...item, picking_request_code: pr.picking_request_code ?? "" });
-                }
-            });
-        });
-        return result;
     };
 
     const handleStart = async () => {
-        const payload: { allocation_mode: 'auto' | 'manual'; material_sources?: MaterialSourceEntry[] } = {
-            allocation_mode: allocationMode,
-        };
-
-        if (allocationMode === 'manual') {
-            const materialSources: MaterialSourceEntry[] = [];
-            for (const reqItem of (workRun?.required_items ?? [])) {
-                const allocMap = manualAllocations[reqItem.id] ?? {};
-                const sources = Object.entries(allocMap)
-                    .filter(([, v]) => v !== '' && Number(v) > 0)
-                    .map(([pickItemId, qty]) => ({ picking_request_item_id: Number(pickItemId), qty: Number(qty) }));
-                if (sources.length > 0) {
-                    materialSources.push({ required_item_id: reqItem.id, sources });
-                }
-            }
-            if (materialSources.length > 0) {
-                payload.material_sources = materialSources;
-            }
-        }
-
         setLoading();
         try {
-            const result = await startWorkRun(Number(workRunId), payload);
+            const result = await startWorkRun(Number(workRunId));
             if (result?.success) {
                 closeStartModal();
                 Swal.fire({ title: 'เริ่มงานสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false }).then(fetchWorkRun);
@@ -1171,6 +1109,13 @@ const WorkRunDetail: React.FC = () => {
                     </div>
                 </div>
                 <div className='d-flex gap-2'>
+                    <button
+                        className='btn btn-sm btn-light-info fw-bold px-6'
+                        title='เปิดหน้าจอบันทึกเข้า-ออกงานสำหรับหน้างาน (เต็มจอ)'
+                        onClick={() => navigate(`/production_console/${workRunId}`)}
+                    >
+                        <i className='bi bi-display me-1'></i> โหมดหน้างาน
+                    </button>
                     {status === 'PENDING' && (
                         <button className='btn btn-sm btn-primary fw-bold px-6' onClick={openStartModal}>
                             <i className='bi bi-play-fill me-1'></i> เริ่มงาน
@@ -2333,15 +2278,23 @@ const WorkRunDetail: React.FC = () => {
                                     return (
                                         <tr key={emp.employee_id}>
                                             <td>
-                                                <div className='d-flex align-items-center'>
-                                                    <div className='symbol symbol-45px me-5'><span className='symbol-label bg-light-primary text-primary fw-bold'>{emp.employee_first_name?.charAt(0)}</span></div>
+                                                <div className='d-flex align-items-center' style={emp.is_active === false ? { opacity: 0.5, filter: 'grayscale(1)' } : undefined}>
+                                                    <div className='symbol symbol-45px me-5'>
+                                                        {emp.photo_url
+                                                            ? <img src={emp.photo_url} alt={emp.employee_first_name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
+                                                            : <span className='symbol-label bg-light-primary text-primary fw-bold'>{emp.employee_first_name?.charAt(0)}</span>}
+                                                    </div>
                                                     <div className='d-flex flex-column'>
                                                         <span className='text-gray-900 fw-bold fs-6'>{emp.employee_first_name} {emp.employee_last_name}</span>
                                                         <span className='text-muted fw-semibold fs-7'>ID: {emp.employee_id}</span>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td><span className={`badge ${emp.status === 'ACTIVE' ? 'badge-light-success' : 'badge-light-danger'} fw-bold`}>{emp.status}</span></td>
+                                            <td>
+                                                {emp.is_active === false
+                                                    ? <span className='badge badge-light-secondary fw-bold'>ปิดใช้งาน</span>
+                                                    : <span className={`badge ${emp.status === 'ACTIVE' ? 'badge-light-success' : 'badge-light-danger'} fw-bold`}>{emp.status}</span>}
+                                            </td>
                                             <td className='text-end'>
                                                 {isAssigned ? (
                                                     <button
@@ -2349,6 +2302,10 @@ const WorkRunDetail: React.FC = () => {
                                                         onClick={() => handleUnassignEmployee(emp.employee_id)}
                                                     >
                                                         <i className='bi bi-x me-1'></i>นำออก
+                                                    </button>
+                                                ) : emp.is_active === false ? (
+                                                    <button className='btn btn-sm btn-light fw-bold' disabled title='พนักงานถูกปิดใช้งาน'>
+                                                        <i className='bi bi-slash-circle me-1'></i>เลือกไม่ได้
                                                     </button>
                                                 ) : (
                                                     <button className='btn btn-sm btn-primary fw-bold' onClick={() => handleAssignEmployee(emp)}>
@@ -2390,15 +2347,23 @@ const WorkRunDetail: React.FC = () => {
                                     return (
                                         <tr key={m.machine_id}>
                                             <td>
-                                                <div className='d-flex align-items-center'>
-                                                    <div className='symbol symbol-45px me-5'><span className='symbol-label bg-light-info text-info fw-bold'><i className='bi bi-gear-fill'></i></span></div>
+                                                <div className='d-flex align-items-center' style={m.is_active === false ? { opacity: 0.5, filter: 'grayscale(1)' } : undefined}>
+                                                    <div className='symbol symbol-45px me-5'>
+                                                        {m.photo_url
+                                                            ? <img src={m.photo_url} alt={m.machine_name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
+                                                            : <span className='symbol-label bg-light-info text-info fw-bold'><i className='bi bi-gear-fill'></i></span>}
+                                                    </div>
                                                     <div className='d-flex flex-column'>
                                                         <span className='text-gray-900 fw-bold fs-6'>{m.machine_name}</span>
                                                         <span className='text-muted fw-semibold fs-7'>{m.machine_code}</span>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td><span className={`badge ${m.status === 'IDLE' ? 'badge-light-success' : m.status === 'RUNNING' ? 'badge-light-warning' : 'badge-light-danger'} fw-bold`}>{m.status}</span></td>
+                                            <td>
+                                                {m.is_active === false
+                                                    ? <span className='badge badge-light-secondary fw-bold'>ปิดใช้งาน</span>
+                                                    : <span className={`badge ${m.status === 'IDLE' ? 'badge-light-success' : m.status === 'RUNNING' ? 'badge-light-warning' : 'badge-light-danger'} fw-bold`}>{m.status}</span>}
+                                            </td>
                                             <td className='text-end'>
                                                 {isAssigned ? (
                                                     <button
@@ -2406,6 +2371,10 @@ const WorkRunDetail: React.FC = () => {
                                                         onClick={() => handleUnassignMachine(m.machine_id)}
                                                     >
                                                         <i className='bi bi-x me-1'></i>นำออก
+                                                    </button>
+                                                ) : m.is_active === false ? (
+                                                    <button className='btn btn-sm btn-light fw-bold' disabled title='เครื่องจักรถูกปิดใช้งาน'>
+                                                        <i className='bi bi-slash-circle me-1'></i>เลือกไม่ได้
                                                     </button>
                                                 ) : (
                                                     <button className='btn btn-sm btn-primary fw-bold' onClick={() => handleAssignMachine(m)}>
@@ -2430,121 +2399,7 @@ const WorkRunDetail: React.FC = () => {
                     <Modal.Title className='fw-bold'>เริ่ม Work Run</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    {/* Allocation mode toggle */}
-                    <div className='mb-6'>
-                        <label className='form-label fw-bold fs-6'>รูปแบบการจัดสรรวัตถุดิบ</label>
-                        <div className='d-flex gap-3'>
-                            <label className={`d-flex align-items-center border rounded px-4 py-3 cursor-pointer flex-grow-1 ${allocationMode === 'auto' ? 'border-primary bg-light-primary' : 'border-gray-300'}`}>
-                                <input
-                                    type='radio'
-                                    className='form-check-input me-3'
-                                    name='allocation_mode'
-                                    checked={allocationMode === 'auto'}
-                                    onChange={() => setAllocationMode('auto')}
-                                />
-                                <div>
-                                    <span className='fw-bold text-gray-800 d-block'>อัตโนมัติ</span>
-                                    <span className='text-muted fs-8'>ระบบจัดสรรวัตถุดิบให้อัตโนมัติ</span>
-                                </div>
-                            </label>
-                            <label className={`d-flex align-items-center border rounded px-4 py-3 cursor-pointer flex-grow-1 ${allocationMode === 'manual' ? 'border-primary bg-light-primary' : 'border-gray-300'}`}>
-                                <input
-                                    type='radio'
-                                    className='form-check-input me-3'
-                                    name='allocation_mode'
-                                    checked={allocationMode === 'manual'}
-                                    onChange={() => setAllocationMode('manual')}
-                                />
-                                <div>
-                                    <span className='fw-bold text-gray-800 d-block'>เลือกเอง</span>
-                                    <span className='text-muted fs-8'>เลือกรายการวัตถุดิบจาก Picking Request</span>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-
-                    {/* Manual allocation UI */}
-                    {allocationMode === 'manual' && (
-                        <div>
-                            {pickRequestsLoading ? (
-                                <div className='text-center text-muted py-10'>กำลังโหลดรายการ Picking...</div>
-                            ) : (workRun?.required_items ?? []).length === 0 ? (
-                                <div className='text-center text-muted py-6 border border-dashed border-gray-300 rounded'>
-                                    ยังไม่มีรายการวัตถุดิบที่ต้องใช้
-                                </div>
-                            ) : (
-                                (workRun?.required_items ?? []).map(reqItem => {
-                                    const availableItems = getPickItemsForRequired(reqItem);
-                                    const allocMap = manualAllocations[reqItem.id] ?? {};
-                                    const totalAllocated = Object.values(allocMap).reduce((sum, v) => sum + (Number(v) || 0), 0);
-
-                                    return (
-                                        <div key={reqItem.id} className='mb-6 border border-gray-200 rounded p-4'>
-                                            <div className='d-flex justify-content-between align-items-center mb-3'>
-                                                <div>
-                                                    <span className='fw-bold text-gray-800 fs-6'>{reqItem.item_name}</span>
-                                                    <span className='text-muted fs-8 ms-2'>({reqItem.item_code})</span>
-                                                </div>
-                                                <div className='text-end'>
-                                                    <span className='text-muted fs-8'>ต้องใช้: </span>
-                                                    <span className='fw-bold text-gray-700'>{reqItem.quantity}</span>
-                                                    <span className='text-muted fs-8'> {reqItem.unit}</span>
-                                                    <span className='mx-2 text-muted'>|</span>
-                                                    <span className='text-muted fs-8'>จัดสรรแล้ว: </span>
-                                                    <span className={`fw-bold ${totalAllocated >= reqItem.quantity ? 'text-success' : 'text-warning'}`}>
-                                                        {totalAllocated}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {availableItems.length === 0 ? (
-                                                <div className='text-muted fs-7 py-3 text-center bg-light rounded'>
-                                                    ไม่พบรายการ Picking ที่มีวัตถุดิบนี้
-                                                </div>
-                                            ) : (
-                                                <div className='table-responsive'>
-                                                    <table className='table table-row-dashed align-middle gs-0 gy-2 mb-0'>
-                                                        <thead>
-                                                            <tr className='fw-bold text-muted text-uppercase fs-8'>
-                                                                <th>Picking Request</th>
-                                                                <th>รหัสสินค้า</th>
-                                                                <th className='text-center'>คงเหลือ</th>
-                                                                <th className='text-center' style={{ width: 140 }}>จำนวนที่จัดสรร</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {availableItems.map(pi => (
-                                                                <tr key={pi.picking_request_item_id}>
-                                                                    <td>
-                                                                        <span className='fw-semibold text-gray-700 fs-7'>{pi.picking_request_code}</span>
-                                                                    </td>
-                                                                    <td>
-                                                                        <span className='text-muted fs-7'>{pi.item_code}</span>
-                                                                    </td>
-                                                                    <td className='text-center'>
-                                                                        <span className='fw-semibold text-gray-700 fs-7'>{pi.qty_available} {pi.unit}</span>
-                                                                    </td>
-                                                                    <td>
-                                                                        <input
-                                                                            type='text'
-                                                                            className='form-control form-control-sm text-center'
-                                                                            placeholder='0'
-                                                                            value={allocMap[pi.picking_request_item_id] ?? ''}
-                                                                            onChange={e => handleManualQtyChange(reqItem.id, pi.picking_request_item_id, e.target.value)}
-                                                                        />
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    )}
+                    <div className='text-gray-700 fs-6'>ยืนยันการเริ่ม Work Run นี้หรือไม่?</div>
                 </Modal.Body>
                 <Modal.Footer>
                     <button className='btn btn-light' onClick={closeStartModal}>ยกเลิก</button>

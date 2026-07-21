@@ -1,19 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Content } from "../../../../_metronic/layout/components/content";
 import { useNavigate, useParams } from "react-router-dom";
-import { getSalesOrderById, completeSalesItem, assignBranchToSalesOrder } from '../../../services/salesOrder';
-import { getMaterialStockSummary } from '../../../services/materialStockService';
+import { getSalesOrderById, completeSalesItem, assignBranchToSalesOrder, finishSalesOrder } from '../../../services/salesOrder';
 import { getBranchList } from '../../../services/branchService';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import { useMasterData } from '../../../context/MasterDataContext';
 import { getUserAction } from '../../../helpers/pageAccess';
 import { getIsAllBranch } from '../../../helpers/appHelpers';
-import type { MaterialStockSummary } from '../../../type_interface/MaterialStockType';
-import MaterialUsageDetailModal from '../../Tracking/components/MaterialUsageDetailModal';
 import SalesItemTrackingModal from '../../quality_control/components/SalesItemTrackingModal';
 import { SalesItem } from '../../../type_interface/SalesItemType';
-import { Material } from '../../../type_interface/MaterialType';
 import { Branch } from '../../../type_interface/BranchType';
 import { SalesOrderDetail } from '../../../type_interface/SalesOrderType';
 
@@ -21,24 +17,20 @@ const SalesOrderView: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const { setLoading, setUnLoading } = useAppLoading();
-    const { alertMessage } = useAlertModal();
+    const { alertMessage, openTwoBtnAlertModal } = useAlertModal();
     const { masterData } = useMasterData();
     const allowedActions = getUserAction(masterData.actionList, "SALE_ORDER", "UNASSIGNED_SO");
     const isAllBranch = getIsAllBranch();
 
     const [salesOrder, setSalesOrder] = useState<SalesOrderDetail | null>(null);
     const [dataLoading, setDataLoading] = useState(true);
-    const [stockMap, setStockMap] = useState<Record<number, MaterialStockSummary>>({});
-    const [stockLoading, setStockLoading] = useState(false);
-    const [showDetailModal, setShowDetailModal] = useState(false);
-    const [selectedMaterialId, setSelectedMaterialId] = useState<number | null>(null);
-    const [selectedMaterialName, setSelectedMaterialName] = useState('');
     const [showTrackingModal, setShowTrackingModal] = useState(false);
     const [selectedSalesItemId, setSelectedSalesItemId] = useState<number | null>(null);
     const [completingId, setCompletingId] = useState<number | null>(null);
     const [materialSalesItemFilter, setMaterialSalesItemFilter] = useState<number | 'all'>('all');
     const [branches, setBranches] = useState<Branch[]>([]);
     const [assigningBranch, setAssigningBranch] = useState(false);
+    const [finishingOrder, setFinishingOrder] = useState(false);
 
     const fetchData = async () => {
         setLoading();
@@ -108,10 +100,28 @@ const SalesOrderView: React.FC = () => {
         }
     };
 
-    const openMaterialDetail = (mat: Material) => {
-        setSelectedMaterialId(mat.material_list_id);
-        setSelectedMaterialName(mat.item_name);
-        setShowDetailModal(true);
+    const handleFinishOrder = () => {
+        if (!salesOrder) return;
+        openTwoBtnAlertModal(
+            "ยืนยันปิด Order นี้? ระบบจะส่งจบงานไปยัง WMS",
+            async () => {
+                setFinishingOrder(true);
+                try {
+                    const result = await finishSalesOrder(salesOrder.doc_entry);
+                    if (result && result.success) {
+                        await fetchData();
+                    } else {
+                        alertMessage(result?.error || "ไม่สามารถปิด Order ได้");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    alertMessage("เกิดข้อผิดพลาด");
+                } finally {
+                    setFinishingOrder(false);
+                }
+            },
+            () => { }
+        );
     };
 
     const formatDateTime = (dateStr: string | null) => {
@@ -173,6 +183,17 @@ const SalesOrderView: React.FC = () => {
                     <span className={`badge fs-6 py-3 px-4 ${salesOrder.status === 'COMPLETED' ? 'badge-light-success' : 'badge-light-warning'}`}>
                         {salesOrder.status === 'COMPLETED' ? 'เสร็จสิ้น' : 'กำลังดำเนินการ'}
                     </span>
+                    {salesOrder.status === 'INPROGRESS' && (
+                        <button
+                            className="btn btn-sm btn-success"
+                            onClick={handleFinishOrder}
+                            disabled={finishingOrder}
+                        >
+                            {finishingOrder
+                                ? <span className="spinner-border spinner-border-sm align-middle" />
+                                : <><i className="bi bi-check2-circle me-1" /> ปิด Order</>}
+                        </button>
+                    )}
                     <div className="d-flex align-items-center bg-light p-3 rounded">
                         <div className="d-flex flex-column text-end">
                             <span className="text-muted fs-8 fw-bolder text-uppercase">วันที่สร้าง</span>
@@ -471,50 +492,9 @@ const SalesOrderView: React.FC = () => {
                                     </option>
                                 ))}
                             </select>
-                            <span className="text-muted fs-7">
-                                <i className="bi bi-hand-index me-1"></i>คลิกที่รายการเพื่อดูรายละเอียดการใช้งาน
-                            </span>
                         </div>
                     </div>
                     <div className="card-body py-3">
-                        {/* Summary Cards */}
-                        {/* {!stockLoading && Object.keys(stockMap).length > 0 && (
-                            <div className="row g-4 mb-6">
-                                <div className="col-md-3">
-                                    <div className="border rounded p-4 text-center">
-                                        <div className="text-muted fw-semibold fs-7 mb-1">วัตถุดิบทั้งหมด</div>
-                                        <div className="fs-2 fw-bold text-gray-800">
-                                            {Object.values(stockMap).reduce((sum, s) => sum + s.total_quantity, 0)}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="col-md-3">
-                                    <div className="border rounded p-4 text-center">
-                                        <div className="text-muted fw-semibold fs-7 mb-1">ใช้ในผลิต</div>
-                                        <div className="fs-2 fw-bold text-primary">
-                                            {Object.values(stockMap).reduce((sum, s) => sum + s.used_in_production, 0)}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="col-md-3">
-                                    <div className="border rounded p-4 text-center">
-                                        <div className="text-muted fw-semibold fs-7 mb-1">ใช้ในเทส / อื่นๆ</div>
-                                        <div className="fs-2 fw-bold text-info">
-                                            {Object.values(stockMap).reduce((sum, s) => sum + s.used_in_testing, 0)}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="col-md-3">
-                                    <div className="border rounded p-4 text-center">
-                                        <div className="text-muted fw-semibold fs-7 mb-1">คงเหลือ</div>
-                                        <div className={`fs-2 fw-bold ${Object.values(stockMap).some(s => s.remaining_quantity <= 0) ? 'text-danger' : 'text-success'}`}>
-                                            {Object.values(stockMap).reduce((sum, s) => sum + s.remaining_quantity, 0)}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )} */}
-
                         <div className="table-responsive">
                             <table className="table align-middle gs-0 gy-4">
                                 <thead>
@@ -532,22 +512,9 @@ const SalesOrderView: React.FC = () => {
                                         .filter(mat => materialSalesItemFilter === 'all' || mat.sales_item_id === materialSalesItemFilter)
                                         .map((mat, index) => {
                                         const parentItem = salesOrder.items.find(it => it.sales_item_id === mat.sales_item_id);
-                                        const stock = stockMap[mat.material_list_id];
-                                        const usedPct = stock && stock.total_quantity > 0
-                                            ? Math.min(100, ((stock.used_in_production + stock.used_in_testing) / stock.total_quantity) * 100)
-                                            : 0;
-                                        const progressColor = !stock ? 'bg-secondary'
-                                            : stock.remaining_quantity <= 0 ? 'bg-danger'
-                                                : usedPct >= 80 ? 'bg-warning'
-                                                    : 'bg-success';
 
                                         return (
-                                            <tr
-                                                key={index}
-                                                onClick={() => openMaterialDetail(mat)}
-                                                className="cursor-pointer"
-                                                style={{ cursor: 'pointer' }}
-                                            >
+                                            <tr key={index}>
                                                 <td>
                                                     <span className="text-gray-700 fw-bold d-block fs-7">{parentItem?.item_code || '-'}</span>
                                                     {parentItem?.item_name && (
@@ -580,14 +547,6 @@ const SalesOrderView: React.FC = () => {
                     </div>
                 </div>
             )}
-
-            {/* Material Usage Detail Modal */}
-            <MaterialUsageDetailModal
-                show={showDetailModal}
-                onHide={() => setShowDetailModal(false)}
-                materialListId={selectedMaterialId}
-                materialName={selectedMaterialName}
-            />
 
             {/* Sales Item Tracking Modal */}
             <SalesItemTrackingModal

@@ -2,28 +2,24 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Content } from '../../../_metronic/layout/components/content';
 import PickingRequestsReport from './picking_requests/PickingRequestsReport';
-import PickingAdjustmentsReport from './picking_adjustments/PickingAdjustmentsReport';
 import WorkerTimeReport from './worker_time/WorkerTimeReport';
 import EmployeeProductivityReport from './employee_productivity/EmployeeProductivityReport';
 import ProductionCostReport from './production_cost/ProductionCostReport';
 import TestingCostReport from './testing_cost/TestingCostReport';
 import FailedTestsReport from './failed_tests/FailedTestsReport';
 import WorkrunDefectsReport from './workrun_defects/WorkrunDefectsReport';
-import MaterialConsumptionReport from './material_consumption/MaterialConsumptionReport';
 import MachineUtilizationReport from './machine_utilization/MachineUtilizationReport';
 import SoCycleTimeReport from './so_cycle_time/SoCycleTimeReport';
 
 // Every report is now bespoke (filters + 2-3 data viz + table + xlsx export).
 const BESPOKE: Record<string, React.FC> = {
     picking_requests: PickingRequestsReport,
-    picking_adjustments: PickingAdjustmentsReport,
     worker_time: WorkerTimeReport,
     employee_productivity: EmployeeProductivityReport,
     production_cost: ProductionCostReport,
     testing_cost: TestingCostReport,
     failed_tests: FailedTestsReport,
     workrun_defects: WorkrunDefectsReport,
-    material_consumption: MaterialConsumptionReport,
     machine_utilization: MachineUtilizationReport,
     so_cycle_time: SoCycleTimeReport,
 };

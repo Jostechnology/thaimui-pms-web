@@ -20,6 +20,7 @@ export interface Employee {
   base_salary?: number;
   day_rate?: number;
   ot_hourly_rate?: number;
+  photo_url?: string | null;
   shift_override?: EmployeeShift | null;
   created_date?: string;
   updated_date?: string;

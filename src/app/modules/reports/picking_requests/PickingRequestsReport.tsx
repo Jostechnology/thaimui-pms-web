@@ -7,7 +7,8 @@ import { ChartCard, DonutChart, SimpleBarChart, GroupedBarChart, DonutDatum, toD
 import { fmtNum, fmtDate } from '../_shared/filters';
 import { firstOfMonthToToday } from '../_shared/datePresets';
 import { EnumMultiSelect } from '../_shared/ReportPickers';
-import { FilterField } from '../_shared/FilterPopover';
+import { FilterField, BoolFilter } from '../_shared/FilterPopover';
+import { URGENCY_OPTIONS } from '../_shared/reportEnums';
 import { useReport } from '../_shared/useReport';
 
 type Status = 'PENDING' | 'SENT' | 'SUCCESS' | 'FAILED';
@@ -44,16 +45,22 @@ const PickingRequestsReport: React.FC = () => {
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(firstOfMonthToToday());
     const [startDate, endDate] = dateRange;
     const [statusFilter, setStatusFilter] = useState<Status[]>([]);
+    const [urgency, setUrgency] = useState<string[]>([]);
+    const [isReallocation, setIsReallocation] = useState(false);
 
     // valid only when range is empty or fully picked
     const enabled = !((startDate && !endDate) || (!startDate && endDate));
-    const activeFilterCount = statusFilter.length ? 1 : 0;
+    const activeFilterCount = (statusFilter.length ? 1 : 0) + (urgency.length ? 1 : 0) + (isReallocation ? 1 : 0);
 
     const params = useMemo(() => ({
         from: toDateOnly(startDate) ?? undefined,
         to: toDateOnly(endDate) ?? undefined,
         status: statusFilter.length ? statusFilter.join(',') : undefined,
-    }), [startDate, endDate, statusFilter]);
+        urgency_level: urgency.length ? urgency.join(',') : undefined,
+        is_reallocation: isReallocation || undefined,
+    }), [startDate, endDate, statusFilter, urgency, isReallocation]);
+
+    const clearFilters = () => { setStatusFilter([]); setUrgency([]); setIsReallocation(false); };
 
     const r = useReport<Row, Summary>('picking_requests', params, enabled);
     const summary = r.summary;
@@ -93,8 +100,8 @@ const PickingRequestsReport: React.FC = () => {
             dateRange={dateRange}
             setDateRange={setDateRange}
             activeFilterCount={activeFilterCount}
-            onClearFilters={() => setStatusFilter([])}
-            filterPopover={
+            onClearFilters={clearFilters}
+            filterPopover={<>
                 <FilterField label='สถานะ (เลือกได้หลายอัน)'>
                     <EnumMultiSelect
                         value={statusFilter}
@@ -102,7 +109,11 @@ const PickingRequestsReport: React.FC = () => {
                         options={STATUS_OPTIONS}
                     />
                 </FilterField>
-            }
+                <FilterField label='ความเร่งด่วน (เลือกได้หลายอัน)'>
+                    <EnumMultiSelect value={urgency} onChange={setUrgency} options={URGENCY_OPTIONS} />
+                </FilterField>
+                <BoolFilter label='เฉพาะรายการย้าย (Reallocation)' checked={isReallocation} onChange={setIsReallocation} />
+            </>}
         >
             {summary && <KpiCards cards={[
                 { label: 'จำนวนใบขอเบิก', value: summary.total_requests, icon: 'bi-box-seam', bg: 'bg-light-primary', color: 'text-primary' },

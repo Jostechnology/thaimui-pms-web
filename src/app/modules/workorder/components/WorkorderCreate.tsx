@@ -6,7 +6,6 @@ import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import { searchSalesOrderService, getSalesOrderService } from '../../../services/salesOrderService';
 import { createWorkOrder } from '../../../services/workorder';
-import { getMaterialStockSummary, validateMaterialStock } from '../../../services/materialStockService';
 import {
     getComponentTemplates,
     getComponentTemplateById,
@@ -15,11 +14,8 @@ import {
 import type { SalesOrderSearch, SalesOrderDetail } from '../../../type_interface/SalesOrderType';
 import type { SalesItem } from '../../../type_interface/SalesItemType';
 import type { Material } from '../../../type_interface/MaterialType';
-import type { MaterialStockSummary as MaterialStockSummaryData } from '../../../type_interface/MaterialStockType';
 import type { WorkOrder, ItemComponent } from '../../../type_interface/WorkOrderType';
 import type { ComponentTemplate, TemplateSection } from '../../../type_interface/ComponentTemplateType';
-import { aggregateMaterialUsageFromComponents, validateMaterialQuantities, buildValidationSummaryMessage } from '../../../utils/materialValidation';
-import MaterialStockSummary from '../../../custom_components/MaterialStockSummary';
 import TemplateSectionForm from './TemplateSectionForm';
 import Swal from 'sweetalert2';
 
@@ -62,9 +58,6 @@ const WorkorderCreate: React.FC = () => {
 
     // Materials for chosen sales item
     const [materials, setMaterials] = useState<Material[]>([]);
-
-    // Stock summary
-    const [stockSummaries, setStockSummaries] = useState<MaterialStockSummaryData[]>([]);
 
     // Components - each component has multiple materials
     const [components, setComponents] = useState<ComponentItem[]>([
@@ -171,11 +164,10 @@ const WorkorderCreate: React.FC = () => {
         })();
     }, [selectedDocEntry]);
 
-    // ─── When Sales Item changes, update material list & fetch stock ─
+    // ─── When Sales Item changes, update material list ─────────
     useEffect(() => {
         if (selectedSalesItemId === '') {
             setMaterials([]);
-            setStockSummaries([]);
             resetComponents();
             return;
         }
@@ -184,15 +176,6 @@ const WorkorderCreate: React.FC = () => {
             setMaterials(item.material_list || []);
         }
         resetComponents();
-
-        (async () => {
-            try {
-                const res = await getMaterialStockSummary(selectedSalesItemId as number);
-                if (res && res.success && res.data) {
-                    setStockSummaries(res.data);
-                }
-            } catch { }
-        })();
     }, [selectedSalesItemId]);
 
     const resetComponents = () => {
@@ -291,8 +274,6 @@ const WorkorderCreate: React.FC = () => {
     };
 
     const getAvailableQuantity = (materialListId: number): number => {
-        const stock = stockSummaries.find(s => s.material_list_id === materialListId);
-        if (stock) return stock.remaining_quantity;
         const mat = materials.find(m => m.material_list_id === materialListId);
         return mat ? mat.remaining_num : 0;
     };
@@ -346,24 +327,6 @@ const WorkorderCreate: React.FC = () => {
                 return;
             }
         }
-
-        const usageMap = aggregateMaterialUsageFromComponents(components);
-        const requests = Array.from(usageMap.entries()).map(([id, qty]) => ({
-            material_list_id: id,
-            quantity_needed: qty,
-        }));
-        const clientValidation = validateMaterialQuantities(requests, materials, stockSummaries);
-        const invalidItems = clientValidation.filter(r => !r.is_valid);
-
-        if (invalidItems.length > 0) {
-            const msg = buildValidationSummaryMessage(clientValidation);
-            Swal.fire('วัตถุดิบไม่เพียงพอ', msg, 'error');
-            return;
-        }
-
-        try {
-            throw new Error("")
-        } catch { }
 
         const confirm = await Swal.fire({
             title: 'ยืนยันการสร้างใบสั่งผลิต?',
@@ -558,13 +521,6 @@ const WorkorderCreate: React.FC = () => {
                             </div>
                         </div>
                     </div>
-
-                    {selectedSalesItemId !== '' && stockSummaries.length > 0 && (
-                        <MaterialStockSummary
-                            salesItemId={selectedSalesItemId as number}
-                            externalData={stockSummaries}
-                        />
-                    )}
 
                     {selectedSalesItemId !== '' && (
                         <>

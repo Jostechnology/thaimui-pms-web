@@ -91,8 +91,16 @@ export const getRolePermission = async (role_id: any, other_role=false) => {
     try {
         const result = await response.json();
 
-        // module_tree is now a plain flat list: ['MODULE_CODE.method', ...]
-        const moduleTree = (result.data.module_tree ?? []) as string[];
+        // module_tree is a plain flat list ['MODULE_CODE.method', ...] on the new
+        // BE. Stay tolerant of the legacy base64-encoded JSON string in case the
+        // API container hasn't been rebuilt yet.
+        const raw = result?.data?.module_tree;
+        let moduleTree: string[] = [];
+        if (Array.isArray(raw)) {
+            moduleTree = raw as string[];
+        } else if (typeof raw === 'string' && raw) {
+            try { moduleTree = JSON.parse(atob(raw)); } catch { moduleTree = []; }
+        }
 
         const result_perm = {
             "success": result.data.success,

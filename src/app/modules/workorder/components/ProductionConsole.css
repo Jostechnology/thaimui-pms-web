@@ -1,0 +1,367 @@
+/* =============================================
+   Production Console — full-page shop-floor kiosk
+   ============================================= */
+
+.pc-root {
+    --pc-label-w: 140px;
+    min-height: 100vh;
+    background: #f5f8fa;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Top bar --- */
+.pc-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 24px;
+    background: #fff;
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
+}
+
+.pc-back-btn {
+    width: 48px;
+    height: 48px;
+}
+
+.pc-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #181c32;
+    line-height: 1.2;
+}
+
+.pc-status-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1.5px solid;
+    border-radius: 6px;
+    padding: 1px 8px;
+    background: #fff;
+}
+
+.pc-sub-info {
+    font-size: 12px;
+    color: #a1a5b7;
+    font-weight: 600;
+}
+
+.pc-timer-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.pc-timer-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #a1a5b7;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.pc-timer {
+    font-size: 26px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #181c32;
+    line-height: 1.1;
+}
+
+.pc-clock {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    padding-left: 16px;
+    border-left: 1px solid #eff2f5;
+}
+
+.pc-clock-time {
+    font-size: 26px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #009ef7;
+    line-height: 1.1;
+}
+
+.pc-clock-date {
+    font-size: 12px;
+    color: #a1a5b7;
+    font-weight: 600;
+}
+
+/* --- Banner (run not active) --- */
+.pc-banner {
+    margin: 16px 24px 0;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: #fff8dd;
+    color: #997404;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+/* --- Loading --- */
+.pc-loading {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+}
+
+/* --- Body: two panels --- */
+.pc-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    padding: 20px 24px;
+    align-items: start;
+}
+
+.pc-panel {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
+    padding: 18px;
+}
+
+.pc-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.pc-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #181c32;
+}
+
+.pc-count-badge {
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 20px;
+    padding: 3px 12px;
+}
+
+.pc-search {
+    max-width: 220px;
+    height: 42px;
+    font-size: 15px;
+}
+
+/* --- Card grid --- */
+.pc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.pc-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #a1a5b7;
+    padding: 24px 0;
+    font-weight: 600;
+}
+
+.pc-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 10px 12px;
+    background: #f9fafb;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+    min-height: 150px;
+}
+
+.pc-card:hover:not(:disabled) {
+    border-color: #d8dbe0;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.pc-card:active:not(:disabled) {
+    transform: scale(0.97);
+}
+
+.pc-card:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.pc-card-in {
+    background: #e8fff3;
+    border-color: #50cd89;
+}
+
+.pc-card-machine-in {
+    background: #e1f5fe;
+    border-color: #17a2b8;
+}
+
+.pc-card-disabled {
+    filter: grayscale(1);
+    opacity: 0.5;
+}
+
+/* --- Avatars --- */
+.pc-avatar {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 700;
+    background: #eef3f7;
+    color: #5e6278;
+    flex-shrink: 0;
+}
+
+.pc-avatar-in {
+    background: #50cd89;
+    color: #fff;
+}
+
+.pc-avatar-machine {
+    border-radius: 14px;
+    font-size: 24px;
+}
+
+.pc-avatar-machine-in {
+    background: #17a2b8;
+    color: #fff;
+}
+
+.pc-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+}
+
+.pc-avatar-dot {
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #50cd89;
+    border: 2.5px solid #fff;
+    animation: pc-pulse 1.6s ease-in-out infinite;
+}
+
+.pc-avatar-dot-machine {
+    background: #17a2b8;
+}
+
+@keyframes pc-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.25); opacity: 0.7; }
+}
+
+.pc-card-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #3f4254;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pc-card-code {
+    font-size: 11px;
+    color: #a1a5b7;
+    font-weight: 600;
+}
+
+.pc-card-state {
+    font-size: 12px;
+    font-weight: 600;
+    color: #a1a5b7;
+    margin-top: auto;
+}
+
+.pc-state-in {
+    color: #198754;
+}
+
+.pc-state-in-machine {
+    color: #0288d1;
+}
+
+/* --- Timeline section --- */
+.pc-timeline-section {
+    padding: 0 24px 24px;
+}
+
+.pc-nowline {
+    position: absolute;
+    top: 28px;
+    bottom: 0;
+    width: 2px;
+    background: #f1416c;
+    z-index: 5;
+    pointer-events: none;
+}
+
+/* --- Responsive --- */
+@media (max-width: 992px) {
+    .pc-body {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .pc-root {
+        --pc-label-w: 100px;
+    }
+
+    .pc-topbar {
+        padding: 10px 14px;
+    }
+
+    .pc-title {
+        font-size: 17px;
+    }
+
+    .pc-timer,
+    .pc-clock-time {
+        font-size: 20px;
+    }
+
+    .pc-body,
+    .pc-timeline-section {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .pc-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    }
+}

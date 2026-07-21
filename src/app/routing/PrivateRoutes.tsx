@@ -13,13 +13,22 @@ const PmMachinePage = lazy(() => import("../modules/pm_machine/pm_machinePage"))
 const WorkorderDashboard = lazy(() => import("../modules/workorder/components/WorkorderDashboard"));
 const QualityControlPage = lazy(() => import("../modules/quality_control/QualityControlPage"));
 const SalesOrderPage = lazy(() => import("../modules/sales_order/SalesOrderPage"));
-const TrackingPage = lazy(() => import("../modules/Tracking/trackingPage"));
 const DocumentsPage = lazy(() => import("../modules/documents/documentPage"))
 const PhaseTemplatePage = lazy(() => import("../modules/phase_template/PhaseTemplatePage"));
 const ReportsPage = lazy(() => import("../modules/reports/ReportsPage"));
+const ProductionConsole = lazy(() => import("../modules/workorder/components/ProductionConsole"));
 const PrivateRoutes = () => {
   return (
     <Routes>
+      {/* Full-page (no MasterLayout) — shop-floor console */}
+      <Route
+        path="production_console/:workRunId"
+        element={
+          <SuspensedView>
+            <ProductionConsole />
+          </SuspensedView>
+        }
+      />
       <Route element={<MasterLayout />}>
         <Route
           path="main"
@@ -83,14 +92,6 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <SalesOrderPage />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path="tracking/*"
-          element={
-            <SuspensedView>
-              <TrackingPage />
             </SuspensedView>
           }
         />

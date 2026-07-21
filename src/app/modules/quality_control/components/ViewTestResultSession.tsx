@@ -19,13 +19,11 @@ import {
     deleteTestResultPhoto,
     deleteTestResult,
     createTestResultRequiredItems,
-    getTestResultPickRequests,
     assignEmployeeToTestResult,
     unassignEmployeeFromTestResult,
     assignMachineToTestResult,
     unassignMachineFromTestResult,
 } from "../../../services/testResultService";
-import type { StartTestResultPayload } from "../../../services/testResultService";
 import { getQCWorkOrderById } from "../../../services/qcWorkOrderService";
 import { getLaborSplit, estimateLiveLaborSplit } from "../../../utils/labor_cost_utils";
 import { getEmployeeList } from "../../../services/employee";
@@ -36,7 +34,6 @@ import type { Employee } from "../../../type_interface/EmployeeType";
 import type { Machine } from "../../../type_interface/MachineType";
 import type { TestResultDetail, TestResultBreak, TestResultAssignment, TestResultMachineEntry } from "../../../type_interface/TestResultType";
 import type { QCWorkOrderItem } from "../../../type_interface/QCWorkOrderType";
-import type { PickingRequest, PickingRequestListItem } from "../../../type_interface/PickingRequestType";
 
 // --- Timeline & status helpers (shared with WorkorderView) ---
 const getRunStatusColor = (status: string) => {
@@ -354,12 +351,7 @@ const ViewTestResultSession: React.FC = () => {
 
     // Start modal
     const [showStartModal, setShowStartModal] = useState(false);
-    const [startMode, setStartMode] = useState<"auto" | "manual">("auto");
-    const [startPickRequests, setStartPickRequests] = useState<PickingRequest[]>([]);
-    const [startPickLoading, setStartPickLoading] = useState(false);
     const [startSaving, setStartSaving] = useState(false);
-    const [salesItemAllocations, setSalesItemAllocations] = useState<Record<number, string>>({});
-    const [materialAllocations, setMaterialAllocations] = useState<Record<number, Record<number, string>>>({});
 
     // Employee / Machine management modals
     const [showAssignEmpModal, setShowAssignEmpModal] = useState(false);
@@ -1150,60 +1142,18 @@ const ViewTestResultSession: React.FC = () => {
         }
     };
 
-    // ─── start modal (manual allocation) ─────────────────────────────────
+    // ─── start modal ─────────────────────────────────────────────────────
 
-    const openStartModal = async () => {
+    const openStartModal = () => {
         if (!testResult) return;
-        setStartMode("auto");
-        setSalesItemAllocations({});
-        setMaterialAllocations({});
-        setStartPickRequests([]);
         setShowStartModal(true);
-        setStartPickLoading(true);
-        try {
-            const res = await getTestResultPickRequests(testResult.test_result_id);
-            setStartPickRequests(res?.success && Array.isArray(res.data) ? res.data : []);
-        } catch {
-            setStartPickRequests([]);
-        } finally {
-            setStartPickLoading(false);
-        }
-    };
-
-    const getPickItemsByCode = (itemCode: string): PickingRequestListItem[] => {
-        const result: PickingRequestListItem[] = [];
-        startPickRequests.forEach(pr => {
-            pr.items.forEach(item => {
-                if (item.item_code === itemCode && item.qty_available > 0) {
-                    result.push(item);
-                }
-            });
-        });
-        return result;
     };
 
     const handleStart = async () => {
         if (!testResult) return;
-        const payload: StartTestResultPayload = { allocation_mode: startMode };
-        if (startMode === "manual") {
-            const salesSources = Object.entries(salesItemAllocations)
-                .filter(([, v]) => v !== "" && Number(v) > 0)
-                .map(([id, qty]) => ({ picking_request_item_id: Number(id), qty: Number(qty) }));
-            if (salesSources.length > 0) payload.sales_item_sources = salesSources;
-
-            const matSources: StartTestResultPayload["material_sources"] = [];
-            for (const reqItem of (testResult.required_items ?? [])) {
-                const allocMap = materialAllocations[reqItem.id] ?? {};
-                const sources = Object.entries(allocMap)
-                    .filter(([, v]) => v !== "" && Number(v) > 0)
-                    .map(([id, qty]) => ({ picking_request_item_id: Number(id), qty: Number(qty) }));
-                if (sources.length > 0) matSources.push({ required_item_id: reqItem.id, sources });
-            }
-            if (matSources.length > 0) payload.material_sources = matSources;
-        }
         setStartSaving(true);
         try {
-            const res = await startTestResult(testResult.test_result_id, payload);
+            const res = await startTestResult(testResult.test_result_id);
             if (res.success) {
                 setShowStartModal(false);
                 Swal.fire({ title: "เริ่มทดสอบแล้ว", icon: "success", timer: 1500, showConfirmButton: false });
@@ -2563,107 +2513,6 @@ const ViewTestResultSession: React.FC = () => {
                         )}
                     </div>
 
-                    <div className="my-6">
-                        <label className="form-label fw-bold fs-6">รูปแบบการจัดสรรวัตถุดิบ</label>
-                        <div className="d-flex gap-3">
-                            {(["auto", "manual"] as const).map(mode => (
-                                <label key={mode} className={`d-flex align-items-center border rounded px-4 py-3 cursor-pointer flex-grow-1 ${startMode === mode ? "border-primary bg-light-primary" : "border-gray-300"}`}>
-                                    <input type="radio" className="form-check-input me-3" checked={startMode === mode} onChange={() => setStartMode(mode)} />
-                                    <div>
-                                        <span className="fw-bold text-gray-800 d-block">{mode === "auto" ? "อัตโนมัติ" : "เลือกเอง"}</span>
-                                        <span className="text-muted fs-8">{mode === "auto" ? "ระบบจัดสรรวัตถุดิบให้อัตโนมัติ" : "เลือกรายการจาก Picking Request"}</span>
-                                    </div>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-
-                    {startMode === "manual" && (
-                        startPickLoading ? (
-                            <div className="text-center text-muted py-8"><span className="spinner-border spinner-border-sm me-2" />กำลังโหลด...</div>
-                        ) : (
-                            <div>
-                                {/* Sales Item Sources */}
-                                {(() => {
-                                    const allPickItems: PickingRequestListItem[] = [];
-                                    startPickRequests.forEach(pr => pr.items.forEach(item => {
-                                        if (item.qty_available > 0) allPickItems.push(item);
-                                    }));
-                                    const reqItemCodes = new Set((testResult.required_items ?? []).map((ri: any) => ri.item_code));
-                                    const salesPickItems = allPickItems.filter(pi => !reqItemCodes.has(pi.item_code));
-                                    if (salesPickItems.length === 0) return null;
-                                    const totalAllocated = Object.values(salesItemAllocations).reduce((s, v) => s + (Number(v) || 0), 0);
-                                    return (
-                                        <div className="mb-5 border rounded p-4">
-                                            <div className="d-flex justify-content-between mb-3">
-                                                <span className="fw-bold text-gray-800 fs-6"><i className="bi bi-box me-2 text-info" />สินค้า (Non-produced)</span>
-                                                <span className="text-muted fs-8">จัดสรรแล้ว: <span className={`fw-bold ${totalAllocated >= testResult.claimed_qty ? "text-success" : "text-warning"}`}>{totalAllocated}</span> / {testResult.claimed_qty}</span>
-                                            </div>
-                                            <div className="table-responsive">
-                                                <table className="table table-row-dashed align-middle gs-0 gy-2 mb-0">
-                                                    <thead><tr className="fw-bold text-muted fs-8"><th>Picking Request</th><th>รหัสสินค้า</th><th className="text-center">คงเหลือ</th><th className="text-center" style={{ width: 130 }}>จัดสรร</th></tr></thead>
-                                                    <tbody>
-                                                        {salesPickItems.map(pi => (
-                                                            <tr key={pi.picking_request_item_id}>
-                                                                <td><span className="fw-semibold text-gray-700 fs-7">{pi.picking_request_code}</span></td>
-                                                                <td><span className="text-muted fs-7">{pi.item_code}</span></td>
-                                                                <td className="text-center"><span className="fw-semibold fs-7">{pi.qty_available} {pi.unit}</span></td>
-                                                                <td><input type="text" className="form-control form-control-sm text-center" placeholder="0" value={salesItemAllocations[pi.picking_request_item_id] ?? ""} onChange={e => setSalesItemAllocations(prev => ({ ...prev, [pi.picking_request_item_id]: formatIntegerInput(e.target.value) }))} /></td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-
-                                {/* Material Sources */}
-                                {(testResult.required_items ?? []).length > 0 && (
-                                    <div>
-                                        <div className="fs-7 fw-bold text-muted text-uppercase mb-3"><i className="bi bi-box-seam me-1" />วัตถุดิบที่ต้องใช้</div>
-                                        {(testResult.required_items as any[]).map((reqItem: any) => {
-                                            const availableItems = getPickItemsByCode(reqItem.item_code);
-                                            const allocMap = materialAllocations[reqItem.id] ?? {};
-                                            const totalAllocated = Object.values(allocMap).reduce((s, v) => s + (Number(v) || 0), 0);
-                                            const reqQty = reqItem.required_qty ?? 0;
-                                            return (
-                                                <div key={reqItem.id} className="mb-4 border rounded p-4">
-                                                    <div className="d-flex justify-content-between mb-3">
-                                                        <span className="fw-bold text-gray-800 fs-6">{reqItem.item_name} <span className="text-muted fs-8">({reqItem.item_code})</span></span>
-                                                        <span className="text-muted fs-8">ต้องใช้: <span className="fw-bold text-gray-700">{reqQty}</span> | จัดสรร: <span className={`fw-bold ${totalAllocated >= reqQty ? "text-success" : "text-warning"}`}>{totalAllocated}</span></span>
-                                                    </div>
-                                                    {availableItems.length === 0 ? (
-                                                        <div className="text-muted fs-7 text-center py-3 bg-light rounded">ไม่พบ Picking ที่มีวัตถุดิบนี้</div>
-                                                    ) : (
-                                                        <div className="table-responsive">
-                                                            <table className="table table-row-dashed align-middle gs-0 gy-2 mb-0">
-                                                                <thead><tr className="fw-bold text-muted fs-8"><th>Picking Request</th><th>รหัสสินค้า</th><th className="text-center">คงเหลือ</th><th className="text-center" style={{ width: 130 }}>จัดสรร</th></tr></thead>
-                                                                <tbody>
-                                                                    {availableItems.map(pi => (
-                                                                        <tr key={pi.picking_request_item_id}>
-                                                                            <td><span className="fw-semibold text-gray-700 fs-7">{pi.picking_request_code}</span></td>
-                                                                            <td><span className="text-muted fs-7">{pi.item_code}</span></td>
-                                                                            <td className="text-center"><span className="fw-semibold fs-7">{pi.qty_available} {pi.unit}</span></td>
-                                                                            <td><input type="text" className="form-control form-control-sm text-center" placeholder="0" value={allocMap[pi.picking_request_item_id] ?? ""} onChange={e => { const v = formatIntegerInput(e.target.value); setMaterialAllocations(prev => ({ ...prev, [reqItem.id]: { ...(prev[reqItem.id] ?? {}), [pi.picking_request_item_id]: v } })); }} /></td>
-                                                                        </tr>
-                                                                    ))}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-
-                                {(testResult.required_items ?? []).length === 0 && startPickRequests.length === 0 && (
-                                    <div className="text-center text-muted py-6 border border-dashed rounded">ไม่พบรายการ Picking Request</div>
-                                )}
-                            </div>
-                        )
-                    )}
                 </Modal.Body>
                 <Modal.Footer>
                     <button className="btn btn-light" onClick={() => setShowStartModal(false)} disabled={startSaving}>ยกเลิก</button>
