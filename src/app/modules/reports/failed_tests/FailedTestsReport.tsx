@@ -6,6 +6,9 @@ import ReportTable, { Column } from '../_shared/ReportTable';
 import { ChartCard, DonutChart, SimpleBarChart, TrendLine } from '../_shared/charts';
 import { fmtNum, fmtDate } from '../_shared/filters';
 import { lastNDaysToToday } from '../_shared/datePresets';
+import { EnumMultiSelect } from '../_shared/ReportPickers';
+import { FilterField } from '../_shared/FilterPopover';
+import { TEST_SESSION_STATUS_OPTIONS, TEST_TYPE_OPTIONS } from '../_shared/reportEnums';
 import { useReport } from '../_shared/useReport';
 
 interface Row {
@@ -33,12 +36,20 @@ const FailedTestsReport: React.FC = () => {
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(lastNDaysToToday(30));
     const [startDate, endDate] = dateRange;
 
+    const [testType, setTestType] = useState<string[]>([]);
+    const [sessionStatus, setSessionStatus] = useState<string[]>([]);
+
     const enabled = !!(startDate && endDate);
+    const activeFilterCount = (testType.length ? 1 : 0) + (sessionStatus.length ? 1 : 0);
 
     const params = useMemo(() => ({
         from: toDateOnly(startDate) ?? undefined,
         to: toDateOnly(endDate) ?? undefined,
-    }), [startDate, endDate]);
+        test_type: testType.length ? testType.join(',') : undefined,
+        session_status: sessionStatus.length ? sessionStatus.join(',') : undefined,
+    }), [startDate, endDate, testType, sessionStatus]);
+
+    const clearFilters = () => { setTestType([]); setSessionStatus([]); };
 
     const r = useReport<Row, Summary>('failed_tests', params, enabled);
     const summary = r.summary;
@@ -75,6 +86,16 @@ const FailedTestsReport: React.FC = () => {
             dateRange={dateRange}
             setDateRange={setDateRange}
             datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
+            activeFilterCount={activeFilterCount}
+            onClearFilters={clearFilters}
+            filterPopover={<>
+                <FilterField label='ประเภทการทดสอบ (เลือกได้หลายอัน)'>
+                    <EnumMultiSelect value={testType} onChange={setTestType} options={TEST_TYPE_OPTIONS} />
+                </FilterField>
+                <FilterField label='สถานะเซสชัน (เลือกได้หลายอัน)'>
+                    <EnumMultiSelect value={sessionStatus} onChange={setSessionStatus} options={TEST_SESSION_STATUS_OPTIONS} />
+                </FilterField>
+            </>}
         >
             {summary && <KpiCards cards={[
                 { label: 'การทดสอบที่ไม่ผ่าน', value: summary.failed_tests, icon: 'bi-x-octagon', bg: 'bg-light-danger', color: 'text-danger' },

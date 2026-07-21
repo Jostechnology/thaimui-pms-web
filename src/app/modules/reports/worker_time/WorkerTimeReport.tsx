@@ -7,8 +7,9 @@ import GanttChart, { GanttTask, GanttViewMode } from '../_shared/GanttChart';
 import { ChartCard, SimpleBarChart, TrendLine, BarDatum } from '../_shared/charts';
 import { fmtNum, fmtDateTime } from '../_shared/filters';
 import { lastNDaysToToday } from '../_shared/datePresets';
-import { EmployeePicker } from '../_shared/ReportPickers';
-import { FilterField } from '../_shared/FilterPopover';
+import { EmployeePicker, WorkOrderPicker, EnumMultiSelect } from '../_shared/ReportPickers';
+import { FilterField, BoolFilter } from '../_shared/FilterPopover';
+import { WORKRUN_STATUS_OPTIONS } from '../_shared/reportEnums';
 import { useReport } from '../_shared/useReport';
 
 interface Row {
@@ -46,10 +47,13 @@ const WorkerTimeReport: React.FC = () => {
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(lastNDaysToToday(7));
     const [startDate, endDate] = dateRange;
     const [employeeId, setEmployeeId] = useState<number | undefined>(undefined);
+    const [workOrderId, setWorkOrderId] = useState<number | undefined>(undefined);
+    const [workrunStatus, setWorkrunStatus] = useState<string[]>([]);
+    const [openOnly, setOpenOnly] = useState(false);
     const [viewMode, setViewMode] = useState<GanttViewMode>('Day');
 
     const requiredOk = !!(startDate && endDate);
-    const activeFilterCount = employeeId ? 1 : 0;
+    const activeFilterCount = (employeeId ? 1 : 0) + (workOrderId ? 1 : 0) + (workrunStatus.length ? 1 : 0) + (openOnly ? 1 : 0);
 
     const params = useMemo(() => {
         const out: Record<string, unknown> = {};
@@ -57,8 +61,13 @@ const WorkerTimeReport: React.FC = () => {
         if (f) out.from = f;
         if (t) out.to = t;
         if (employeeId) out.employee_id = employeeId;
+        if (workOrderId) out.work_order_id = workOrderId;
+        if (workrunStatus.length) out.workrun_status = workrunStatus.join(',');
+        if (openOnly) out.open_only = true;
         return out;
-    }, [startDate, endDate, employeeId]);
+    }, [startDate, endDate, employeeId, workOrderId, workrunStatus, openOnly]);
+
+    const clearFilters = () => { setEmployeeId(undefined); setWorkOrderId(undefined); setWorkrunStatus([]); setOpenOnly(false); };
 
     const r = useReport<Row, Summary>('worker_time', params, requiredOk, 50);
     const summary = r.summary;
@@ -100,7 +109,7 @@ const WorkerTimeReport: React.FC = () => {
             setDateRange={setDateRange}
             datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
             activeFilterCount={activeFilterCount}
-            onClearFilters={() => setEmployeeId(undefined)}
+            onClearFilters={clearFilters}
             filters={
                 <select className='form-select form-select-sm form-select-solid w-110px'
                     value={viewMode} onChange={(e) => setViewMode(e.target.value as GanttViewMode)}>
@@ -109,11 +118,18 @@ const WorkerTimeReport: React.FC = () => {
                     <option value='Month'>เดือน</option>
                 </select>
             }
-            filterPopover={
+            filterPopover={<>
                 <FilterField label='พนักงาน'>
                     <EmployeePicker value={employeeId} onChange={setEmployeeId} />
                 </FilterField>
-            }
+                <FilterField label='ใบสั่งผลิต (Work Order)'>
+                    <WorkOrderPicker value={workOrderId} onChange={setWorkOrderId} />
+                </FilterField>
+                <FilterField label='สถานะ WorkRun (เลือกได้หลายอัน)'>
+                    <EnumMultiSelect value={workrunStatus} onChange={setWorkrunStatus} options={WORKRUN_STATUS_OPTIONS} />
+                </FilterField>
+                <BoolFilter label='เฉพาะงานที่ยังไม่ปิด' checked={openOnly} onChange={setOpenOnly} />
+            </>}
         >
             {summary && <KpiCards cards={[
                 { label: 'การมอบหมายงาน', value: summary.assignments_count, icon: 'bi-list-task', bg: 'bg-light-primary', color: 'text-primary' },

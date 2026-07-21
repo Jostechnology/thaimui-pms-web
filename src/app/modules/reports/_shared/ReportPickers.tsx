@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Select from 'react-select';
 import { getEmployeeList } from '../../../services/employee';
 import { getMachineList } from '../../../services/machineService';
+import { getMachineTypeList } from '../../../services/machineTypeService';
 import { getWorkOrderList } from '../../../services/workorder';
 
 /**
@@ -97,6 +98,21 @@ export const MachinePicker: React.FC<PickerProps> = (props) => (
             return listItems(res).map((m) => ({
                 value: m.machine_id,
                 label: m.machine_code ? `${m.machine_code} — ${m.machine_name ?? ''}`.trim() : (m.machine_name ?? `เครื่อง #${m.machine_id}`),
+            }));
+        }}
+    />
+);
+
+export const MachineTypePicker: React.FC<PickerProps> = (props) => (
+    <AsyncEntitySelect
+        {...props}
+        placeholder={props.placeholder ?? 'เลือกประเภทเครื่องจักร...'}
+        noOptionsText='ไม่พบประเภทเครื่องจักร'
+        loader={async (search) => {
+            const res: any = await getMachineTypeList(1, 50, search);
+            return listItems(res).map((t) => ({
+                value: t.machine_type_id,
+                label: t.type_name ?? `ประเภท #${t.machine_type_id}`,
             }));
         }}
     />

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Content } from '../../../../_metronic/layout/components/content';
-import { getMachineById, updateMachine, deleteMachine } from '../../../services/machineService.ts';
+import { getMachineById, updateMachine, deleteMachine, setMachinePhoto, deleteMachinePhoto } from '../../../services/machineService.ts';
+import { fileToResizedDataUrl } from '../../../utils/image_utils';
 import { getAllMachineTypes } from '../../../services/machineTypeService';
 import type { MachineTypeItem } from '../../../type_interface/MachineType';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -81,6 +82,7 @@ const MachineUpdate: React.FC = () => {
                     is_second_hand: machine.is_second_hand ?? false,
                     accumulated_hours: machine.accumulated_hours != null ? String(machine.accumulated_hours) : '',
                 });
+                setExistingPhotoUrl(machine.photo_url ?? null);
             } else {
                 Swal.fire({
                     icon: 'error', title: 'ไม่พบข้อมูล', text: 'ไม่สามารถโหลดข้อมูลเครื่องจักรนี้ได้',
@@ -170,6 +172,24 @@ const MachineUpdate: React.FC = () => {
     // };
 
     //Update (อัปเดต)
+    const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
+    const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+    const [photoRemoved, setPhotoRemoved] = useState(false);
+    const photoInputRef = useRef<HTMLInputElement>(null);
+    const previewPhotoUrl = photoDataUrl || (!photoRemoved ? existingPhotoUrl : null);
+
+    const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        try {
+            setPhotoDataUrl(await fileToResizedDataUrl(file));
+            setPhotoRemoved(false);
+        } catch {
+            Swal.fire({ icon: 'error', title: 'ไม่สามารถอ่านไฟล์รูปได้' });
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const allTouched: Record<string, boolean> = {};
@@ -208,6 +228,16 @@ const MachineUpdate: React.FC = () => {
                     : 0,
             });
             if (res.success) {
+                if (photoDataUrl) {
+                    const photoRes = await setMachinePhoto(Number(id), photoDataUrl);
+                    if (!photoRes?.success) {
+                        await Swal.fire({ icon: 'warning', title: 'อัปเดตสำเร็จ แต่อัปโหลดรูปไม่สำเร็จ' });
+                        navigate('/machine/machine_list');
+                        return;
+                    }
+                } else if (photoRemoved && existingPhotoUrl) {
+                    await deleteMachinePhoto(Number(id));
+                }
                 await Swal.fire({ icon: 'success', title: 'อัปเดตสำเร็จ!', timer: 2000, showConfirmButton: false });
                 navigate('/machine/machine_list');
             } else {
@@ -280,6 +310,42 @@ const MachineUpdate: React.FC = () => {
                                 </div>
                             </div>
                             <div className="card-body">
+                                {/* Photo */}
+                                <div className="d-flex align-items-center mb-6 gap-5">
+                                    <div
+                                        className="symbol symbol-100px"
+                                        style={{ cursor: 'pointer' }}
+                                        title="คลิกเพื่อเลือกรูป"
+                                        onClick={() => photoInputRef.current?.click()}
+                                    >
+                                        {previewPhotoUrl
+                                            ? <img src={previewPhotoUrl} alt="machine" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }} />
+                                            : (
+                                                <span className="symbol-label bg-light-info" style={{ borderRadius: 12 }}>
+                                                    <i className="bi bi-gear-fill text-info fs-1"></i>
+                                                </span>
+                                            )}
+                                    </div>
+                                    <div className="d-flex flex-column gap-2">
+                                        <div className="d-flex gap-2">
+                                            <button type="button" className="btn btn-sm btn-light-primary fw-bold" onClick={() => photoInputRef.current?.click()}>
+                                                <i className="bi bi-camera me-1"></i>{previewPhotoUrl ? 'เปลี่ยนรูป' : 'เพิ่มรูปเครื่องจักร'}
+                                            </button>
+                                            {previewPhotoUrl && (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-light-danger fw-bold"
+                                                    onClick={() => { setPhotoDataUrl(null); setPhotoRemoved(true); }}
+                                                >
+                                                    <i className="bi bi-trash3 me-1"></i>ลบรูป
+                                                </button>
+                                            )}
+                                        </div>
+                                        <span className="text-muted fs-8">รูปเครื่องจักรจะแสดงในหน้าคอนโซลหน้างาน</span>
+                                    </div>
+                                    <input ref={photoInputRef} type="file" accept="image/*" className="d-none" onChange={handlePhotoSelect} />
+                                </div>
+
                                 <div className="row mb-6">
                                     <div className="col-md-6 fv-row mb-6 mb-md-0">
                                         <label className="required fs-6 fw-semibold mb-2">รหัสเครื่องจักร</label>

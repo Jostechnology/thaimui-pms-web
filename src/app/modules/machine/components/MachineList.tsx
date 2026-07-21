@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Content } from '../../../../_metronic/layout/components/content';
-import { getMachineList, deleteMachine } from '../../../services/machineService.ts';
+import { getMachineList, deleteMachine, updateMachine } from '../../../services/machineService.ts';
 import type { Machine } from '../../../type_interface/MachineType';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
@@ -29,7 +29,7 @@ const MachineList: React.FC = () => {
     const navigate = useNavigate();
     const fetchMachines = async (page: number, limit: number, search: string, status: string) => {
         setIsLoading(true);
-        const res = await getMachineList(page, limit, search, status);
+        const res = await getMachineList(page, limit, search, status, 'all'); // 'all' = แสดงเครื่องที่ปิดใช้งานด้วย
         if (res.success && res.data) {
             setMachines(res.data.items);
             setTotalPages(res.data.total_pages);
@@ -87,26 +87,32 @@ const MachineList: React.FC = () => {
         setCurrentPage(1);
     };
 
-    const handleDelete = async (machineId: number, machineCode: string) => {
+    // ไม่มีการลบเครื่องจักรจริง — ใช้ปิด/เปิดใช้งานแทน เพื่อรักษาประวัติการใช้งานและต้นทุน
+    const handleToggleActive = async (machine: Machine) => {
+        const disabling = machine.is_active !== false;
         const confirm = await Swal.fire({
-            title: 'ยืนยันการลบ?',
-            text: `คุณแน่ใจหรือไม่ที่จะลบเครื่องจักร "${machineCode}" ออกจากระบบ?`,
-            icon: 'warning',
+            title: disabling ? 'ปิดใช้งานเครื่องจักร?' : 'เปิดใช้งานเครื่องจักร?',
+            text: disabling
+                ? `"${machine.machine_code}" จะไม่สามารถถูกเลือกใช้ในงานได้ (ประวัติยังอยู่ครบ)`
+                : `เปิดใช้งาน "${machine.machine_code}" อีกครั้ง`,
+            icon: disabling ? 'warning' : 'question',
             showCancelButton: true,
-            confirmButtonText: 'ใช่, ลบเลย!',
+            confirmButtonText: disabling ? 'ปิดใช้งาน' : 'เปิดใช้งาน',
             cancelButtonText: 'ยกเลิก',
-            confirmButtonColor: '#d33',
+            confirmButtonColor: disabling ? '#d33' : '#198754',
             cancelButtonColor: '#3085d6',
             reverseButtons: true,
         });
 
         if (confirm.isConfirmed) {
-            const res = await deleteMachine(String(machineId));
+            const res = disabling
+                ? await deleteMachine(String(machine.machine_id)) // BE soft delete = mark inactive
+                : await updateMachine(machine.machine_id, { is_active: true });
             if (res.success) {
-                await Swal.fire('ลบสำเร็จ!', 'ข้อมูลเครื่องจักรถูกลบแล้ว', 'success');
+                await Swal.fire(disabling ? 'ปิดใช้งานสำเร็จ' : 'เปิดใช้งานสำเร็จ', '', 'success');
                 fetchMachines(currentPage, itemsPerPage, searchTerm, statusFilter);
             } else {
-                Swal.fire('ล้มเหลว', res.message || 'ไม่สามารถลบได้', 'error');
+                Swal.fire('ล้มเหลว', res.message || 'ไม่สามารถดำเนินการได้', 'error');
             }
         }
     };
@@ -198,15 +204,20 @@ const MachineList: React.FC = () => {
                                 ) : (
                                     machines.map((machine) => {
                                         const statusInfo = getStatusDisplay(machine.status);
+                                        const isDisabled = machine.is_active === false;
                                         return (
-                                            <tr key={machine.machine_id}>
+                                            <tr key={machine.machine_id} style={isDisabled ? { opacity: 0.55 } : undefined}>
                                                 {/* คอลัมน์ที่ 1: รหัสและชื่อ */}
                                                 <td>
-                                                    <div className="d-flex align-items-center">
+                                                    <div className="d-flex align-items-center" style={isDisabled ? { filter: 'grayscale(1)' } : undefined}>
                                                         <div className="symbol symbol-40px me-3">
-                                                            <div className={`symbol-label bg-light-${statusInfo.color}`}>
-                                                                <i className={`bi bi-gear-fill fs-3 text-${statusInfo.color}`}></i>
-                                                            </div>
+                                                            {machine.photo_url
+                                                                ? <img src={machine.photo_url} alt={machine.machine_name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
+                                                                : (
+                                                                    <div className={`symbol-label bg-light-${statusInfo.color}`}>
+                                                                        <i className={`bi bi-gear-fill fs-3 text-${statusInfo.color}`}></i>
+                                                                    </div>
+                                                                )}
                                                         </div>
                                                         <div className="d-flex flex-column">
                                                             <span className="text-dark fw-bolder fs-6">{machine.machine_code}</span>
@@ -238,9 +249,16 @@ const MachineList: React.FC = () => {
 
                                                 {/* คอลัมน์ที่ 4: สถานะ */}
                                                 <td>
-                                                    <span className={`badge badge-light-${statusInfo.color} fw-bolder px-3 py-1`}>
-                                                        {statusInfo.label || 'UNKNOWN'}
-                                                    </span>
+                                                    {isDisabled
+                                                        ? (
+                                                            <span className="badge badge-light-secondary fw-bolder px-3 py-1">
+                                                                <i className="bi bi-lock-fill me-1"></i>ปิดใช้งาน
+                                                            </span>
+                                                        ) : (
+                                                            <span className={`badge badge-light-${statusInfo.color} fw-bolder px-3 py-1`}>
+                                                                {statusInfo.label || 'UNKNOWN'}
+                                                            </span>
+                                                        )}
                                                 </td>
 
                                                 {/* คอลัมน์ที่ 5: ปุ่มจัดการ */}
@@ -258,10 +276,11 @@ const MachineList: React.FC = () => {
                                                         <i className="bi bi-pencil-square me-1"></i>
                                                     </button>
                                                     <button
-                                                        className="btn btn-light-danger btn-sm"
-                                                        onClick={() => handleDelete(machine.machine_id, machine.machine_code)}
+                                                        className={`btn btn-sm ${isDisabled ? 'btn-light-success' : 'btn-light-danger'}`}
+                                                        title={isDisabled ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                                                        onClick={() => handleToggleActive(machine)}
                                                     >
-                                                        <i className="bi bi-trash3-fill me-1"></i>
+                                                        <i className={`bi ${isDisabled ? 'bi-unlock-fill' : 'bi-lock-fill'} me-1`}></i>
                                                     </button>
                                                 </td>
                                             </tr>

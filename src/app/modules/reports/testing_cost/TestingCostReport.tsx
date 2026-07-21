@@ -6,6 +6,9 @@ import ReportTable, { Column } from '../_shared/ReportTable';
 import { ChartCard, DonutChart, TrendLine, ScatterCard, DonutDatum } from '../_shared/charts';
 import { fmtNum } from '../_shared/filters';
 import { firstOfMonthToToday } from '../_shared/datePresets';
+import { EnumMultiSelect } from '../_shared/ReportPickers';
+import { FilterField } from '../_shared/FilterPopover';
+import { TEST_RESULT_STATUS_OPTIONS, TEST_SESSION_STATUS_OPTIONS, TEST_TYPE_OPTIONS } from '../_shared/reportEnums';
 import { useReport } from '../_shared/useReport';
 
 interface Row {
@@ -39,12 +42,22 @@ const TestingCostReport: React.FC = () => {
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(firstOfMonthToToday());
     const [startDate, endDate] = dateRange;
 
+    const [overallStatus, setOverallStatus] = useState<string[]>([]);
+    const [sessionStatus, setSessionStatus] = useState<string[]>([]);
+    const [testType, setTestType] = useState<string[]>([]);
+
     const enabled = !!(startDate && endDate);
+    const activeFilterCount = (overallStatus.length ? 1 : 0) + (sessionStatus.length ? 1 : 0) + (testType.length ? 1 : 0);
 
     const params = useMemo(() => ({
         from: toDateOnly(startDate) ?? undefined,
         to: toDateOnly(endDate) ?? undefined,
-    }), [startDate, endDate]);
+        overall_status: overallStatus.length ? overallStatus.join(',') : undefined,
+        session_status: sessionStatus.length ? sessionStatus.join(',') : undefined,
+        test_type: testType.length ? testType.join(',') : undefined,
+    }), [startDate, endDate, overallStatus, sessionStatus, testType]);
+
+    const clearFilters = () => { setOverallStatus([]); setSessionStatus([]); setTestType([]); };
 
     const r = useReport<Row, Summary>('testing_cost', params, enabled);
     const summary = r.summary;
@@ -79,6 +92,19 @@ const TestingCostReport: React.FC = () => {
             dateRange={dateRange}
             setDateRange={setDateRange}
             datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
+            activeFilterCount={activeFilterCount}
+            onClearFilters={clearFilters}
+            filterPopover={<>
+                <FilterField label='ผลการทดสอบ (เลือกได้หลายอัน)'>
+                    <EnumMultiSelect value={overallStatus} onChange={setOverallStatus} options={TEST_RESULT_STATUS_OPTIONS} />
+                </FilterField>
+                <FilterField label='สถานะเซสชัน (เลือกได้หลายอัน)'>
+                    <EnumMultiSelect value={sessionStatus} onChange={setSessionStatus} options={TEST_SESSION_STATUS_OPTIONS} />
+                </FilterField>
+                <FilterField label='ประเภทการทดสอบ (เลือกได้หลายอัน)'>
+                    <EnumMultiSelect value={testType} onChange={setTestType} options={TEST_TYPE_OPTIONS} />
+                </FilterField>
+            </>}
         >
             {summary && <KpiCards cards={[
                 { label: 'จำนวนผลทดสอบ', value: summary.test_result_count, icon: 'bi-clipboard-data', bg: 'bg-light-primary', color: 'text-primary' },

@@ -43,7 +43,11 @@ const SidebarMenuMain = () => {
         if (result.success) {
           // New compact format: ['ROLE_MANAGEMENT.view', 'ROLE_MANAGEMENT.edit', ...]
           // Only granted permissions are present; absence means false.
-          const permArray = result.data as string[];
+          const permArray = (Array.isArray(result.data) ? result.data : []) as string[];
+
+          // Wildcard '*' = full access (grant every method on every module).
+          const wildcard = permArray.includes('*');
+          const ALL_METHODS = ['view', 'create', 'edit', 'delete'];
 
           // Build map: { MODULE_CODE: ['view', 'edit', ...] }
           const permMap: Record<string, string[]> = {};
@@ -63,9 +67,9 @@ const SidebarMenuMain = () => {
           for (const mainRoute of mainRoutesConfig) {
             const subMenus: SubRouteType[] = subRoutesConfig
               .filter(sub => sub.main_module_code === mainRoute.module_code
-                && (permMap[sub.module_code]?.length ?? 0) > 0
+                && (wildcard || (permMap[sub.module_code]?.length ?? 0) > 0)
                 && !(isAllBranch && sub.allBranchBlock))
-              .map(sub => ({ ...sub, permission: permMap[sub.module_code] }));
+              .map(sub => ({ ...sub, permission: wildcard ? ALL_METHODS : permMap[sub.module_code] }));
 
             if (subMenus.length > 0) {
               actionList.push(...subMenus);

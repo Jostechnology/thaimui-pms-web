@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Content } from '../../../../_metronic/layout/components/content';
-import { createMachine } from '../../../services/machineService';
+import { createMachine, setMachinePhoto } from '../../../services/machineService';
+import { fileToResizedDataUrl } from '../../../utils/image_utils';
 import { getAllMachineTypes } from '../../../services/machineTypeService';
 import type { MachineTypeItem } from '../../../type_interface/MachineType';
 import { useNavigate } from 'react-router-dom';
@@ -125,6 +126,20 @@ const MachineCreate: React.FC = () => {
     };
 
     // ─── Handle Submit ──────────────────────────────────────────
+    const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+    const photoInputRef = useRef<HTMLInputElement>(null);
+
+    const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        try {
+            setPhotoDataUrl(await fileToResizedDataUrl(file));
+        } catch {
+            Swal.fire({ icon: 'error', title: 'ไม่สามารถอ่านไฟล์รูปได้', confirmButtonColor: '#d33' });
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -183,6 +198,14 @@ const MachineCreate: React.FC = () => {
             const res = await createMachine(payload);
 
             if (res.success) {
+                if (photoDataUrl && res.data?.machine_id) {
+                    const photoRes = await setMachinePhoto(res.data.machine_id, photoDataUrl);
+                    if (!photoRes?.success) {
+                        Swal.fire({ icon: 'warning', title: 'บันทึกสำเร็จ แต่อัปโหลดรูปไม่สำเร็จ', text: 'สามารถอัปโหลดรูปใหม่ได้ในหน้าแก้ไข', confirmButtonColor: '#3085d6' });
+                        navigate('/machine/machine_list');
+                        return;
+                    }
+                }
                 await Swal.fire({
                     icon: 'success',
                     title: 'บันทึกสำเร็จ!',
@@ -280,6 +303,38 @@ const MachineCreate: React.FC = () => {
                                 </div>
                             </div>
                             <div className="card-body">
+                                {/* Photo */}
+                                <div className="d-flex align-items-center mb-6 gap-5">
+                                    <div
+                                        className="symbol symbol-100px"
+                                        style={{ cursor: 'pointer' }}
+                                        title="คลิกเพื่อเลือกรูป"
+                                        onClick={() => photoInputRef.current?.click()}
+                                    >
+                                        {photoDataUrl
+                                            ? <img src={photoDataUrl} alt="machine" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }} />
+                                            : (
+                                                <span className="symbol-label bg-light-info" style={{ borderRadius: 12 }}>
+                                                    <i className="bi bi-gear-fill text-info fs-1"></i>
+                                                </span>
+                                            )}
+                                    </div>
+                                    <div className="d-flex flex-column gap-2">
+                                        <div className="d-flex gap-2">
+                                            <button type="button" className="btn btn-sm btn-light-primary fw-bold" onClick={() => photoInputRef.current?.click()}>
+                                                <i className="bi bi-camera me-1"></i>{photoDataUrl ? 'เปลี่ยนรูป' : 'เพิ่มรูปเครื่องจักร'}
+                                            </button>
+                                            {photoDataUrl && (
+                                                <button type="button" className="btn btn-sm btn-light-danger fw-bold" onClick={() => setPhotoDataUrl(null)}>
+                                                    <i className="bi bi-trash3 me-1"></i>ลบรูป
+                                                </button>
+                                            )}
+                                        </div>
+                                        <span className="text-muted fs-8">รูปเครื่องจักรจะแสดงในหน้าคอนโซลหน้างาน</span>
+                                    </div>
+                                    <input ref={photoInputRef} type="file" accept="image/*" className="d-none" onChange={handlePhotoSelect} />
+                                </div>
+
                                 <div className="row mb-6">
                                     <div className="col-md-6 fv-row mb-6 mb-md-0">
                                         <label className="required fs-6 fw-semibold mb-2">รหัสเครื่องจักร</label>

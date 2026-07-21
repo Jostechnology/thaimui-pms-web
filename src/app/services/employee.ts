@@ -46,6 +46,38 @@ export const getEmployeeById = async (employee_id: number) => {
 
 
 
+export const setEmployeePhoto = async (employee_id: number, image_base64: string) => {
+    try {
+        const response = await front_api(
+            "POST",
+            `/employee/${employee_id}/photo`,
+            { image_base64 },
+            { wrapData: false }
+        );
+
+        if (!response) return { success: false };
+        return await response.json();
+    } catch (error) {
+        return { success: false };
+    }
+};
+
+export const deleteEmployeePhoto = async (employee_id: number) => {
+    try {
+        const response = await front_api(
+            "DELETE",
+            `/employee/${employee_id}/photo`,
+            {},
+            { wrapData: false }
+        );
+
+        if (!response) return { success: false };
+        return await response.json();
+    } catch (error) {
+        return { success: false };
+    }
+};
+
 export const createEmployee = async (data: any) => {
     try {
         const response = await front_api(

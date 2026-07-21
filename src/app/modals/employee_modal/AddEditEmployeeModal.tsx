@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Employee, EmployeeStatus } from '../../type_interface/EmployeeType';
-import { createEmployee, updateEmployee } from '../../services/employee';
+import { createEmployee, updateEmployee, setEmployeePhoto, deleteEmployeePhoto } from '../../services/employee';
 import { useAlertModal } from '../../context/ModalContext';
 import { validateRequired, validateEmail, validatePhone, validateCitizenId, validateNonNegativeNumber } from '../../utils/validate_utils';
 import { formatPhoneInput, formatTaxInput, handleCommaNumberInput, parseCommaNumber, formatWithCommas } from '../../utils/input_format_utils';
+import { fileToResizedDataUrl } from '../../utils/image_utils';
 
 interface Props {
     show: boolean;
@@ -29,6 +30,11 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
+    // Photo: photoDataUrl = รูปใหม่ที่เลือก (base64), photoRemoved = ผู้ใช้กดลบรูปเดิม
+    const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+    const [photoRemoved, setPhotoRemoved] = useState(false);
+    const photoInputRef = useRef<HTMLInputElement>(null);
+
     const isEditMode = !!employee;
 
     useEffect(() => {
@@ -44,6 +50,8 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                 setBaseSalary(employee.base_salary ? formatWithCommas(employee.base_salary) : '');
                 setDayRate(employee.day_rate ? formatWithCommas(employee.day_rate) : '');
                 setOtHourlyRate(employee.ot_hourly_rate ? formatWithCommas(employee.ot_hourly_rate) : '');
+                setPhotoDataUrl(null);
+                setPhotoRemoved(false);
             } else {
                 resetForm();
             }
@@ -62,7 +70,24 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
         setDayRate('');
         setOtHourlyRate('');
         setErrors({});
+        setPhotoDataUrl(null);
+        setPhotoRemoved(false);
     };
+
+    const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        try {
+            const dataUrl = await fileToResizedDataUrl(file);
+            setPhotoDataUrl(dataUrl);
+            setPhotoRemoved(false);
+        } catch {
+            openAlertModal('ไม่สามารถอ่านไฟล์รูปได้', () => { }, false);
+        }
+    };
+
+    const previewPhotoUrl = photoDataUrl || (!photoRemoved ? employee?.photo_url : null);
 
     const clearError = (field: string) => {
         if (errors[field]) {
@@ -131,6 +156,19 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                 : await createEmployee(employeePayload);
 
             if (res && res.success) {
+                // Sync photo after the employee row exists (create returns the new id)
+                const employeeId = isEditMode ? employee!.employee_id : res.data?.employee_id;
+                if (employeeId) {
+                    if (photoDataUrl) {
+                        const photoRes = await setEmployeePhoto(employeeId, photoDataUrl);
+                        if (!photoRes?.success) {
+                            openAlertModal('บันทึกข้อมูลสำเร็จ แต่อัปโหลดรูปไม่สำเร็จ', () => { onSuccess(); onHide(); }, false);
+                            return;
+                        }
+                    } else if (photoRemoved && employee?.photo_url) {
+                        await deleteEmployeePhoto(employeeId);
+                    }
+                }
                 openAlertModal(isEditMode ? "แก้ไขข้อมูลสำเร็จ" : "เพิ่มพนักงานสำเร็จ", () => {
                     onSuccess();
                     onHide();
@@ -162,6 +200,43 @@ const AddEditEmployeeModal: React.FC<Props> = ({ show, onHide, onSuccess, employ
                         <form className="form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
 
                             <h3 className="mb-5 text-primary">ข้อมูลพนักงาน</h3>
+
+                            {/* Photo */}
+                            <div className="d-flex align-items-center mb-8 gap-5">
+                                <div
+                                    className="symbol symbol-100px symbol-circle"
+                                    style={{ cursor: 'pointer' }}
+                                    title="คลิกเพื่อเลือกรูป"
+                                    onClick={() => photoInputRef.current?.click()}
+                                >
+                                    {previewPhotoUrl
+                                        ? <img src={previewPhotoUrl} alt="photo" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                                        : (
+                                            <span className="symbol-label bg-light-primary text-primary fw-bold fs-1">
+                                                {firstName ? firstName.charAt(0) : <i className="bi bi-person fs-1"></i>}
+                                            </span>
+                                        )}
+                                </div>
+                                <div className="d-flex flex-column gap-2">
+                                    <div className="d-flex gap-2">
+                                        <button type="button" className="btn btn-sm btn-light-primary fw-bold" onClick={() => photoInputRef.current?.click()}>
+                                            <i className="bi bi-camera me-1"></i>{previewPhotoUrl ? 'เปลี่ยนรูป' : 'เพิ่มรูป'}
+                                        </button>
+                                        {previewPhotoUrl && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm btn-light-danger fw-bold"
+                                                onClick={() => { setPhotoDataUrl(null); setPhotoRemoved(true); }}
+                                            >
+                                                <i className="bi bi-trash3 me-1"></i>ลบรูป
+                                            </button>
+                                        )}
+                                    </div>
+                                    <span className="text-muted fs-8">รูปพนักงานจะแสดงในหน้าคอนโซลหน้างาน</span>
+                                </div>
+                                <input ref={photoInputRef} type="file" accept="image/*" className="d-none" onChange={handlePhotoSelect} />
+                            </div>
+
                             <div className="row g-9 mb-8">
                                 <div className="col-md-6 fv-row">
                                     <label className="required fs-6 fw-semibold mb-2">ชื่อ</label>

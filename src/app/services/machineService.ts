@@ -33,7 +33,8 @@ export const getMachineList = async (
     page: number = 1,
     per_page: number = 10,
     search: string = "",
-    status: string = ""
+    status: string = "",
+    is_active: string = "" // "" = BE default (active only), "all" = include disabled
 ): Promise<APIResponse<MachineListResponse>> => {
     try {
         const params = new URLSearchParams();
@@ -41,6 +42,7 @@ export const getMachineList = async (
         params.append("per_page", per_page.toString());
         if (search) params.append("search", search);
         if (status) params.append("status", status);
+        if (is_active) params.append("is_active", is_active);
 
         const queryString = params.toString();
         const path = queryString ? `/get_machine_list?${queryString}` : `/get_machine_list`;
@@ -118,6 +120,36 @@ export const deleteMachine = async (id: number | string): Promise<APIResponse> =
     }
 };
 
+
+export const setMachinePhoto = async (machine_id: number, image_base64: string): Promise<APIResponse<Machine>> => {
+    try {
+        const response = await front_api(
+            "POST",
+            `/machine/${machine_id}/photo`,
+            { image_base64 },
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse<Machine>(response);
+    } catch (error) {
+        console.error("setMachinePhoto Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการอัปโหลดรูปเครื่องจักร" };
+    }
+};
+
+export const deleteMachinePhoto = async (machine_id: number): Promise<APIResponse<Machine>> => {
+    try {
+        const response = await front_api(
+            "DELETE",
+            `/machine/${machine_id}/photo`,
+            {},
+            { wrapData: false, headers: getHeaders() }
+        );
+        return await handleResponse<Machine>(response);
+    } catch (error) {
+        console.error("deleteMachinePhoto Error:", error);
+        return { success: false, message: "เกิดข้อผิดพลาดในการลบรูปเครื่องจักร" };
+    }
+};
 
 // to count machine
 export const getMachineTotalCount = async (): Promise<number> => {

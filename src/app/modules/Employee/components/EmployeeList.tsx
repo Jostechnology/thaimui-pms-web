@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Content } from '../../../../_metronic/layout/components/content';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getEmployeeList, deleteEmployee } from '../../../services/employee';
+import { getEmployeeList, updateEmployee } from '../../../services/employee';
 import { Employee, EmployeeStatus, EmployeeStatusLabel } from '../../../type_interface/EmployeeType';
 import { useAlertModal } from '../../../context/ModalContext';
 import { useAppLoading } from '../../../context/AppLoadingContext';
@@ -73,6 +73,8 @@ const EmployeeList: React.FC = () => {
             base_salary: it.base_salary ?? 0,
             day_rate: it.day_rate ?? 0,
             ot_hourly_rate: it.ot_hourly_rate ?? 0,
+            is_active: it.is_active ?? true,
+            photo_url: it.photo_url ?? null,
           } as Employee))
           : [];
         setEmployees(normalized);
@@ -121,16 +123,21 @@ const EmployeeList: React.FC = () => {
   const toggleSelect = (id: number) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const toggleSelectAll = () => setSelected((_) => (selected.length === employees.length ? [] : employees.map((v) => v.employee_id)));
 
-  const handleDelete = (emp: Employee) => {
-    openTwoBtnAlertModal(`ต้องการลบพนักงาน "${emp.employee_first_name} ${emp.employee_last_name}" หรือไม่?`, async () => {
+  // ไม่มีการลบพนักงานจริง — ใช้ปิด/เปิดใช้งานแทน เพื่อรักษาประวัติการทำงานและเงินเดือน
+  const handleToggleActive = (emp: Employee) => {
+    const name = `${emp.employee_first_name} ${emp.employee_last_name}`;
+    const disabling = emp.is_active !== false;
+    const msg = disabling
+      ? `ต้องการปิดใช้งานพนักงาน "${name}" หรือไม่? (จะไม่สามารถเข้างานได้ แต่ประวัติยังอยู่ครบ)`
+      : `ต้องการเปิดใช้งานพนักงาน "${name}" อีกครั้งหรือไม่?`;
+    openTwoBtnAlertModal(msg, async () => {
       try {
-        const res = await deleteEmployee([emp.employee_id]);
+        const res = await updateEmployee({ employee_id: emp.employee_id, is_active: !disabling });
         if (res && res.success) {
-          openAlertModal('ลบสำเร็จ', () => { }, true);
+          openAlertModal(disabling ? 'ปิดใช้งานสำเร็จ' : 'เปิดใช้งานสำเร็จ', () => { }, true);
           fetchData();
-          setSelected((s) => s.filter((id) => id !== emp.employee_id));
         } else {
-          openAlertModal(res?.error || 'ไม่สามารถลบได้', () => { }, false);
+          openAlertModal(res?.error || 'ไม่สามารถดำเนินการได้', () => { }, false);
         }
       } catch {
         openAlertModal('เกิดข้อผิดพลาด', () => { }, false);
@@ -138,18 +145,19 @@ const EmployeeList: React.FC = () => {
     }, () => { });
   };
 
-  const handleDeleteSelected = () => {
+  const handleDisableSelected = () => {
     if (selected.length === 0) return;
-    openTwoBtnAlertModal(`ต้องการลบพนักงานที่เลือก ${selected.length} คน หรือไม่?`, async () => {
+    openTwoBtnAlertModal(`ต้องการปิดใช้งานพนักงานที่เลือก ${selected.length} คน หรือไม่?`, async () => {
       try {
-        const res = await deleteEmployee(selected);
-        if (res && res.success) {
-          openAlertModal('ลบสำเร็จ', () => { }, true);
-          setSelected([]);
-          fetchData();
+        const results = await Promise.all(selected.map(id => updateEmployee({ employee_id: id, is_active: false })));
+        const failed = results.filter(r => !r?.success).length;
+        if (failed === 0) {
+          openAlertModal('ปิดใช้งานสำเร็จ', () => { }, true);
         } else {
-          openAlertModal(res?.error || 'ไม่สามารถลบได้', () => { }, false);
+          openAlertModal(`ปิดใช้งานไม่สำเร็จ ${failed} รายการ`, () => { }, false);
         }
+        setSelected([]);
+        fetchData();
       } catch {
         openAlertModal('เกิดข้อผิดพลาด', () => { }, false);
       }
@@ -165,7 +173,9 @@ const EmployeeList: React.FC = () => {
         </div>
         <div className="d-flex align-items-center gap-3">
           {selected.length > 0 && (
-            <button className="btn btn-light-danger fw-bold px-6" onClick={handleDeleteSelected}>ลบที่เลือก ({selected.length})</button>
+            <button className="btn btn-light-danger fw-bold px-6" onClick={handleDisableSelected}>
+              <i className="bi bi-lock me-1"></i>ปิดใช้งานที่เลือก ({selected.length})
+            </button>
           )}
           <button className="btn btn-light-primary fw-bold px-6" onClick={() => fetchData()} disabled={dataLoading}>รีเฟรช</button>
           <button className="btn btn-primary fw-bold px-6 shadow-sm" onClick={() => { setSelectedEmployee(null); setShowModal(true); }}><i className="bi bi-plus-lg me-2"></i>เพิ่มพนักงาน</button>
@@ -239,17 +249,20 @@ const EmployeeList: React.FC = () => {
                   employees.map((emp) => {
                     const avatar = getAvatarColor(emp.employee_id);
                     const initials = `${(emp.employee_first_name || '').charAt(0)}${(emp.employee_last_name || '').charAt(0)}`.toUpperCase();
+                    const isDisabled = emp.is_active === false;
                     return (
-                      <tr key={emp.employee_id}>
+                      <tr key={emp.employee_id} style={isDisabled ? { opacity: 0.55 } : undefined}>
                         <td>
                           <div className="form-check form-check-sm form-check-custom">
                             <input className="form-check-input" type="checkbox" checked={selected.includes(emp.employee_id)} onChange={() => toggleSelect(emp.employee_id)} />
                           </div>
                         </td>
                         <td>
-                          <div className="d-flex align-items-center">
+                          <div className="d-flex align-items-center" style={isDisabled ? { filter: 'grayscale(1)' } : undefined}>
                             <div className="symbol symbol-45px me-4">
-                              <span className={`symbol-label ${avatar.bg} ${avatar.text} fw-bold fs-6 rounded-circle`}>{initials}</span>
+                              {emp.photo_url
+                                ? <img src={emp.photo_url} alt={emp.employee_first_name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                                : <span className={`symbol-label ${avatar.bg} ${avatar.text} fw-bold fs-6 rounded-circle`}>{initials}</span>}
                             </div>
                             <div className="d-flex flex-column">
                               <div className="fw-bold text-gray-800">{emp.employee_first_name} {emp.employee_last_name}</div>
@@ -262,12 +275,22 @@ const EmployeeList: React.FC = () => {
                         <td className="text-end">{formatSalary(emp.base_salary)}</td>
                         <td className="text-end">{formatSalary(emp.day_rate)}</td>
                         <td className="text-end">{formatSalary(emp.ot_hourly_rate)}</td>
-                        <td className="text-center"><span className={`badge ${getStatusBadgeClass(emp.status)}`}>{getThaiStatus(emp.status) || '-'}</span></td>
+                        <td className="text-center">
+                          {isDisabled
+                            ? <span className="badge badge-light-secondary"><i className="bi bi-lock-fill me-1"></i>ปิดใช้งาน</span>
+                            : <span className={`badge ${getStatusBadgeClass(emp.status)}`}>{getThaiStatus(emp.status) || '-'}</span>}
+                        </td>
                         <td className="text-end">
                           <div className="d-flex justify-content-end gap-1">
                             <button className="btn btn-sm btn-icon btn-bg-light btn-color-info" title="ดูรายละเอียด" onClick={() => navigate(`/employee/employee_detail/${emp.employee_id}`)}><i className="bi bi-eye fs-5"></i></button>
                             <button className="btn btn-sm btn-icon btn-bg-light btn-color-primary" title="แก้ไข" onClick={() => { setSelectedEmployee(emp); setShowModal(true); }}><i className="bi bi-pencil-square fs-5"></i></button>
-                            <button className="btn btn-sm btn-icon btn-bg-light btn-color-danger" title="ลบ" onClick={() => handleDelete(emp)}><i className="bi bi-trash3 fs-5"></i></button>
+                            <button
+                              className={`btn btn-sm btn-icon btn-bg-light ${isDisabled ? 'btn-color-success' : 'btn-color-danger'}`}
+                              title={isDisabled ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                              onClick={() => handleToggleActive(emp)}
+                            >
+                              <i className={`bi ${isDisabled ? 'bi-unlock-fill' : 'bi-lock-fill'} fs-5`}></i>
+                            </button>
                           </div>
                         </td>
                       </tr>

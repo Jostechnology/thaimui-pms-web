@@ -61,4 +61,12 @@ export const FilterField: React.FC<{ label: string; children: React.ReactNode }>
     </div>
 );
 
+/** A single boolean toggle (switch) filter row. */
+export const BoolFilter: React.FC<{ label: string; checked: boolean; onChange: (v: boolean) => void }> = ({ label, checked, onChange }) => (
+    <label className='form-check form-switch form-check-custom form-check-solid mb-3 cursor-pointer'>
+        <input className='form-check-input' type='checkbox' checked={checked} onChange={(e) => onChange(e.target.checked)} />
+        <span className='form-check-label fs-8 fw-semibold text-muted ms-2'>{label}</span>
+    </label>
+);
+
 export default FilterPopover;

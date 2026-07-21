@@ -6,8 +6,9 @@ import ReportTable, { Column } from '../_shared/ReportTable';
 import { ChartCard, DonutChart, SimpleBarChart, GroupedBarChart } from '../_shared/charts';
 import { fmtNum } from '../_shared/filters';
 import { lastNDaysToToday } from '../_shared/datePresets';
-import { MachinePicker } from '../_shared/ReportPickers';
+import { MachinePicker, MachineTypePicker, EnumMultiSelect } from '../_shared/ReportPickers';
 import { FilterField } from '../_shared/FilterPopover';
+import { MACHINE_STATUS_OPTIONS } from '../_shared/reportEnums';
 import { useReport } from '../_shared/useReport';
 
 interface Row {
@@ -34,15 +35,21 @@ const MachineUtilizationReport: React.FC = () => {
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(lastNDaysToToday(7));
     const [startDate, endDate] = dateRange;
     const [machineId, setMachineId] = useState<number | undefined>(undefined);
+    const [machineTypeId, setMachineTypeId] = useState<number | undefined>(undefined);
+    const [machineStatus, setMachineStatus] = useState<string[]>([]);
 
     const enabled = !!(startDate && endDate);
-    const activeFilterCount = machineId ? 1 : 0;
+    const activeFilterCount = (machineId ? 1 : 0) + (machineTypeId ? 1 : 0) + (machineStatus.length ? 1 : 0);
 
     const params = useMemo(() => ({
         from: toDateOnly(startDate) ?? undefined,
         to: toDateOnly(endDate) ?? undefined,
         machine_id: machineId,
-    }), [startDate, endDate, machineId]);
+        machine_type_id: machineTypeId,
+        machine_status: machineStatus.length ? machineStatus.join(',') : undefined,
+    }), [startDate, endDate, machineId, machineTypeId, machineStatus]);
+
+    const clearFilters = () => { setMachineId(undefined); setMachineTypeId(undefined); setMachineStatus([]); };
 
     const r = useReport<Row, Summary>('machine_utilization', params, enabled);
     const summary = r.summary;
@@ -80,12 +87,18 @@ const MachineUtilizationReport: React.FC = () => {
             setDateRange={setDateRange}
             datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
             activeFilterCount={activeFilterCount}
-            onClearFilters={() => setMachineId(undefined)}
-            filterPopover={
+            onClearFilters={clearFilters}
+            filterPopover={<>
                 <FilterField label='เครื่องจักร'>
                     <MachinePicker value={machineId} onChange={setMachineId} />
                 </FilterField>
-            }
+                <FilterField label='ประเภทเครื่องจักร'>
+                    <MachineTypePicker value={machineTypeId} onChange={setMachineTypeId} />
+                </FilterField>
+                <FilterField label='สถานะเครื่องจักร (เลือกได้หลายอัน)'>
+                    <EnumMultiSelect value={machineStatus} onChange={setMachineStatus} options={MACHINE_STATUS_OPTIONS} />
+                </FilterField>
+            </>}
         >
             {summary && <KpiCards cards={[
                 { label: 'จำนวนเครื่อง', value: summary.machine_count, icon: 'bi-cpu', bg: 'bg-light-primary', color: 'text-primary' },

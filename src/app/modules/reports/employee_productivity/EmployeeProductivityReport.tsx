@@ -6,6 +6,8 @@ import ReportTable, { Column } from '../_shared/ReportTable';
 import { ChartCard, DonutChart, SimpleBarChart, ScatterCard, DonutDatum } from '../_shared/charts';
 import { fmtNum } from '../_shared/filters';
 import { firstOfMonthToToday } from '../_shared/datePresets';
+import { EmployeePicker, WorkOrderPicker } from '../_shared/ReportPickers';
+import { FilterField } from '../_shared/FilterPopover';
 import { useReport } from '../_shared/useReport';
 
 interface Row {
@@ -32,12 +34,20 @@ const EmployeeProductivityReport: React.FC = () => {
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(firstOfMonthToToday());
     const [startDate, endDate] = dateRange;
 
+    const [employeeId, setEmployeeId] = useState<number | undefined>(undefined);
+    const [workOrderId, setWorkOrderId] = useState<number | undefined>(undefined);
+
     const enabled = !!(startDate && endDate);
+    const activeFilterCount = (employeeId ? 1 : 0) + (workOrderId ? 1 : 0);
 
     const params = useMemo(() => ({
         from: toDateOnly(startDate) ?? undefined,
         to: toDateOnly(endDate) ?? undefined,
-    }), [startDate, endDate]);
+        employee_id: employeeId,
+        work_order_id: workOrderId,
+    }), [startDate, endDate, employeeId, workOrderId]);
+
+    const clearFilters = () => { setEmployeeId(undefined); setWorkOrderId(undefined); };
 
     const r = useReport<Row, Summary>('employee_productivity', params, enabled);
     const summary = r.summary;
@@ -71,6 +81,16 @@ const EmployeeProductivityReport: React.FC = () => {
             dateRange={dateRange}
             setDateRange={setDateRange}
             datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
+            activeFilterCount={activeFilterCount}
+            onClearFilters={clearFilters}
+            filterPopover={<>
+                <FilterField label='พนักงาน'>
+                    <EmployeePicker value={employeeId} onChange={setEmployeeId} />
+                </FilterField>
+                <FilterField label='ใบสั่งผลิต (Work Order)'>
+                    <WorkOrderPicker value={workOrderId} onChange={setWorkOrderId} />
+                </FilterField>
+            </>}
         >
             {summary && <KpiCards cards={[
                 { label: 'จำนวนพนักงาน', value: summary.employees, icon: 'bi-people', bg: 'bg-light-primary', color: 'text-primary' },

@@ -6,8 +6,9 @@ import ReportTable, { Column } from '../_shared/ReportTable';
 import { ChartCard, DonutChart, SimpleBarChart, TrendLine, ScatterCard, DonutDatum, BarDatum } from '../_shared/charts';
 import { fmtNum, fmtDate } from '../_shared/filters';
 import { firstOfMonthToToday } from '../_shared/datePresets';
-import { WorkOrderPicker } from '../_shared/ReportPickers';
+import { WorkOrderPicker, EnumMultiSelect } from '../_shared/ReportPickers';
 import { FilterField } from '../_shared/FilterPopover';
+import { WORKRUN_STATUS_OPTIONS } from '../_shared/reportEnums';
 import { useReport } from '../_shared/useReport';
 
 interface Row {
@@ -41,15 +42,19 @@ const ProductionCostReport: React.FC = () => {
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(firstOfMonthToToday());
     const [startDate, endDate] = dateRange;
     const [workOrderId, setWorkOrderId] = useState<number | undefined>(undefined);
+    const [workrunStatus, setWorkrunStatus] = useState<string[]>([]);
 
     const enabled = !!(startDate && endDate);
-    const activeFilterCount = workOrderId ? 1 : 0;
+    const activeFilterCount = (workOrderId ? 1 : 0) + (workrunStatus.length ? 1 : 0);
 
     const params = useMemo(() => ({
         from: toDateOnly(startDate) ?? undefined,
         to: toDateOnly(endDate) ?? undefined,
         work_order_id: workOrderId,
-    }), [startDate, endDate, workOrderId]);
+        workrun_status: workrunStatus.length ? workrunStatus.join(',') : undefined,
+    }), [startDate, endDate, workOrderId, workrunStatus]);
+
+    const clearFilters = () => { setWorkOrderId(undefined); setWorkrunStatus([]); };
 
     const r = useReport<Row, Summary>('production_cost', params, enabled);
     const summary = r.summary;
@@ -86,12 +91,15 @@ const ProductionCostReport: React.FC = () => {
             setDateRange={setDateRange}
             datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
             activeFilterCount={activeFilterCount}
-            onClearFilters={() => setWorkOrderId(undefined)}
-            filterPopover={
+            onClearFilters={clearFilters}
+            filterPopover={<>
                 <FilterField label='ใบสั่งผลิต (Work Order)'>
                     <WorkOrderPicker value={workOrderId} onChange={setWorkOrderId} />
                 </FilterField>
-            }
+                <FilterField label='สถานะ WorkRun (เลือกได้หลายอัน)'>
+                    <EnumMultiSelect value={workrunStatus} onChange={setWorkrunStatus} options={WORKRUN_STATUS_OPTIONS} />
+                </FilterField>
+            </>}
         >
             {summary && <KpiCards cards={[
                 { label: 'จำนวน WorkRun', value: summary.workrun_count, icon: 'bi-gear', bg: 'bg-light-primary', color: 'text-primary' },

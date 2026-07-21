@@ -6,6 +6,8 @@ import ReportTable, { Column } from '../_shared/ReportTable';
 import { ChartCard, DonutChart, SimpleBarChart, TrendLine } from '../_shared/charts';
 import { fmtNum, fmtDate } from '../_shared/filters';
 import { lastNDaysToToday } from '../_shared/datePresets';
+import { WorkOrderPicker } from '../_shared/ReportPickers';
+import { FilterField, BoolFilter } from '../_shared/FilterPopover';
 import { useReport } from '../_shared/useReport';
 
 interface Row {
@@ -37,12 +39,20 @@ const WorkrunDefectsReport: React.FC = () => {
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(lastNDaysToToday(30));
     const [startDate, endDate] = dateRange;
 
+    const [workOrderId, setWorkOrderId] = useState<number | undefined>(undefined);
+    const [hasOutstanding, setHasOutstanding] = useState(false);
+
     const enabled = !!(startDate && endDate);
+    const activeFilterCount = (workOrderId ? 1 : 0) + (hasOutstanding ? 1 : 0);
 
     const params = useMemo(() => ({
         from: toDateOnly(startDate) ?? undefined,
         to: toDateOnly(endDate) ?? undefined,
-    }), [startDate, endDate]);
+        work_order_id: workOrderId,
+        has_outstanding: hasOutstanding || undefined,
+    }), [startDate, endDate, workOrderId, hasOutstanding]);
+
+    const clearFilters = () => { setWorkOrderId(undefined); setHasOutstanding(false); };
 
     const r = useReport<Row, Summary>('workrun_defects', params, enabled);
     const summary = r.summary;
@@ -82,6 +92,14 @@ const WorkrunDefectsReport: React.FC = () => {
             dateRange={dateRange}
             setDateRange={setDateRange}
             datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
+            activeFilterCount={activeFilterCount}
+            onClearFilters={clearFilters}
+            filterPopover={<>
+                <FilterField label='ใบสั่งผลิต (Work Order)'>
+                    <WorkOrderPicker value={workOrderId} onChange={setWorkOrderId} />
+                </FilterField>
+                <BoolFilter label='เฉพาะที่มีของเสียค้าง (Outstanding)' checked={hasOutstanding} onChange={setHasOutstanding} />
+            </>}
         >
             {summary && <KpiCards cards={[
                 { label: 'จำนวน WorkRun', value: summary.workrun_count, icon: 'bi-gear', bg: 'bg-light-primary', color: 'text-primary' },

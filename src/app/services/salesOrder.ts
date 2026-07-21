@@ -102,6 +102,25 @@ export const completeSalesItem = async (sales_item_id: number) => {
     }
 }
 
+export const finishSalesOrder = async (doc_entry: number) => {
+    try {
+        const response = await front_api(
+            "POST",
+            `/sales_order/${doc_entry}/finish`,
+            {},
+            { wrapData: false }
+        );
+
+        if (!response) return false;
+
+        const result = await response.json();
+        return response.ok ? { ...result, success: true } : { ...result, success: false };
+    } catch (error) {
+        console.error("finishSalesOrder Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+}
+
 export const assignBranchToSalesOrder = async (doc_entry: number, branch_id: number) => {
     try {
         const response = await front_api(

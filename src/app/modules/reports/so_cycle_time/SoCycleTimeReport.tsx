@@ -8,6 +8,7 @@ import { fmtNum, fmtDate } from '../_shared/filters';
 import { firstOfMonthToToday } from '../_shared/datePresets';
 import { EnumMultiSelect } from '../_shared/ReportPickers';
 import { FilterField } from '../_shared/FilterPopover';
+import { URGENCY_OPTIONS } from '../_shared/reportEnums';
 import { useReport } from '../_shared/useReport';
 
 const STATUS_OPTIONS = [
@@ -41,15 +42,19 @@ const SoCycleTimeReport: React.FC = () => {
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(firstOfMonthToToday());
     const [startDate, endDate] = dateRange;
     const [status, setStatus] = useState<string[]>([]);
+    const [urgency, setUrgency] = useState<string[]>([]);
 
     const enabled = !!(startDate && endDate);
-    const activeFilterCount = status.length ? 1 : 0;
+    const activeFilterCount = (status.length ? 1 : 0) + (urgency.length ? 1 : 0);
 
     const params = useMemo(() => ({
         from: toDateOnly(startDate) ?? undefined,
         to: toDateOnly(endDate) ?? undefined,
         status: status.length ? status.join(',') : undefined,
-    }), [startDate, endDate, status]);
+        urgency_level: urgency.length ? urgency.join(',') : undefined,
+    }), [startDate, endDate, status, urgency]);
+
+    const clearFilters = () => { setStatus([]); setUrgency([]); };
 
     const r = useReport<Row, Summary>('so_cycle_time', params, enabled);
     const summary = r.summary;
@@ -79,12 +84,15 @@ const SoCycleTimeReport: React.FC = () => {
             setDateRange={setDateRange}
             datePlaceholder='เลือกช่วงวันที่ (จำเป็น)'
             activeFilterCount={activeFilterCount}
-            onClearFilters={() => setStatus([])}
-            filterPopover={
+            onClearFilters={clearFilters}
+            filterPopover={<>
                 <FilterField label='สถานะ (เลือกได้หลายอัน)'>
                     <EnumMultiSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} />
                 </FilterField>
-            }
+                <FilterField label='ความเร่งด่วน (เลือกได้หลายอัน)'>
+                    <EnumMultiSelect value={urgency} onChange={setUrgency} options={URGENCY_OPTIONS} />
+                </FilterField>
+            </>}
         >
             {summary && <KpiCards cards={[
                 { label: 'จำนวน SO', value: summary.total_orders, icon: 'bi-receipt', bg: 'bg-light-primary', color: 'text-primary' },
