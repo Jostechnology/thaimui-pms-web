@@ -1316,15 +1316,18 @@ const WorkRunDetail: React.FC = () => {
                                         return (
                                             <div
                                                 key={item.id}
-                                                className="d-flex align-items-center rounded px-3 py-2"
+                                                className="d-flex align-items-center rounded px-3 py-2 overflow-hidden"
                                                 style={{ background: '#f8f9fa', border: '1px solid #e4e6ef', cursor: 'pointer' }}
                                                 onClick={() => openEditRequiredItem(item)}
                                             >
-                                                <div className="flex-grow-1 me-2 min-w-0">
-                                                    <div className="fw-bold text-gray-800 fs-7 text-truncate">{item.item_name}</div>
-                                                    <div className="text-muted fs-8">{item.item_code} · {item.unit}</div>
+                                                {/* minWidth:0 inline — Metronic has no min-w-0 utility, and without it
+                                                    a flex item never shrinks below its content, so a long item_name
+                                                    pushes the qty and the delete button outside the card. */}
+                                                <div className="flex-grow-1 me-2" style={{ minWidth: 0 }}>
+                                                    <div className="fw-bold text-gray-800 fs-7 text-truncate" title={item.item_name}>{item.item_name}</div>
+                                                    <div className="text-muted fs-8 text-truncate">{item.item_code} · {item.unit}</div>
                                                 </div>
-                                                <div className="text-end me-2">
+                                                <div className="text-end me-2 flex-shrink-0">
                                                     <div className="fw-semibold text-gray-700 fs-7">{item.quantity}</div>
                                                     {lineCost > 0 && <div className="text-muted fs-8">฿{lineCost.toFixed(2)}</div>}
                                                 </div>

@@ -499,7 +499,7 @@ const SalesOrderView: React.FC = () => {
                             <table className="table align-middle gs-0 gy-4">
                                 <thead>
                                     <tr className="fw-bolder text-muted bg-light">
-                                        <th className="min-w-120px">รหัสสินค้า</th>
+                                        <th className="min-w-120px">สินค้าหลัก</th>
                                         <th className="min-w-100px">รหัสวัตถุดิบ</th>
                                         <th className="min-w-200px">ชื่อวัตถุดิบ</th>
                                         <th className="min-w-100px text-end">ราคาต้นทุน</th>
