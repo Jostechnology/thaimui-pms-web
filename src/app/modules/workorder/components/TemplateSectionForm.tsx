@@ -193,7 +193,8 @@ const ScalarRow: React.FC<{
     value: string;
     placeholder?: string;
     onChange: (v: string) => void;
-}> = ({ field, value, placeholder, onChange }) => (
+    readOnly?: boolean;
+}> = ({ field, value, placeholder, onChange, readOnly = false }) => (
     <div className='d-flex align-items-center gap-1 mb-1'>
         {field.prefix && <span className='fs-9 text-muted text-nowrap'>{field.prefix}</span>}
         <input
@@ -201,6 +202,7 @@ const ScalarRow: React.FC<{
             style={{ minWidth: 60 }}
             value={value}
             placeholder={placeholder}
+            disabled={readOnly}
             onChange={e => onChange(e.target.value)}
         />
         {field.postfix && <span className='fs-9 text-muted text-nowrap'>{field.postfix}</span>}
@@ -212,7 +214,8 @@ const PairRow: React.FC<{
     values: Record<string, string>;
     onChange: (next: Record<string, string>) => void;
     onRemove?: () => void;
-}> = ({ subFields, values, onChange, onRemove }) => (
+    readOnly?: boolean;
+}> = ({ subFields, values, onChange, onRemove, readOnly = false }) => (
     <div className='d-flex align-items-center gap-1 mb-1 flex-wrap'>
         {subFields.map((sf, i) => (
             <React.Fragment key={sf.key}>
@@ -221,12 +224,13 @@ const PairRow: React.FC<{
                     className='form-control form-control-sm fs-8'
                     style={{ width: 60 }}
                     value={values[sf.key] || ''}
+                    disabled={readOnly}
                     onChange={e => onChange({ ...values, [sf.key]: e.target.value })}
                 />
                 {sf.postfix && <span className='fs-9 text-muted text-nowrap'>{sf.postfix}</span>}
             </React.Fragment>
         ))}
-        {onRemove && (
+        {onRemove && !readOnly && (
             <button type='button' className='btn btn-sm btn-icon btn-light-danger ms-1'
                 style={{ width: 20, height: 20 }} onClick={onRemove}>
                 <i className='bi bi-x' style={{ fontSize: '0.7rem' }}></i>
@@ -240,7 +244,8 @@ const CellEditor: React.FC<{
     value: any;
     onChange: (next: any) => void;
     defaultValues?: Record<string, string>;
-}> = ({ schema, value, onChange, defaultValues = {} }) => {
+    readOnly?: boolean;
+}> = ({ schema, value, onChange, defaultValues = {}, readOnly = false }) => {
     const v = value || {};
     const setField = (k: string, val: string) => onChange({ ...v, [k]: val });
     const setArray = (k: string, items: any[]) => onChange({ ...v, [k]: items });
@@ -257,6 +262,7 @@ const CellEditor: React.FC<{
                         field={f}
                         value={current}
                         placeholder={dv}
+                        readOnly={readOnly}
                         onChange={val => setField(f.key, val)}
                     />
                 );
@@ -274,6 +280,7 @@ const CellEditor: React.FC<{
                                 key={idx}
                                 subFields={arr.subFields}
                                 values={item}
+                                readOnly={readOnly}
                                 onChange={next => {
                                     const copy = items.slice();
                                     copy[idx] = next;
@@ -282,10 +289,12 @@ const CellEditor: React.FC<{
                                 onRemove={() => setArray(arr.key, items.filter((_, i) => i !== idx))}
                             />
                         ))}
-                        <button type='button' className='btn btn-sm btn-light-primary py-0 px-2 fs-9 mt-1'
-                            onClick={() => setArray(arr.key, [...items, {}])}>
-                            <i className='bi bi-plus me-1'></i>เพิ่มรายการ
-                        </button>
+                        {!readOnly && (
+                            <button type='button' className='btn btn-sm btn-light-primary py-0 px-2 fs-9 mt-1'
+                                onClick={() => setArray(arr.key, [...items, {}])}>
+                                <i className='bi bi-plus me-1'></i>เพิ่มรายการ
+                            </button>
+                        )}
                     </div>
                 );
             })}
@@ -297,6 +306,7 @@ const CellEditor: React.FC<{
                         <PairRow
                             subFields={pair.subFields}
                             values={pv}
+                            readOnly={readOnly}
                             onChange={next => setPair(pair.key, next)}
                         />
                     </div>
@@ -318,6 +328,12 @@ export interface TemplateSectionFormProps {
     salesItemNum?: number;
     componentName?: string;
     materialUsages?: ComponentMaterialUsage[];
+    /**
+     * View-only mode — used when the component's document is locked and no edit
+     * approval is active. Every control renders non-interactive and no autofill
+     * is written back through onUpdate.
+     */
+    readOnly?: boolean;
 }
 
 const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
@@ -330,11 +346,13 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
     salesItemNum,
     componentName,
     materialUsages = [],
+    readOnly = false,
 }) => {
     // ── Materialize autofilled defaults into `data` so they're persisted
     // in the JSON sent to backend (set, total[firstField], detail.description,
     // SLING produced_lengths seed). Idempotent: only writes missing keys.
     useEffect(() => {
+        if (readOnly) return;
         if (section.type !== 'material_table') return;
         const templateRows: MaterialRow[] = section.rows && section.rows.length > 0
             ? section.rows
@@ -417,7 +435,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
 
         if (changed) onUpdate(next);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [section.key, materialUsages, salesItemNum]);
+    }, [section.key, materialUsages, salesItemNum, readOnly]);
 
     switch (section.type) {
         case 'header': {
@@ -441,6 +459,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                                         className='form-control form-control-sm bg-light-primary'
                                         value={val}
                                         readOnly
+                                        disabled={readOnly}
                                     />
                                 </div>
                             );
@@ -582,6 +601,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                                                     schema={schema.detail}
                                                     value={rowData.detail}
                                                     defaultValues={detailDefaults}
+                                                    readOnly={readOnly}
                                                     onChange={next => updateRowCell(tplRow.key, 'detail', next)}
                                                 />
                                             </td>
@@ -590,6 +610,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                                                 <CellEditor
                                                     schema={schema.per_set}
                                                     value={perSetValue}
+                                                    readOnly={readOnly}
                                                     onChange={next => updateRowCell(tplRow.key, 'per_set', next)}
                                                 />
                                             </td>
@@ -599,6 +620,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                                                     className='form-control form-control-sm fs-8 text-center'
                                                     value={rowData.set ?? setAutofill}
                                                     placeholder={setAutofill}
+                                                    disabled={readOnly}
                                                     onChange={e => updateRowCell(tplRow.key, 'set', e.target.value)}
                                                 />
                                             </td>
@@ -608,6 +630,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                                                     schema={{ fields: schema.total.fields }}
                                                     value={rowData.total}
                                                     defaultValues={totalAutofill}
+                                                    readOnly={readOnly}
                                                     onChange={next => updateRowCell(tplRow.key, 'total', next)}
                                                 />
                                                 {rowError && (
@@ -665,6 +688,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                                     type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}
                                     className='form-control form-control-sm'
                                     value={data[f.key] || f.defaultValue || ''}
+                                    disabled={readOnly}
                                     onChange={e => onUpdate({ ...data, [f.key]: e.target.value })}
                                 />
                             </div>
@@ -686,6 +710,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                                             className='form-check-input'
                                             type='checkbox'
                                             checked={data[item.key]?.checked || false}
+                                            disabled={readOnly}
                                             onChange={e => onUpdate({
                                                 ...data,
                                                 [item.key]: { ...data[item.key], checked: e.target.checked },
@@ -699,6 +724,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                                             style={{ maxWidth: 200 }}
                                             placeholder={item.textFieldLabel || ''}
                                             value={data[item.key]?.text || ''}
+                                            disabled={readOnly}
                                             onChange={e => onUpdate({
                                                 ...data,
                                                 [item.key]: { ...data[item.key], text: e.target.value },
@@ -720,8 +746,9 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                         {section.options.map(opt => (
                             <div key={opt.key}
                                 className={`d-flex flex-column align-items-center gap-2 p-3 border rounded ${(data.selected || []).includes(opt.key) ? 'border-primary bg-light-primary' : ''}`}
-                                style={{ cursor: 'pointer', minWidth: 100 }}
+                                style={{ cursor: readOnly ? 'not-allowed' : 'pointer', minWidth: 100 }}
                                 onClick={() => {
+                                    if (readOnly) return;
                                     if (section.multiple) {
                                         const selected = data.selected || [];
                                         const newSelected = selected.includes(opt.key)
@@ -782,6 +809,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                                                         <input
                                                             className='form-control form-control-sm text-center'
                                                             value={data[cellKey] || ''}
+                                                            disabled={readOnly}
                                                             onChange={e => onUpdate({ ...data, [cellKey]: e.target.value })}
                                                         />
                                                     ) : (
@@ -790,6 +818,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                                                                 className='form-check-input'
                                                                 type='checkbox'
                                                                 checked={data[cellKey] || false}
+                                                                disabled={readOnly}
                                                                 onChange={e => onUpdate({ ...data, [cellKey]: e.target.checked })}
                                                             />
                                                         </div>
@@ -813,11 +842,16 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                         {section.fields.map(f => (
                             <div key={f.key} className={`col-md-${Math.max(3, Math.floor(12 / section.fields.length))}`}>
                                 <div className='text-center'>
-                                    <div className='border-bottom border-dark mb-2' style={{ height: 60 }}></div>
+                                    {/* signature area — nothing to draw on, but keep it inert in readOnly */}
+                                    <div
+                                        className='border-bottom border-dark mb-2'
+                                        style={{ height: 60, pointerEvents: readOnly ? 'none' : undefined }}
+                                    ></div>
                                     <input
                                         className='form-control form-control-sm text-center'
                                         placeholder={f.label}
                                         value={data[f.key] || ''}
+                                        disabled={readOnly}
                                         onChange={e => onUpdate({ ...data, [f.key]: e.target.value })}
                                     />
                                     {f.role && <span className='fs-9 text-muted'>{f.role}</span>}
@@ -837,6 +871,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                         rows={3}
                         placeholder={section.placeholder || 'กรอกหมายเหตุ...'}
                         value={data.text || ''}
+                        disabled={readOnly}
                         onChange={e => onUpdate({ text: e.target.value })}
                     />
                 </div>
@@ -846,6 +881,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
             const images: string[] = data.images || [];
             const maxImages = section.maxImages || 5;
             const handleUpload = (file: File | null) => {
+                if (readOnly) return;
                 if (!file) return;
                 const reader = new FileReader();
                 reader.onload = (ev) => {
@@ -862,18 +898,24 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                             <div key={idx} className='position-relative'>
                                 <img src={img} alt={`upload-${idx}`} className='border rounded'
                                     style={{ width: 100, height: 100, objectFit: 'contain', background: '#f9f9f9' }} />
-                                <button className='btn btn-sm btn-icon btn-danger position-absolute'
-                                    style={{ top: -6, right: -6, width: 20, height: 20, padding: 0 }}
-                                    onClick={() => onUpdate({ ...data, images: images.filter((_, i) => i !== idx) })}>
-                                    <i className='bi bi-x' style={{ fontSize: '0.7rem' }}></i>
-                                </button>
+                                {!readOnly && (
+                                    <button className='btn btn-sm btn-icon btn-danger position-absolute'
+                                        style={{ top: -6, right: -6, width: 20, height: 20, padding: 0 }}
+                                        onClick={() => onUpdate({ ...data, images: images.filter((_, i) => i !== idx) })}>
+                                        <i className='bi bi-x' style={{ fontSize: '0.7rem' }}></i>
+                                    </button>
+                                )}
                             </div>
                         ))}
+                        {readOnly && images.length === 0 && (
+                            <span className='text-muted fs-8 fst-italic'>ไม่มีรูปภาพ</span>
+                        )}
                     </div>
-                    {images.length < maxImages && (
+                    {!readOnly && images.length < maxImages && (
                         <label className='btn btn-sm btn-light-primary'>
                             <i className='bi bi-camera me-1'></i>เลือกรูปภาพ ({images.length}/{maxImages})
                             <input type='file' accept='image/*' className='d-none'
+                                disabled={readOnly}
                                 onChange={e => handleUpload(e.target.files?.[0] || null)} />
                         </label>
                     )}

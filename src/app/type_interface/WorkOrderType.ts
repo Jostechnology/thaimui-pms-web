@@ -1,3 +1,4 @@
+import type { ComponentEditRequest } from './ComponentEditRequestType';
 import type { Employee } from './EmployeeType';
 import type { Machine } from './MachineType';
 import { Material } from './MaterialType';
@@ -135,6 +136,12 @@ export interface ComponentTemplateSectionData {
     data: any;
     section_key: string;
     item_component_id: number;
+    /**
+     * Per-component override of the template section's is_test_section flag.
+     * null = inherit the template's value. Resolution rule: override if not
+     * null, else the template section's flag, else false.
+     */
+    is_test_section?: boolean | null;
 }
 
 export interface ItemComponent {
@@ -146,6 +153,63 @@ export interface ItemComponent {
     img_url: string | null;
     component_template_id: number | null;
     component_template_sections: ComponentTemplateSectionData[];
+    /** how many document versions this component has produced — 0 = never saved/generated */
+    doc_version: number;
+    /** true once a document version exists; editing then needs an approved edit request */
+    is_locked?: boolean;
+    lock_reason?: string | null;
+    /** the PENDING/APPROVED request that currently governs editing, if any */
+    active_edit_request?: ComponentEditRequest | null;
+    /** resolved: true if ANY section (template or override) resolves to a test section */
+    has_test_section?: boolean;
+    /** resolved section keys that are tests */
+    test_section_keys?: string[];
+}
+
+// ─── Component document versioning ───────────────────────────
+// Every save of a component's sections freezes a snapshot and generates its own
+// document under work_orders/{wo_code}/components/{id}/v{n} (older, backfilled
+// components keep their legacy path without the /v{n} suffix) — always download
+// through `doc_path`, never by rebuilding the path.
+export interface ItemComponentVersion {
+    version_id: number;
+    item_component_id: number;
+    version_no: number;
+    component_name: string;
+    remark: string | null;
+    img_url: string | null;
+    component_template_id: number | null;
+    template_name: string | null;
+    // ── Frozen blobs — omitted by the version LIST endpoint, present on the detail one ──
+    /** shaped like TemplateSection[] from ComponentTemplateType, frozen as raw JSON */
+    sections_snapshot?: any[];
+    section_data_snapshot?: { section_key: string; section_type: string; data: any }[];
+    material_usage_snapshot?: any[];
+    doc_ref_no: string | null;
+    /** storage path of this version's document — feed to downloadComponentDocumentByPath() */
+    doc_path: string | null;
+    change_reason: string | null;
+    edit_request_id: number | null;
+    created_by: string | null;
+    created_date: string;
+}
+
+// Pins the exact component document version a work run was started against, so
+// the shop floor keeps reading the paper it began with even after a re-approval.
+// superseded_date is set when a newer version replaces the pin.
+export interface WorkRunComponentPin {
+    pin_id: number;
+    work_run_id: number;
+    item_component_id: number;
+    version_id: number;
+    version_no: number;
+    superseded_date: string | null;
+    reason: string | null;
+    created_by: string | null;
+    created_date: string;
+    component_name: string | null;
+    doc_ref_no: string | null;
+    doc_path: string | null;
 }
 
 

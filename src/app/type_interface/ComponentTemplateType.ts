@@ -16,6 +16,14 @@ export type SectionType =
 // Renderer packs consecutive sections greedily: width sum ≤12 = same row.
 export interface SectionLayout {
     width?: number;
+    /**
+     * Marks this section as a TEST SECTION. When any section of a WorkOrder
+     * component is (or resolves to, see ComponentTemplateSectionData.is_test_section)
+     * a test section, the backend treats the component document as the item's
+     * test specification (ใบสั่งเทส) and auto-creates a QC work order from it,
+     * replacing the separate QC form.
+     */
+    is_test_section?: boolean;
 }
 
 // ─── Header Section ──────────────────────────────────────────

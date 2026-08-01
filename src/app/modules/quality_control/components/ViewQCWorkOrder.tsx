@@ -187,6 +187,10 @@ const ViewQCWorkOrder: React.FC = () => {
                 salesName: so.slp_name ?? "",
                 teamCode: so.group_code ?? "",
                 teamName: so.group_name ?? "",
+                // Component-declared QC work order passthrough fields (snake_case on purpose)
+                source_work_order_id: raw.source_work_order_id ?? null,
+                is_component_declared: raw.is_component_declared ?? false,
+                source_work_order_code: raw.source_work_order_code ?? null,
             });
         } catch (err) {
             console.error(err);
@@ -287,11 +291,19 @@ const ViewQCWorkOrder: React.FC = () => {
         ), [testResultCosts]);
 
     const handleExportPDF = async () => {
+        if (formData.is_component_declared) {
+            Swal.fire(
+                "ไม่มีแบบฟอร์ม QC แยก",
+                "ใบสั่งเทสนี้สร้างจาก Test Section ในเอกสารใบสั่งผลิต กรุณาดาวน์โหลดเอกสารใบสั่งผลิตแทน",
+                "info"
+            );
+            return;
+        }
         setPdfLoading(true);
         try {
             await generateQCWorkOrderPDF(formData, qc_workorder_id);
-        } catch {
-            Swal.fire("ผิดพลาด!", "ไม่สามารถ export PDF ได้", "error");
+        } catch (err: any) {
+            Swal.fire("ผิดพลาด!", err?.message || "ไม่สามารถ export PDF ได้", "error");
         } finally {
             setPdfLoading(false);
         }
@@ -330,6 +342,14 @@ const ViewQCWorkOrder: React.FC = () => {
                     </button>
                     <div className="wo-header-vdivider" />
                     <span className="wo-header-title">QC <strong>{rawData?.qc_work_order_code || "ใบสั่งเทส"}</strong></span>
+                    {formData.is_component_declared && (
+                        <>
+                            <div className="wo-header-vdivider" />
+                            <span className="badge badge-light-info fw-semibold">
+                                <i className="bi bi-diagram-3 me-1"></i>จากใบสั่งผลิต
+                            </span>
+                        </>
+                    )}
                     {formData.customerName && (
                         <>
                             <div className="wo-header-vdivider" />
@@ -362,15 +382,30 @@ const ViewQCWorkOrder: React.FC = () => {
                             {statusInfo.label}
                         </div>
                     )}
-                    <button className="btn btn-primary" onClick={handleExportPDF} disabled={pdfLoading}>
+                    <button
+                        className="btn btn-primary"
+                        onClick={handleExportPDF}
+                        disabled={pdfLoading || formData.is_component_declared}
+                        title={formData.is_component_declared ? "ใบสั่งเทสนี้ไม่มีแบบฟอร์ม QC แยก กรุณาดาวน์โหลดเอกสารใบสั่งผลิตแทน" : undefined}
+                    >
                         {pdfLoading
                             ? <><span className="spinner-border spinner-border-sm me-1" />กำลัง Export...</>
                             : <><i className="bi bi-file-earmark-pdf me-1" />Export PDF</>
                         }
                     </button>
-                    <button className="btn bg-primary text-white" onClick={() => navigate(`/quality_control/qc_workorders_list/edit/${qc_workorder_id}`)}>
-                        <i className="bi bi-pencil-square text-white me-1" />แก้ไข
-                    </button>
+                    {formData.is_component_declared ? (
+                        <button
+                            className="btn btn-light-secondary"
+                            disabled
+                            title="แก้ไขได้ที่เอกสารใบสั่งผลิตเท่านั้น เนื่องจากใบสั่งเทสนี้ถูกสร้างจาก Test Section"
+                        >
+                            <i className="bi bi-pencil-square me-1" />แก้ไข
+                        </button>
+                    ) : (
+                        <button className="btn bg-primary text-white" onClick={() => navigate(`/quality_control/qc_workorders_list/edit/${qc_workorder_id}`)}>
+                            <i className="bi bi-pencil-square text-white me-1" />แก้ไข
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -559,94 +594,128 @@ const ViewQCWorkOrder: React.FC = () => {
                         </div>
                     </CardSection>
 
-                    <CardSection icon="bi-shield-fill-check" title="มาตรฐาน / ใบรับรอง / Serial">
-                        {/* ปรับเป็น row และใช้ col-md เพื่อแบ่งฝั่ง */}
-                        <div className="row g-4">
-                            {/* มาตรฐาน */}
-                            <div className="col-12 col-md-4 border-end-md">
-                                <span className="text-muted fs-9 fw-bolder text-uppercase d-block mb-1">มาตรฐาน</span>
-                                <div className="d-flex flex-wrap gap-1">
-                                    <CheckBadge checked={formData.ptt} label="PTT" />
-                                    <CheckBadge checked={formData.chevron} label="Chevron" />
-                                    <CheckBadge checked={formData.valeur} label="Valeur" />
-                                    <CheckBadge checked={formData.ophir} label="Ophir" />
-                                    <CheckBadge checked={formData.threeSpec} label="3Spec" />
-                                    <CheckBadge checked={formData.standardOthers} label={formData.standardOthersText || "Others"} />
-                                    {!formData.ptt && !formData.chevron && !formData.valeur && !formData.ophir && !formData.threeSpec && !formData.standardOthers && (
-                                        <span className="text-muted fs-7">---</span>
+                    {formData.is_component_declared ? (
+                        /* Component-declared QC work order — no QCForm / QCItem rows.
+                           The WorkOrder component document IS the test specification,
+                           so link out to it instead of rendering empty standards/items blocks. */
+                        <CardSection
+                            icon="bi-diagram-3-fill"
+                            title="ที่มาของใบสั่งเทส"
+                            badge={<span className="badge badge-light-info ms-1">จากใบสั่งผลิต</span>}
+                        >
+                            <div className="d-flex flex-column align-items-center text-center py-6 px-4">
+                                <i className="bi bi-file-earmark-text text-primary fs-3x mb-3"></i>
+                                <p className="text-gray-700 fs-6 mb-1">
+                                    ใบสั่งเทสนี้ถูกสร้างขึ้นอัตโนมัติจาก <strong>Test Section</strong> ในเอกสารใบสั่งผลิต
+                                </p>
+                                <p className="text-muted fs-7 mb-6">
+                                    มาตรฐาน / ใบรับรอง / Serial Number และรายการสินค้า ถูกกำหนดไว้ในเอกสารใบสั่งผลิตแทนแบบฟอร์ม QC นี้
+                                    {formData.source_work_order_code && (
+                                        <> (เลขที่เอกสาร <strong>{formData.source_work_order_code}</strong>)</>
                                     )}
-                                </div>
+                                </p>
+                                <button
+                                    className="btn btn-primary"
+                                    disabled={!formData.source_work_order_id}
+                                    onClick={() => navigate(`/workorder/workorders_detail/${formData.source_work_order_id}`)}
+                                >
+                                    <i className="bi bi-box-arrow-up-right me-2"></i>
+                                    ไปที่เอกสารใบสั่งผลิต
+                                </button>
                             </div>
+                        </CardSection>
+                    ) : (
+                        <>
+                            <CardSection icon="bi-shield-fill-check" title="มาตรฐาน / ใบรับรอง / Serial">
+                                {/* ปรับเป็น row และใช้ col-md เพื่อแบ่งฝั่ง */}
+                                <div className="row g-4">
+                                    {/* มาตรฐาน */}
+                                    <div className="col-12 col-md-4 border-end-md">
+                                        <span className="text-muted fs-9 fw-bolder text-uppercase d-block mb-1">มาตรฐาน</span>
+                                        <div className="d-flex flex-wrap gap-1">
+                                            <CheckBadge checked={formData.ptt} label="PTT" />
+                                            <CheckBadge checked={formData.chevron} label="Chevron" />
+                                            <CheckBadge checked={formData.valeur} label="Valeur" />
+                                            <CheckBadge checked={formData.ophir} label="Ophir" />
+                                            <CheckBadge checked={formData.threeSpec} label="3Spec" />
+                                            <CheckBadge checked={formData.standardOthers} label={formData.standardOthersText || "Others"} />
+                                            {!formData.ptt && !formData.chevron && !formData.valeur && !formData.ophir && !formData.threeSpec && !formData.standardOthers && (
+                                                <span className="text-muted fs-7">---</span>
+                                            )}
+                                        </div>
+                                    </div>
 
-                            {/* ใบรับรอง */}
-                            <div className="col-12 col-md-4 border-end-md">
-                                <span className="text-muted fs-9 fw-bolder text-uppercase d-block mb-1">ใบรับรอง</span>
-                                <div className="d-flex flex-wrap gap-1">
-                                    <CheckBadge checked={formData.inHouse} label="In-house" />
-                                    <CheckBadge checked={formData.thirdParty} label="Third Party" />
-                                    <CheckBadge checked={formData.ndt} label="NDT" />
-                                    <CheckBadge checked={formData.testingOthers} label={formData.testingOthersText || "Others"} />
-                                    {!formData.inHouse && !formData.thirdParty && !formData.ndt && !formData.testingOthers && (
-                                        <span className="text-muted fs-7">---</span>
-                                    )}
+                                    {/* ใบรับรอง */}
+                                    <div className="col-12 col-md-4 border-end-md">
+                                        <span className="text-muted fs-9 fw-bolder text-uppercase d-block mb-1">ใบรับรอง</span>
+                                        <div className="d-flex flex-wrap gap-1">
+                                            <CheckBadge checked={formData.inHouse} label="In-house" />
+                                            <CheckBadge checked={formData.thirdParty} label="Third Party" />
+                                            <CheckBadge checked={formData.ndt} label="NDT" />
+                                            <CheckBadge checked={formData.testingOthers} label={formData.testingOthersText || "Others"} />
+                                            {!formData.inHouse && !formData.thirdParty && !formData.ndt && !formData.testingOthers && (
+                                                <span className="text-muted fs-7">---</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Serial Number */}
+                                    <div className="col-12 col-md-4">
+                                        <span className="text-muted fs-9 fw-bolder text-uppercase d-block mb-1">Serial Number</span>
+                                        <div className="d-flex flex-wrap gap-1">
+                                            <CheckBadge checked={formData.continueSerial} label="คล้องวางแห" />
+                                            <CheckBadge checked={formData.serialImprint} label="ตอกที่ตัวสินค้า" />
+                                            <CheckBadge checked={formData.serialTag} label="คล้องแท็ก" />
+                                            <CheckBadge checked={formData.serialOthers} label={formData.serialOthersText || "Others"} />
+                                            {!formData.continueSerial && !formData.serialImprint && !formData.serialTag && !formData.serialOthers && (
+                                                <span className="text-muted fs-7">---</span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            </CardSection>
 
-                            {/* Serial Number */}
-                            <div className="col-12 col-md-4">
-                                <span className="text-muted fs-9 fw-bolder text-uppercase d-block mb-1">Serial Number</span>
-                                <div className="d-flex flex-wrap gap-1">
-                                    <CheckBadge checked={formData.continueSerial} label="คล้องวางแห" />
-                                    <CheckBadge checked={formData.serialImprint} label="ตอกที่ตัวสินค้า" />
-                                    <CheckBadge checked={formData.serialTag} label="คล้องแท็ก" />
-                                    <CheckBadge checked={formData.serialOthers} label={formData.serialOthersText || "Others"} />
-                                    {!formData.continueSerial && !formData.serialImprint && !formData.serialTag && !formData.serialOthers && (
-                                        <span className="text-muted fs-7">---</span>
-                                    )}
+                            {/* Items */}
+                            <CardSection
+                                icon="bi-table"
+                                title="รายการสินค้า"
+                                badge={<span className="badge badge-light-primary ms-1">{formData.items.length}</span>}
+                            >
+                                <div className="table-responsive">
+                                    <table className="table align-middle fs-7 gy-3 mb-0">
+                                        <thead>
+                                            <tr className="text-muted fw-bold fs-8 text-uppercase border-bottom border-gray-100">
+                                                <th className="min-w-100px">รหัสสินค้า</th>
+                                                <th className="min-w-150px">รายละเอียด</th>
+                                                <th className="text-center w-70px">WLL</th>
+                                                <th className="text-center w-70px">จำนวน</th>
+                                                <th className="w-110px">Serial No.</th>
+                                                <th>หมายเหตุ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="text-gray-700 fw-semibold">
+                                            {formData.items.length > 0 ? formData.items.map((item) => (
+                                                <tr key={item.id}>
+                                                    <td>
+                                                        <span className="badge badge-light-secondary fw-bold">{item.code || "—"}</span>
+                                                    </td>
+                                                    <td>{item.description || "—"}</td>
+                                                    <td className="text-center text-muted">{item.wll || "—"}</td>
+                                                    <td className="text-center fw-bold text-gray-900">{item.quantity}</td>
+                                                    <td className="text-muted fs-8">{item.serialNo || "—"}</td>
+                                                    <td className="text-muted">{item.remark || "—"}</td>
+                                                </tr>
+                                            )) : (
+                                                <tr>
+                                                    <td colSpan={6} className="text-center text-muted py-6">ไม่มีรายการสินค้า</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
-                            </div>
-                        </div>
-                    </CardSection>
-
-                    {/* Items */}
-                    <CardSection
-                        icon="bi-table"
-                        title="รายการสินค้า"
-                        badge={<span className="badge badge-light-primary ms-1">{formData.items.length}</span>}
-                    >
-                        <div className="table-responsive">
-                            <table className="table align-middle fs-7 gy-3 mb-0">
-                                <thead>
-                                    <tr className="text-muted fw-bold fs-8 text-uppercase border-bottom border-gray-100">
-                                        <th className="min-w-100px">รหัสสินค้า</th>
-                                        <th className="min-w-150px">รายละเอียด</th>
-                                        <th className="text-center w-70px">WLL</th>
-                                        <th className="text-center w-70px">จำนวน</th>
-                                        <th className="w-110px">Serial No.</th>
-                                        <th>หมายเหตุ</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="text-gray-700 fw-semibold">
-                                    {formData.items.length > 0 ? formData.items.map((item) => (
-                                        <tr key={item.id}>
-                                            <td>
-                                                <span className="badge badge-light-secondary fw-bold">{item.code || "—"}</span>
-                                            </td>
-                                            <td>{item.description || "—"}</td>
-                                            <td className="text-center text-muted">{item.wll || "—"}</td>
-                                            <td className="text-center fw-bold text-gray-900">{item.quantity}</td>
-                                            <td className="text-muted fs-8">{item.serialNo || "—"}</td>
-                                            <td className="text-muted">{item.remark || "—"}</td>
-                                        </tr>
-                                    )) : (
-                                        <tr>
-                                            <td colSpan={6} className="text-center text-muted py-6">ไม่มีรายการสินค้า</td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </CardSection>
+                            </CardSection>
+                        </>
+                    )}
 
                     {/* Remark / Details — only if content */}
                     {(formData.generalRemark || formData.details) && (

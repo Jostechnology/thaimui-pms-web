@@ -119,8 +119,12 @@ const WorkorderDetail: React.FC = () => {
         setDownloadingComponentId(componentId);
         try {
             const res = await downloadComponentDocument(workOrder.work_order_code, componentId);
-            if (!res.success) {
-                Swal.fire('เกิดข้อผิดพลาด', res.message || 'ไม่สามารถดาวน์โหลดเอกสารได้', 'error');
+            if (!res.success && !res.silent) {
+                Swal.fire(
+                    res.title || 'ดาวน์โหลดเอกสารไม่สำเร็จ',
+                    res.message || 'ไม่สามารถดาวน์โหลดเอกสารได้',
+                    res.icon || 'error'
+                );
             }
         } finally {
             setDownloadingComponentId(null);
@@ -363,7 +367,17 @@ const WorkorderDetail: React.FC = () => {
                                             </div>
                                             <div>
                                                 <span className='fw-bold text-gray-900 fs-4 d-block'>{comp.component_name}</span>
-                                                <span className='text-muted fs-8'>{comp.material_usages?.length || 0} วัสดุ</span>
+                                                <div className='d-flex align-items-center gap-2 mt-1'>
+                                                    <span className='text-muted fs-8'>{comp.material_usages?.length || 0} วัสดุ</span>
+                                                    <span className='badge badge-light-primary fw-bold fs-9'>
+                                                        เวอร์ชัน {comp.doc_version ?? 0}
+                                                    </span>
+                                                    {comp.is_locked && (
+                                                        <span className='badge badge-light-warning fw-bold fs-9'>
+                                                            <i className='bi bi-lock-fill me-1'></i>ล็อก
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div className='d-flex gap-2 ms-auto'>
                                                 <button

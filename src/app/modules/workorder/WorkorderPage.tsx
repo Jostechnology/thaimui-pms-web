@@ -11,6 +11,7 @@ import TemplateBuilder from "./components/TemplateBuilder"
 import ComponentDetailEditor from "./components/ComponentDetailEditor"
 import PhaseTemplateList from "./components/PhaseTemplateList";
 import PhaseTemplateCreateEdit from "./components/PhaseTemplateCreateEdit";
+import ComponentEditRequestList from "./components/ComponentEditRequestList";
 
 const WorkorderPage = () => {
 
@@ -30,6 +31,7 @@ const WorkorderPage = () => {
             <Route path="template_builder" element={<TemplateBuilder />} />
             <Route path="template_builder/:templateId" element={<TemplateBuilder />} />
             <Route path="component_detail/:workOrderId/:componentId" element={<ComponentDetailEditor />} />
+            <Route path="component_edit_requests" element={<ComponentEditRequestList />} />
             <Route path="phase_template" element={<PhaseTemplateList />} />
             <Route path="phase_template/create" element={<PhaseTemplateCreateEdit />} />
             <Route path="phase_template/edit/:id" element={<PhaseTemplateCreateEdit />} />

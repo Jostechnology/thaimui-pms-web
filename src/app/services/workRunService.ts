@@ -1,12 +1,13 @@
 import { front_api } from "./apiConfig";
+import type { WorkRunComponentPin } from "../type_interface/WorkOrderType";
 
-interface APIResponse {
+interface APIResponse<T = any> {
     success: boolean;
     message?: string;
-    data?: any;
+    data?: T;
 }
 
-const handleResponse = async (response: Response | false | undefined): Promise<APIResponse> => {
+const handleResponse = async <T = any>(response: Response | false | undefined): Promise<APIResponse<T>> => {
     if (!response) {
         return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
     }
@@ -259,6 +260,30 @@ export const getWorkRunMaterialOfWorkOrder = async (workRunId: number): Promise<
     try {
         const response = await front_api("GET", `/work_run/${workRunId}/get_material_list`, {}, { wrapData: false });
         return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
+/** Component document versions currently pinned to this work run (one per component). */
+export const getWorkRunComponentPins = async (
+    workRunId: number
+): Promise<APIResponse<WorkRunComponentPin[]>> => {
+    try {
+        const response = await front_api("GET", `/work_run/${workRunId}/component_pins`, {}, { wrapData: false });
+        return await handleResponse<WorkRunComponentPin[]>(response);
+    } catch (e) {
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
+/** Every pin this work run has ever held, superseded ones included. */
+export const getWorkRunComponentPinHistory = async (
+    workRunId: number
+): Promise<APIResponse<WorkRunComponentPin[]>> => {
+    try {
+        const response = await front_api("GET", `/work_run/${workRunId}/component_pins/history`, {}, { wrapData: false });
+        return await handleResponse<WorkRunComponentPin[]>(response);
     } catch (e) {
         return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
     }

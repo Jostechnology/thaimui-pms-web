@@ -33,6 +33,13 @@ export interface QCWorkOrderData {
   salesItemCode?: string
   quantity: number
 
+  // Component-declared QC work order (auto-created from a WorkOrder test section)
+  // NOTE: kept snake_case on purpose — these are passthrough fields from the BE,
+  // not part of the hand-mapped camelCase form payload (see ViewQCWorkOrder.tsx).
+  source_work_order_id?: number | null
+  is_component_declared?: boolean
+  source_work_order_code?: string | null
+
   // Testing standards
   ptt: boolean;
   chevron: boolean;

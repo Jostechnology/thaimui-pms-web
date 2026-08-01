@@ -1296,6 +1296,12 @@ const TemplateBuilder: React.FC = () => {
                                 placeholder='เช่น ใบสั่งผลิต ชุดประกอบสลิง'
                                 value={templateName}
                                 onChange={e => setTemplateName(e.target.value)} />
+                            <div className='form-text fs-8 mt-2'>
+                                <i className='bi bi-info-circle me-1'></i>
+                                การตั้งค่า "ส่วนของการทดสอบ" ในแต่ละ Section มีผลต่อระบบจริง —
+                                เมื่อ Component มีส่วนของการทดสอบ ระบบจะสร้างใบสั่งงาน QC อัตโนมัติ
+                                โดยใช้เอกสาร Component นี้เป็นข้อกำหนดการทดสอบ (แทนแบบฟอร์ม QC แยกต่างหาก)
+                            </div>
                         </div>
                     </div>
 
@@ -1346,8 +1352,23 @@ const TemplateBuilder: React.FC = () => {
                                                 <span className='text-muted fw-normal ms-2'>— {(section as any).title}</span>
                                             )}
                                         </span>
+                                        {(section as any).is_test_section && (
+                                            <span className='badge badge-light-info ms-3'>ทดสอบ</span>
+                                        )}
                                     </div>
                                     <div className='d-flex gap-1 align-items-center' onClick={e => e.stopPropagation()}>
+                                        <div className='form-check form-check-custom form-check-solid form-switch me-3'
+                                            title='ส่วนของการทดสอบ'>
+                                            <input
+                                                className='form-check-input'
+                                                type='checkbox'
+                                                id={`test-section-${section.key}`}
+                                                checked={!!(section as any).is_test_section}
+                                                onChange={e => updateSection(idx, { ...section, is_test_section: e.target.checked } as any)} />
+                                            <label className='form-check-label fs-8 text-nowrap' htmlFor={`test-section-${section.key}`}>
+                                                ส่วนของการทดสอบ
+                                            </label>
+                                        </div>
                                         <select
                                             className='form-select form-select-sm me-1'
                                             style={{ width: 100 }}

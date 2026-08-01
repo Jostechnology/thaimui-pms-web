@@ -20,10 +20,12 @@ import {
     updateWorkRunRequiredItem,
     deleteWorkRunRequiredItem,
     getWorkRunMaterialOfWorkOrder,
+    getWorkRunComponentPins,
 } from '../../../services/workRunService';
+import { downloadComponentDocumentByPath } from '../../../services/documentGeneratorService';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
-import type { WorkRunDetail as WorkRunDetailType, WorkRunRequiredItem, WorkRunBreak } from '../../../type_interface/WorkOrderType';
+import type { WorkRunDetail as WorkRunDetailType, WorkRunRequiredItem, WorkRunBreak, WorkRunComponentPin } from '../../../type_interface/WorkOrderType';
 import './WorkorderView.css';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -173,6 +175,10 @@ const WorkRunDetail: React.FC = () => {
     // Start modal
     const [showStartModal, setShowStartModal] = useState(false);
 
+    // Pinned component documents (read-only)
+    const [componentPins, setComponentPins] = useState<WorkRunComponentPin[]>([]);
+    const [downloadingPinId, setDownloadingPinId] = useState<number | null>(null);
+
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
 
@@ -229,6 +235,44 @@ const WorkRunDetail: React.FC = () => {
     };
 
     useEffect(() => { fetchWorkRun(); }, [workRunId]);
+
+    // Component document versions this run is pinned to (read-only — re-pinning is backend-only).
+    const fetchComponentPins = async () => {
+        setLoading();
+        try {
+            const result = await getWorkRunComponentPins(Number(workRunId));
+            if (result?.success) {
+                setComponentPins(Array.isArray(result.data) ? result.data : []);
+            } else {
+                setComponentPins([]);
+                alertMessage("ไม่สามารถดึงข้อมูลเอกสารส่วนประกอบที่ผูกกับ Work Run ได้");
+            }
+        } catch {
+            setComponentPins([]);
+            alertMessage("ไม่สามารถดึงข้อมูลเอกสารส่วนประกอบที่ผูกกับ Work Run ได้");
+        } finally {
+            setUnLoading();
+        }
+    };
+
+    useEffect(() => { fetchComponentPins(); }, [workRunId]);
+
+    const handleDownloadPinnedDocument = async (pin: WorkRunComponentPin) => {
+        if (!pin.doc_path) return;
+        setDownloadingPinId(pin.pin_id);
+        try {
+            const res = await downloadComponentDocumentByPath(pin.doc_path);
+            if (!res.success && !res.silent) {
+                Swal.fire(
+                    res.title || 'ดาวน์โหลดเอกสารไม่สำเร็จ',
+                    res.message || 'ไม่สามารถดาวน์โหลดเอกสารได้',
+                    res.icon || 'error'
+                );
+            }
+        } finally {
+            setDownloadingPinId(null);
+        }
+    };
 
     useEffect(() => {
         const hasActiveMachine = workRun?.machines?.some(m => m.to_time === null) ?? false;
@@ -1919,6 +1963,77 @@ const WorkRunDetail: React.FC = () => {
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* เอกสารส่วนประกอบที่ใช้ผลิต — READ ONLY.
+                การเปลี่ยนเวอร์ชันที่ผูกไว้ทำได้เฉพาะฝั่ง backend service เท่านั้น (ไม่มี HTTP route) */}
+            <div className="card shadow-sm mb-8">
+                <div className="card-header border-0 pt-5">
+                    <div className="card-title">
+                        <span className="card-label fw-bold text-gray-900 fs-5">
+                            <i className="bi bi-file-earmark-text me-2 text-primary"></i>เอกสารส่วนประกอบที่ใช้ผลิต
+                        </span>
+                    </div>
+                </div>
+                <div className="card-body pt-3">
+                    <div className="text-muted fs-8 mb-4">
+                        <i className="bi bi-info-circle me-1"></i>
+                        เวอร์ชันเอกสารที่ Work Run นี้ยึดใช้ผลิต ถูกตรึงไว้ตั้งแต่ตอนเริ่มงาน
+                        แม้ฝ่ายขายจะแก้ไขเอกสารภายหลัง หน้างานก็ยังอ่านเวอร์ชันเดิมนี้
+                    </div>
+                    {componentPins.length === 0 ? (
+                        <div className="text-muted fs-7 py-3">
+                            ยังไม่ได้เริ่มงาน — ยังไม่มีการผูกเวอร์ชันเอกสาร
+                        </div>
+                    ) : (
+                        <div className="table-responsive">
+                            <table className="table table-bordered align-middle fs-7 mb-0">
+                                <thead className="table-light">
+                                    <tr className="fw-bold text-gray-700 text-uppercase fs-8">
+                                        <th>ส่วนประกอบ</th>
+                                        <th className="w-100px text-center">เวอร์ชัน</th>
+                                        <th className="w-200px">เลขที่เอกสาร</th>
+                                        <th className="w-120px text-center">เอกสาร</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {componentPins.map(pin => (
+                                        <tr key={pin.pin_id}>
+                                            <td>
+                                                <span className="fw-semibold text-gray-800">
+                                                    {pin.component_name ?? `ส่วนประกอบ #${pin.item_component_id}`}
+                                                </span>
+                                                {pin.reason && (
+                                                    <div className="text-muted fs-8 mt-1">
+                                                        <i className="bi bi-arrow-repeat me-1"></i>{pin.reason}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="text-center">
+                                                <span className="badge badge-light-primary fw-bold">v{pin.version_no}</span>
+                                            </td>
+                                            <td className="text-gray-700">{pin.doc_ref_no ?? '-'}</td>
+                                            <td className="text-center">
+                                                <button
+                                                    className="btn btn-sm btn-light-primary fw-bold"
+                                                    onClick={() => handleDownloadPinnedDocument(pin)}
+                                                    disabled={!pin.doc_path || downloadingPinId === pin.pin_id}
+                                                    title={pin.doc_path ? 'ดาวน์โหลดเอกสาร' : 'เวอร์ชันนี้ยังไม่มีไฟล์เอกสาร'}
+                                                >
+                                                    {downloadingPinId === pin.pin_id ? (
+                                                        <span className="spinner-border spinner-border-sm"></span>
+                                                    ) : (
+                                                        <><i className="bi bi-download me-1"></i>ดาวน์โหลด</>
+                                                    )}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             </div>
 

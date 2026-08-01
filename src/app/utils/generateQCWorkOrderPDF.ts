@@ -17,6 +17,15 @@ function sigLine(label: string) {
 }
 
 export async function generateQCWorkOrderPDF(formData: QCWorkOrderData, qcWorkOrderId?: string) {
+    // Component-declared QC work orders have no QCForm / QCItem rows — the WorkOrder
+    // component document IS the test specification. Refuse instead of producing a
+    // blank/half-empty PDF; the caller should link the user to the WorkOrder document.
+    if (formData.is_component_declared) {
+        throw new Error(
+            "ใบสั่งเทสนี้สร้างจาก Test Section ในเอกสารใบสั่งผลิต ไม่มีแบบฟอร์ม QC แยกให้ดาวน์โหลด กรุณาดาวน์โหลดเอกสารใบสั่งผลิตแทน"
+        );
+    }
+
     // ---- Build HTML ----
     const items = Array.isArray(formData.items) ? formData.items : [];
     // Fill at least 15 rows

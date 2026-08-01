@@ -48,6 +48,8 @@ interface QCWorkOrderData {
     updated_by: string | null;
     quantity: number;
     sales_item: SalesItem | null;
+    source_work_order_id?: number | null;
+    is_component_declared?: boolean;
 }
 
 const status_OPTIONS = [
@@ -135,6 +137,15 @@ const QCWorkOrdersList: React.FC = () => {
         if (s === 'FAILED') return 'ไม่ผ่าน';
         if (s === 'PENDING') return 'รอดำเนินการ';
         return status || '-';
+    };
+
+    const handleBlockedDelete = () => {
+        Swal.fire({
+            icon: "info",
+            title: "ไม่สามารถลบได้",
+            text: "ใบสั่งเทสนี้ถูกสร้างขึ้นอัตโนมัติจาก Test Section ในเอกสารใบสั่งผลิต หากต้องการยกเลิก กรุณาลบ Test Section ออกจากเอกสารใบสั่งผลิตแทน",
+            confirmButtonText: "รับทราบ",
+        });
     };
 
     const handleDelete = async (id: number) => {
@@ -380,46 +391,53 @@ const QCWorkOrdersList: React.FC = () => {
                                             </td>
 
                                             <td className='text-center'>
-                                                {(() => {
-                                                    const status = item.status?.toUpperCase();
+                                                <div className='d-flex flex-column align-items-center gap-1'>
+                                                    {(() => {
+                                                        const status = item.status?.toUpperCase();
 
-                                                    if (status === 'PASSED') {
+                                                        if (status === 'PASSED') {
+                                                            return (
+                                                                <span className='badge badge-light-success fw-bold px-4 py-2'>
+                                                                    <i className='bi bi-patch-check me-1'></i> ผ่าน QC
+                                                                </span>
+                                                            );
+                                                        }
+
+                                                        if (status === 'INPROGRESS') {
+                                                            return (
+                                                                <span className='badge badge-light-warning fw-bold px-4 py-2'>
+                                                                    <i className='bi bi-hourglass-split me-1'></i> กำลังดำเนินการ
+                                                                </span>
+                                                            );
+                                                        }
+
+                                                        // PENDING — show readiness
+                                                        const si = item.sales_item;
+                                                        const needed = item.quantity ?? 0;
+                                                        const unavailable = si?.unavailable_for_test_qty ?? 0;
+                                                        const produced = si?.produced_qty ?? 0;
+                                                        const ready_test = (produced - unavailable) >= needed;
+
                                                         return (
-                                                            <span className='badge badge-light-success fw-bold px-4 py-2'>
-                                                                <i className='bi bi-patch-check me-1'></i> ผ่าน QC
-                                                            </span>
-                                                        );
-                                                    }
-
-                                                    if (status === 'INPROGRESS') {
-                                                        return (
-                                                            <span className='badge badge-light-warning fw-bold px-4 py-2'>
-                                                                <i className='bi bi-hourglass-split me-1'></i> กำลังดำเนินการ
-                                                            </span>
-                                                        );
-                                                    }
-
-                                                    // PENDING — show readiness
-                                                    const si = item.sales_item;
-                                                    const needed = item.quantity ?? 0;
-                                                    const unavailable = si?.unavailable_for_test_qty ?? 0;
-                                                    const produced = si?.produced_qty ?? 0;
-                                                    const ready_test = (produced - unavailable) >= needed;
-
-                                                    return (
-                                                        <div className='d-flex flex-column align-items-center gap-1'>
-                                                            <span className='badge badge-light-primary fw-semibold'>รอดำเนินการ</span>
-                                                            <span className={`badge badge-light-${ready_test ? "success" : "danger"} fw-semibold`}>
-                                                                {ready_test ? "พร้อมเทส" : "ยังไม่พร้อม"}
-                                                            </span>
-                                                            <div className='text-muted fs-8 mt-1'>
-                                                                <span>ผลิตแล้ว <strong>{produced}</strong></span>
-                                                                {unavailable > 0 && <span className='text-danger ms-1'>(ไม่พร้อม {unavailable})</span>}
-                                                                <span className='ms-1'>/ ต้องการ <strong>{needed}</strong></span>
+                                                            <div className='d-flex flex-column align-items-center gap-1'>
+                                                                <span className='badge badge-light-primary fw-semibold'>รอดำเนินการ</span>
+                                                                <span className={`badge badge-light-${ready_test ? "success" : "danger"} fw-semibold`}>
+                                                                    {ready_test ? "พร้อมเทส" : "ยังไม่พร้อม"}
+                                                                </span>
+                                                                <div className='text-muted fs-8 mt-1'>
+                                                                    <span>ผลิตแล้ว <strong>{produced}</strong></span>
+                                                                    {unavailable > 0 && <span className='text-danger ms-1'>(ไม่พร้อม {unavailable})</span>}
+                                                                    <span className='ms-1'>/ ต้องการ <strong>{needed}</strong></span>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    );
-                                                })()}
+                                                        );
+                                                    })()}
+                                                    {item.is_component_declared && (
+                                                        <span className='badge badge-light-info fw-semibold'>
+                                                            <i className='bi bi-diagram-3 me-1'></i>จากใบสั่งผลิต
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
 
                                             <td className='text-center'>
@@ -429,12 +447,22 @@ const QCWorkOrdersList: React.FC = () => {
                                             </td>
 
                                             <td className='text-end'>
-                                                <TableActionButton
-                                                    permissions={allowedActions}
-                                                    handleView={() => navigate(`view/${item.qc_work_order_id}`)}
-                                                    handleEdit={() => navigate(`edit/${item.qc_work_order_id}`)}
-                                                    handleDelete={() => handleDelete(item.qc_work_order_id)}
-                                                />
+                                                <div className='d-flex justify-content-end align-items-center gap-1'>
+                                                    <TableActionButton
+                                                        permissions={allowedActions}
+                                                        isEditBtnShow={!item.is_component_declared}
+                                                        handleView={() => navigate(`view/${item.qc_work_order_id}`)}
+                                                        handleEdit={() => navigate(`edit/${item.qc_work_order_id}`)}
+                                                        handleDelete={() => item.is_component_declared ? handleBlockedDelete() : handleDelete(item.qc_work_order_id)}
+                                                    />
+                                                    {item.is_component_declared && (
+                                                        <i
+                                                            className='bi bi-info-circle text-muted fs-5 ms-1'
+                                                            title='แก้ไขได้ที่เอกสารใบสั่งผลิตเท่านั้น เนื่องจากใบสั่งเทสนี้ถูกสร้างจาก Test Section'
+                                                            style={{ cursor: 'help' }}
+                                                        ></i>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))

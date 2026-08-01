@@ -230,6 +230,14 @@ export const subRoutesConfig: SubRouteType[] = [
         display: true
     },
     {
+        module_code: "COMPONENT_EDIT",
+        main_module_code: "WORKORDERS",
+        path: "/workorder/component_edit_requests",
+        title: "คำขอแก้ไขเอกสารส่วนประกอบ",
+        permission: [],
+        display: true
+    },
+    {
         module_code: "EMPLOYEE_SAL",
         main_module_code: "EMPLOYEE",
         path: "/employee/employee_salary_history",
