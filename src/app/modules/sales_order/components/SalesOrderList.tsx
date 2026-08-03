@@ -25,11 +25,26 @@ const URGENCY_BADGE: Record<UrgencyLevel, string> = {
     URGENT: 'badge-light-danger',
 };
 
-// useTableParams treats "ทั้งหมด" as the "no filter" sentinel for its `filter` slot.
-// urgencyFilter uses "" for "no filter" internally, so convert between the two.
-const urgencyToFilterParam = (urgency: UrgencyLevel | ''): string => urgency || 'ทั้งหมด';
-const filterParamToUrgency = (raw: string): UrgencyLevel | '' =>
-    (!raw || raw === 'ทั้งหมด') ? '' : (raw as UrgencyLevel);
+// useTableParams exposes a single generic `filter` string slot, and treats "ทั้งหมด"
+// as the "no filter" sentinel. Urgency level and the "needs action" toggle both need
+// to survive a refresh, so they are encoded together into that one slot and decoded
+// back on read. "" continues to mean "no urgency filter" internally.
+const NEEDS_ACTION_FILTER_TOKEN = 'NEEDS_ACTION';
+
+const encodeUrgencyFilterParam = (urgency: UrgencyLevel | '', needsAction: boolean): string => {
+    const parts: string[] = [];
+    if (urgency) parts.push(urgency);
+    if (needsAction) parts.push(NEEDS_ACTION_FILTER_TOKEN);
+    return parts.length > 0 ? parts.join('+') : 'ทั้งหมด';
+};
+
+const decodeUrgencyFilterParam = (raw: string): { urgency: UrgencyLevel | ''; needsAction: boolean } => {
+    if (!raw || raw === 'ทั้งหมด') return { urgency: '', needsAction: false };
+    const parts = raw.split('+');
+    const needsAction = parts.includes(NEEDS_ACTION_FILTER_TOKEN);
+    const urgencyPart = parts.find((p) => p !== NEEDS_ACTION_FILTER_TOKEN) as UrgencyLevel | undefined;
+    return { urgency: urgencyPart || '', needsAction };
+};
 
 const parseDateRangeFromParams = (searchParams: URLSearchParams): [Date | null, Date | null] => {
     const rawMonth = searchParams.get('month');
@@ -63,7 +78,9 @@ const SalesOrderList: React.FC = () => {
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(() => parseDateRangeFromParams(searchParams));
     const [startDate, endDate] = dateRange;
-    const [urgencyFilter, setUrgencyFilter] = useState<UrgencyLevel | "">(() => filterParamToUrgency(searchParams.get("filter") || ""));
+    const initialFilterState = decodeUrgencyFilterParam(searchParams.get("filter") || "");
+    const [urgencyFilter, setUrgencyFilter] = useState<UrgencyLevel | "">(initialFilterState.urgency);
+    const [needsAction, setNeedsAction] = useState<boolean>(initialFilterState.needsAction);
     const [urgencySort, setUrgencySort] = useState<"" | "asc" | "desc">("");
 
     const cycleUrgencySort = () => {
@@ -79,8 +96,12 @@ const SalesOrderList: React.FC = () => {
         setKeyword,
         setPageConfig,
         setSearchTerm,
-        filter: urgencyToFilterParam(urgencyFilter),
-        setFilter: (value: string) => setUrgencyFilter(filterParamToUrgency(value)),
+        filter: encodeUrgencyFilterParam(urgencyFilter, needsAction),
+        setFilter: (value: string) => {
+            const decoded = decodeUrgencyFilterParam(value);
+            setUrgencyFilter(decoded.urgency);
+            setNeedsAction(decoded.needsAction);
+        },
         startDate,
         endDate,
         setDateRange,
@@ -112,7 +133,8 @@ const SalesOrderList: React.FC = () => {
                 toDateOnly(endDate) ?? "",
                 urgencyFilter,
                 urgencySort ? "urgency_level" : "",
-                urgencySort || "desc"
+                urgencySort || "desc",
+                needsAction
             );
             if (result && result.success) {
                 setSalesOrders(result.data.items || []);
@@ -134,7 +156,7 @@ const SalesOrderList: React.FC = () => {
 
     useEffect(() => {
         fetchSalesOrders();
-    }, [currentPage, keyword, pageConfig, startDate, endDate, urgencyFilter, urgencySort]);
+    }, [currentPage, keyword, pageConfig, startDate, endDate, urgencyFilter, urgencySort, needsAction]);
 
     const handleDelete = (so: SalesOrderSummary) => {
         openTwoBtnAlertModal(
@@ -204,6 +226,19 @@ const SalesOrderList: React.FC = () => {
                     </div>
 
                     <div className='card-toolbar d-flex align-items-center gap-3'>
+                        <button
+                            type='button'
+                            className={`btn btn-sm fw-bold ${needsAction ? 'btn-warning' : 'btn-light-warning'}`}
+                            onClick={() => {
+                                setNeedsAction((prev) => !prev);
+                                setCurrentPage(1);
+                            }}
+                            disabled={dataLoading}
+                            title='แสดงเฉพาะใบสั่งขายที่มีรายการผลิต/เทสที่ยังไม่มีใบสั่งงาน'
+                        >
+                            <i className={`bi ${needsAction ? 'bi-check-circle-fill' : 'bi-exclamation-circle'} me-2`}></i>
+                            ต้องดำเนินการ
+                        </button>
                         <DatePicker
                             selectsRange
                             startDate={startDate}

@@ -40,7 +40,8 @@ export const getSalesOrderList = async (
     end_date: string = "",
     urgency_level: UrgencyLevel | "" = "",
     sort_by: string = "",
-    sort_order: "asc" | "desc" = "desc"
+    sort_order: "asc" | "desc" = "desc",
+    needs_action: boolean = false
 ) => {
     try {
         const params = new URLSearchParams({
@@ -56,6 +57,9 @@ export const getSalesOrderList = async (
             params.append("sort_by", sort_by);
             params.append("sort_order", sort_order);
         }
+        // "Needs action": at least one produce-flagged item with no work order,
+        // or one test-flagged item with no QC work order. Only literal "true" activates it.
+        if (needs_action) params.append("needs_action", "true");
 
         const endpoint = getIsAllBranch()
             ? `/all_branch/sales_order/get_all`
