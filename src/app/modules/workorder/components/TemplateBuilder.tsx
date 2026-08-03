@@ -843,9 +843,10 @@ const RowDetailCell: React.FC<{ row: MaterialRow }> = ({ row }) => {
     if (row.itemType === 'CHAIN') {
         return (
             <div className='fs-8 d-flex flex-column gap-1'>
-                <div>ผู้ผลิต {blank(70)} · ขนาด {blank(40)} mm · เกรด {blank(45)}</div>
+                <div>โซ่ {blank(70)} · ผู้ผลิต {blank(70)}</div>
+                <div>ขนาด {blank(40)} mm · เกรด {blank(45)}</div>
                 <div>(ผลิต) ยาว {blank(40)} ม. × {blank(25)} เส้น/ชุด</div>
-                <div>ยาวที่คิดราคา/ใช้จริง {blank(40)} ม. × {blank(25)} เส้น/ชุด</div>
+                <div>ความยาวที่คิดราคา/ใช้จริง {blank(40)} ม. × {blank(25)} เส้น/ชุด</div>
                 <div>น้ำหนักที่ใช้จริง {blank(40)} กก./เส้น × {blank(25)} เส้น/ชุด</div>
             </div>
         );
@@ -883,9 +884,17 @@ const RowPerSetCell: React.FC<{ row: MaterialRow }> = ({ row }) => {
                     ))}
                 </div>
     }
-    return <div className='fs-8'>
+
+    if (row.itemType == "FERRULE") {
+        return (
+            <div className='fs-8'>
                 ปลอก {blank(60)} <br />
                 จำนวน {blank(60)}
+            </div>
+        )
+    }
+    return <div className='fs-8'>
+                จำนวน {blank(60)} ตัว/ชุด
             </div>;
 };
 

@@ -42,6 +42,7 @@ interface ItemTypeSchema {
 const SLING_SCHEMA: ItemTypeSchema = {
     detail: {
         fields: [
+            { key : 'type', prefix : 'ลวดสลิง'},
             { key: 'structure', prefix: 'โครงสร้าง' },
             { key: 'core', prefix: 'แกน' },
             { key: 'brand', prefix: 'ยี่ห้อ' },
@@ -69,6 +70,7 @@ const SLING_SCHEMA: ItemTypeSchema = {
 const CHAIN_SCHEMA: ItemTypeSchema = {
     detail: {
         fields: [
+            { key: 'type', prefix: 'โซ่'},
             { key: 'manufacturer', prefix: 'ผู้ผลิต' },
             { key: 'size', prefix: 'ขนาด', postfix: 'mm' },
             { key: 'grade', prefix: 'เกรด' },
