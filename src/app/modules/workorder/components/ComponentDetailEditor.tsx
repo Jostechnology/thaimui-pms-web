@@ -110,20 +110,19 @@ const ComponentDetailEditor: React.FC = () => {
     const canEdit = !locked || hasApproval;
 
     // ── Materials: candidate list ──
-    // GET /get_work_order_by_id does NOT return SalesItem.material_list —
-    // WorkOrderSchema nests sales_item as SalesItemForWorkOrderSchema, which
-    // omits material_list; only SalesItemSchemaDetail (used by other flows,
-    // e.g. WorkorderCreate's own sales-order-detail fetch) carries it. So the
-    // full candidate pool from the sales item is NOT reachable from data this
-    // page already fetches, and per the brief this page must not add a new
-    // endpoint call to reach it (that would touch a service this file
-    // doesn't own). What IS reachable: every MaterialList already referenced
-    // by ANY component's material_usages across this work order — each usage
-    // row nests its own material_list (ComponentMaterialUsageSchema). We
-    // build the candidate list from that union. A material that has never
-    // been assigned to ANY component of this work order will not appear here
-    // — see the task report for this caveat.
-    const materialOptions = useMemo<MaterialOption[]>(() => {
+    // GET /get_work_order_by_id now nests sales_item via SalesItemSchemaDetail
+    // (backend commit 9030a91), which carries the FULL SalesItem.material_list —
+    // every material on the sales item, not just ones some component already
+    // used. This is the real candidate pool for the picklist.
+    //
+    // Runtime-guarded rather than trusted blindly: WorkOrderType's SalesItem
+    // still types material_list as a required field, but that was also true
+    // before the backend fix (it just lied). So check for an actual array at
+    // runtime and fall back to the old "union of every component's
+    // material_usages" derivation if it's ever missing — a regression here
+    // should degrade to the previous (narrower) behavior, not render an
+    // empty, unusable picker.
+    const materialOptionsFromUsages = useMemo<MaterialOption[]>(() => {
         const map = new Map<number, MaterialOption>();
         const consider = (usages?: ComponentMaterialUsage[]) => {
             (usages || []).forEach(u => {
@@ -148,6 +147,31 @@ const ComponentDetailEditor: React.FC = () => {
         consider(component?.material_usages);
         return Array.from(map.values());
     }, [workOrder, component]);
+
+    const materialOptions = useMemo<MaterialOption[]>(() => {
+        const list = workOrder?.sales_item?.material_list;
+        if (!Array.isArray(list)) {
+            if (workOrder) {
+                // Only warn once we actually have a work order to inspect —
+                // avoids a false alarm during the initial loading render.
+                // eslint-disable-next-line no-console
+                console.warn(
+                    'ComponentDetailEditor: work_order.sales_item.material_list is missing from the payload; ' +
+                    'falling back to the material_usages-derived candidate list.'
+                );
+            }
+            return materialOptionsFromUsages;
+        }
+        return list.map(ml => ({
+            material_list_id: ml.material_list_id,
+            item_code: ml.item_code,
+            item_name: ml.item_name,
+            item_group: ml.item_group,
+            unit_name: ml.unit_name,
+            remaining_num: ml.remaining_num,
+            quantity: ml.quantity,
+        }));
+    }, [workOrder, materialOptionsFromUsages]);
 
     // ── Materials: cross-component allocation ──
     // Same shape as WorkorderCreate's materialUsageByMaterial/getAllocatedElsewhere,
