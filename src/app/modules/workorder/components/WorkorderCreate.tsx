@@ -70,6 +70,7 @@ const WorkorderCreate: React.FC = () => {
     const [loadedTemplates, setLoadedTemplates] = useState<Record<number, ComponentTemplate>>({});
     const [detailFormData, setDetailFormData] = useState<Record<number, SectionFormData>>({});
     const [savingDetails, setSavingDetails] = useState(false);
+    const [applySameTemplateToAll, setApplySameTemplateToAll] = useState(false);
 
     // ── Load templates list once (needed for step 2) ──
     useEffect(() => {
@@ -322,13 +323,40 @@ const WorkorderCreate: React.FC = () => {
     };
 
     // ─── Step 2: Template selection per component ──────────────
-    const handleTemplateSelect = async (itemComponentId: number, templateId: number | null) => {
-        setSelectedTemplateIds(prev => ({ ...prev, [itemComponentId]: templateId }));
-        if (!templateId || loadedTemplates[templateId]) return;
+    // Fetches + caches a template body by id. Both the single-component and
+    // apply-to-all paths funnel through here so a template is only ever
+    // fetched once, no matter how many components end up using it.
+    const ensureTemplateLoaded = async (templateId: number) => {
+        if (loadedTemplates[templateId]) return;
         const res = await getComponentTemplateById(templateId);
         if (res?.success && res.data) {
             setLoadedTemplates(prev => ({ ...prev, [templateId]: res.data }));
         }
+    };
+
+    const handleTemplateSelect = async (itemComponentId: number, templateId: number | null) => {
+        setSelectedTemplateIds(prev => ({ ...prev, [itemComponentId]: templateId }));
+        if (!templateId) return;
+        await ensureTemplateLoaded(templateId);
+    };
+
+    // Wired to every component's template <select> onChange. When
+    // "ใช้ template เดียวกันกับทุก Component" is ticked, one selection applies
+    // the same component_template_id to every component in a single state
+    // update instead of the user re-opening the dropdown per component.
+    const handleTemplateSelectForComponent = async (itemComponentId: number, templateId: number | null) => {
+        if (applySameTemplateToAll && createdWorkOrder) {
+            setSelectedTemplateIds(prev => {
+                const next = { ...prev };
+                createdWorkOrder.item_components.forEach(comp => {
+                    next[comp.item_component_id] = templateId;
+                });
+                return next;
+            });
+            if (templateId) await ensureTemplateLoaded(templateId);
+            return;
+        }
+        await handleTemplateSelect(itemComponentId, templateId);
     };
 
     const updateDetailSectionData = (itemComponentId: number, sectionKey: string, data: any) => {
@@ -614,21 +642,38 @@ const WorkorderCreate: React.FC = () => {
                                         <label className='form-label fw-semibold fs-7 text-muted text-uppercase'>
                                             เลือก Template (ไม่บังคับ)
                                         </label>
-                                        <select
-                                            className='form-select form-select-sm'
-                                            value={templateId || ''}
-                                            onChange={e => {
-                                                const val = e.target.value ? Number(e.target.value) : null;
-                                                handleTemplateSelect(comp.item_component_id, val);
-                                            }}
-                                        >
-                                            <option value=''>-- ไม่เลือก Template --</option>
-                                            {allTemplates.map(t => (
-                                                <option key={t.component_template_id} value={t.component_template_id}>
-                                                    {t.name}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <div className='d-flex align-items-center flex-wrap gap-4'>
+                                            <select
+                                                className='form-select form-select-sm'
+                                                style={{ maxWidth: 280 }}
+                                                value={templateId || ''}
+                                                onChange={e => {
+                                                    const val = e.target.value ? Number(e.target.value) : null;
+                                                    handleTemplateSelectForComponent(comp.item_component_id, val);
+                                                }}
+                                            >
+                                                <option value=''>-- ไม่เลือก Template --</option>
+                                                {allTemplates.map(t => (
+                                                    <option key={t.component_template_id} value={t.component_template_id}>
+                                                        {t.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {idx === 0 && createdWorkOrder.item_components.length > 1 && (
+                                                <div className='form-check form-switch form-check-sm mb-0'>
+                                                    <input
+                                                        className='form-check-input'
+                                                        type='checkbox'
+                                                        id='apply-template-to-all'
+                                                        checked={applySameTemplateToAll}
+                                                        onChange={e => setApplySameTemplateToAll(e.target.checked)}
+                                                    />
+                                                    <label className='form-check-label fs-7 fw-semibold text-gray-700' htmlFor='apply-template-to-all'>
+                                                        ใช้ template เดียวกันกับทุก Component
+                                                    </label>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Template sections */}
