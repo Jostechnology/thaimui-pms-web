@@ -14,6 +14,7 @@ import type { WorkOrder, WorkRun } from '../../../type_interface/WorkOrderType';
 import { WorkOrderStatusEnum } from '../../../type_interface/WorkOrderType';
 import { downloadComponentDocument } from '../../../services/documentGeneratorService';
 import { formatIntegerInput } from '../../../utils/input_format_utils';
+import { WORK_ORDER_STATUS_LABEL, WORK_ORDER_STATUS_BADGE } from '../../../helpers/statusLabels';
 
 const WorkorderDetail: React.FC = () => {
     const navigate = useNavigate();
@@ -35,6 +36,11 @@ const WorkorderDetail: React.FC = () => {
     const { setLoading, setUnLoading } = useAppLoading();
     const { alertMessage } = useAlertModal();
 
+    // Work run status keeps its own local map (not sourced from
+    // helpers/statusLabels.ts): it covers CANCELLED and is missing PAUSED,
+    // which is a different — and narrower — set than the shared work-phase
+    // status domain, so it is left as-is here to avoid changing what renders
+    // for a PAUSED work run on this page.
     const workRunStatusThaiMap: Record<string, string> = {
         PENDING: 'รอดำเนินการ',
         INPROGRESS: 'กำลังดำเนินการ',
@@ -42,13 +48,7 @@ const WorkorderDetail: React.FC = () => {
         CANCELLED: 'ยกเลิก',
     };
 
-    const workOrderStatusThaiMap: Record<string, string> = {
-        READY: 'พร้อม',
-        INPROGRESS: 'กำลังดำเนินงาน',
-        WAIT_TEST: 'รอทดสอบ',
-        TESTING: 'กำลังทดสอบ',
-        COMPLETED: 'เสร็จสิ้น',
-    };
+    const workOrderStatusThaiMap: Record<string, string> = { ...WORK_ORDER_STATUS_LABEL };
 
     const getWorkRunStatusBadge = (status: string) => {
         const k = status?.toUpperCase();
@@ -59,11 +59,8 @@ const WorkorderDetail: React.FC = () => {
     };
 
     const getWorkOrderStatusBadge = (status: string) => {
-        if (status === WorkOrderStatusEnum.COMPLETED) return 'badge-light-success';
-        if (status === WorkOrderStatusEnum.INPROGRESS) return 'badge-light-warning';
-        if (status === WorkOrderStatusEnum.WAIT_TEST || status === WorkOrderStatusEnum.TESTING) return 'badge-light-info';
-        if (status === WorkOrderStatusEnum.READY) return 'badge-light-primary';
-        return 'badge-light-secondary';
+        const badge = WORK_ORDER_STATUS_BADGE[status as WorkOrderStatusEnum];
+        return badge ?? 'badge-light-secondary';
     };
 
     const fetchWorkOrder = async () => {

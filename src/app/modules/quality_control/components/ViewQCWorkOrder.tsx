@@ -11,14 +11,44 @@ import Swal from "sweetalert2";
 import "../../workorder/components/WorkorderView.css";
 import { type TestResultDetail } from '../../../type_interface/TestResultType';
 import { getTestResultsCostByQCWorkOrder } from '../../../services/testResultService';
+import {
+    QC_WORK_ORDER_STATUS_LABEL,
+    QC_WORK_ORDER_STATUS_BADGE,
+    TEST_RESULT_SESSION_STATUS_LABEL,
+    TEST_RESULT_SESSION_STATUS_BADGE,
+    type QCWorkOrderStatus,
+} from '../../../helpers/statusLabels';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
+// icon/dot are specific to this page's pill treatment, so they stay local —
+// only the label/badge-class text is sourced from the shared QC work order
+// status lookup. FAILED previously had no explicit branch here (it fell
+// through to the raw-status/secondary default); it now gets the same
+// dedicated treatment PASSED/INPROGRESS/PENDING already had.
+const STATUS_INFO_ICON: Record<QCWorkOrderStatus, string> = {
+    PASSED: "bi-patch-check-fill",
+    FAILED: "bi-x-circle-fill",
+    INPROGRESS: "bi-hourglass-split",
+    PENDING: "bi-clock-fill",
+};
+const STATUS_INFO_DOT: Record<QCWorkOrderStatus, string> = {
+    PASSED: "#17c653",
+    FAILED: "#f1416c",
+    INPROGRESS: "#f6c000",
+    PENDING: "#1b84ff",
+};
+
 const getStatusInfo = (status: string) => {
-    const s = status?.toUpperCase();
-    if (s === "PASSED") return { cls: "badge-light-success", label: "ผ่าน QC", icon: "bi-patch-check-fill", dot: "#17c653" };
-    if (s === "INPROGRESS") return { cls: "badge-light-warning", label: "กำลังดำเนินการ", icon: "bi-hourglass-split", dot: "#f6c000" };
-    if (s === "PENDING") return { cls: "badge-light-primary", label: "รอดำเนินการ", icon: "bi-clock-fill", dot: "#1b84ff" };
+    const s = status?.toUpperCase() as QCWorkOrderStatus;
+    if (s === "PASSED" || s === "FAILED" || s === "INPROGRESS" || s === "PENDING") {
+        return {
+            cls: QC_WORK_ORDER_STATUS_BADGE[s],
+            label: QC_WORK_ORDER_STATUS_LABEL[s],
+            icon: STATUS_INFO_ICON[s],
+            dot: STATUS_INFO_DOT[s],
+        };
+    }
     return { cls: "badge-light-secondary", label: status || "-", icon: "bi-circle", dot: "#99a1b7" };
 };
 
@@ -59,20 +89,23 @@ const formatTimer = (ms: number): string => {
 
 const getTestStatusLabel = (status: string) => {
     switch (status?.toUpperCase()) {
-        case 'INPROGRESS': return 'กำลังทดสอบ';
-        case 'COMPLETED': return 'เสร็จสิ้น';
-        case 'PAUSED': return 'หยุดชั่วคราว';
-        case 'PENDING': return 'รอดำเนินการ';
+        case 'INPROGRESS': return TEST_RESULT_SESSION_STATUS_LABEL.INPROGRESS;
+        case 'COMPLETED': return TEST_RESULT_SESSION_STATUS_LABEL.COMPLETED;
+        case 'PAUSED': return TEST_RESULT_SESSION_STATUS_LABEL.PAUSED;
+        case 'PENDING': return TEST_RESULT_SESSION_STATUS_LABEL.PENDING;
         default: return status;
     }
 };
 
+// Returns the bare Bootstrap variant name (used as `badge-light-${variant}`
+// at the call site below), not a full class — kept as-is, only the mapping
+// values are now sourced from the shared badge-class lookup.
 const getTestStatusVariant = (status: string) => {
     switch (status?.toUpperCase()) {
-        case 'INPROGRESS': return 'warning';
-        case 'COMPLETED': return 'success';
-        case 'PAUSED': return 'info';
-        case 'PENDING': return 'secondary';
+        case 'INPROGRESS': return TEST_RESULT_SESSION_STATUS_BADGE.INPROGRESS.replace('badge-light-', '');
+        case 'COMPLETED': return TEST_RESULT_SESSION_STATUS_BADGE.COMPLETED.replace('badge-light-', '');
+        case 'PAUSED': return TEST_RESULT_SESSION_STATUS_BADGE.PAUSED.replace('badge-light-', '');
+        case 'PENDING': return TEST_RESULT_SESSION_STATUS_BADGE.PENDING.replace('badge-light-', '');
         default: return 'secondary';
     }
 };

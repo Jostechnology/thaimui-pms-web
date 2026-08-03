@@ -16,6 +16,7 @@ import TableActionButton from '../../../custom_components/TableActionButton';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { toDateOnly } from '../../../utils/validate_utils';
+import { QC_WORK_ORDER_STATUS_LABEL, QC_WORK_ORDER_STATUS_BADGE, type QCWorkOrderStatus } from '../../../helpers/statusLabels';
 
 interface SalesItem {
     sales_item_id: number;
@@ -135,20 +136,14 @@ const QCWorkOrdersList: React.FC = () => {
     }, [currentPage, keyword, pageConfig, statusFilter, startDate, endDate]);
 
     const getStatusBadge = (status: string) => {
-        const s = status?.toUpperCase();
-        if (s === 'PASSED') return 'badge-light-success';
-        if (s === 'INPROGRESS') return 'badge-light-warning';
-        if (s === 'FAILED') return 'badge-light-danger';
-        if (s === 'PENDING') return 'badge-light-primary';
+        const s = status?.toUpperCase() as QCWorkOrderStatus;
+        if (s === 'PASSED' || s === 'INPROGRESS' || s === 'FAILED' || s === 'PENDING') return QC_WORK_ORDER_STATUS_BADGE[s];
         return 'badge-light-secondary';
     };
 
     const getStatusLabel = (status: string) => {
-        const s = status?.toUpperCase();
-        if (s === 'PASSED') return 'ผ่าน';
-        if (s === 'INPROGRESS') return 'กำลังดำเนินการ';
-        if (s === 'FAILED') return 'ไม่ผ่าน';
-        if (s === 'PENDING') return 'รอดำเนินการ';
+        const s = status?.toUpperCase() as QCWorkOrderStatus;
+        if (s === 'PASSED' || s === 'INPROGRESS' || s === 'FAILED' || s === 'PENDING') return QC_WORK_ORDER_STATUS_LABEL[s];
         return status || '-';
     };
 

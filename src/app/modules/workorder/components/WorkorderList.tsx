@@ -9,6 +9,7 @@ import { useTableParams } from '../../../hooks/useTableParams';
 import { useSearchParams } from 'react-router-dom';
 import TablePaginator from '../../../custom_components/TablePaginator'; // สมมติว่ามี Component นี้อยู่แล้ว
 import { WorkOrderStatusEnum } from '../../../type_interface/WorkOrderType';
+import { WORK_ORDER_STATUS_LABEL, WORK_PHASE_STATUS_LABEL } from '../../../helpers/statusLabels';
 import DatePicker from "react-datepicker";
 import 'react-datepicker/dist/react-datepicker.css';
 import { toDateOnly } from '../../../utils/validate_utils';
@@ -63,20 +64,11 @@ const WorkorderList: React.FC = () => {
 
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
     const [startDate, endDate] = dateRange;
-    const statusThaiMap: Record<string, string> = {
-        READY: 'พร้อม',
-        INPROGRESS: 'กำลังดำเนินงาน',
-        WAIT_TEST: 'รอทดสอบ',
-        TESTING: 'กำลังทดสอบ',
-        COMPLETED: 'เสร็จสิ้น'
-    };
+    // Widened to Record<string, string> because callers below index with
+    // arbitrary API-provided status strings, not just the enum's members.
+    const statusThaiMap: Record<string, string> = { ...WORK_ORDER_STATUS_LABEL };
 
-    const phaseStatusThaiMap: Record<string, string> = {
-        PENDING: 'รอดำเนินการ',
-        INPROGRESS: 'กำลังดำเนินการ',
-        PAUSED: 'ระงับ/หยุดชั่วคราว',
-        COMPLETED: 'เสร็จสิ้น'
-    };
+    const phaseStatusThaiMap: Record<string, string> = { ...WORK_PHASE_STATUS_LABEL };
 
     const workingCount = workorders.filter(w => normalizeStatusKey(w.status) === 'INPROGRESS').length;
     const COMPLETEDCount = workorders.filter(w => normalizeStatusKey(w.status) === 'COMPLETED').length;

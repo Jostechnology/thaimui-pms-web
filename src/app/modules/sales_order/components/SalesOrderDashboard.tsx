@@ -7,20 +7,7 @@ import {
     PieChart, Pie, Legend
 } from 'recharts';
 import { getSalesOrderList, SalesOrderSummary, UrgencyLevel } from '../../../services/salesOrder';
-
-const URGENCY_LABEL: Record<UrgencyLevel, string> = {
-    LOW: 'ต่ำ',
-    NORMAL: 'ปกติ',
-    HIGH: 'สูง',
-    URGENT: 'เร่งด่วน',
-};
-
-const URGENCY_BADGE: Record<UrgencyLevel, string> = {
-    LOW: 'badge-light-secondary',
-    NORMAL: 'badge-light-primary',
-    HIGH: 'badge-light-warning',
-    URGENT: 'badge-light-danger',
-};
+import { URGENCY_LABEL, URGENCY_BADGE } from '../../../helpers/statusLabels';
 
 const URGENCY_RANK: Record<UrgencyLevel, number> = {
     LOW: 1, NORMAL: 2, HIGH: 3, URGENT: 4,

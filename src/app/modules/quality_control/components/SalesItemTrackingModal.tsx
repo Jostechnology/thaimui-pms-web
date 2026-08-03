@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from 'react-bootstrap';
 import { getSalesItemTracking } from '../../../services/salesOrderService';
 import { formatThaiDate } from '../../../helpers/dataHelpers';
+import {
+    WORK_ORDER_STATUS_LABEL,
+    WORK_ORDER_STATUS_BADGE,
+    SALES_ITEM_STATUS_LABEL,
+    SALES_ITEM_STATUS_BADGE,
+    QC_WORK_ORDER_STATUS_LABEL,
+    QC_WORK_ORDER_STATUS_BADGE,
+} from '../../../helpers/statusLabels';
 
 interface WorkRun {
     work_run_id: number;
@@ -65,28 +73,21 @@ interface Props {
     salesItemId: number | null;
 }
 
-const WORK_ORDER_STATUS: Record<string, { label: string; css: string }> = {
-    READY: { label: 'รอเริ่ม', css: 'badge-light-primary' },
-    INPROGRESS: { label: 'กำลังผลิต', css: 'badge-light-warning' },
-    WAIT_TEST: { label: 'รอเทส', css: 'badge-light-info' },
-    TESTING: { label: 'กำลังเทส', css: 'badge-light-info' },
-    COMPLETED: { label: 'เสร็จสิ้น', css: 'badge-light-success' },
-};
+// Builds the { label, css } shape StatusBadge below expects, from the
+// shared label/badge lookups in helpers/statusLabels.ts.
+const toStatusMap = <T extends string>(
+    labels: Record<T, string>,
+    badges: Record<T, string>
+): Record<string, { label: string; css: string }> =>
+    Object.fromEntries(
+        (Object.keys(labels) as T[]).map((key) => [key, { label: labels[key], css: badges[key] }])
+    );
 
-const status: Record<string, { label: string; css: string }> = {
-    PENDING: { label: 'รอดำเนินการ', css: 'badge-light-primary' },
-    INPROGRESS: { label: 'กำลังดำเนินการ', css: 'badge-light-warning' },
-    PASSED: { label: 'ผ่าน', css: 'badge-light-success' },
-    FAILED: { label: 'ไม่ผ่าน', css: 'badge-light-danger' },
-};
+const WORK_ORDER_STATUS = toStatusMap(WORK_ORDER_STATUS_LABEL, WORK_ORDER_STATUS_BADGE);
 
-const ITEM_STATUS: Record<string, { label: string; css: string }> = {
-    READY: { label: 'รอเริ่ม', css: 'badge-light-primary' },
-    INPROGRESS: { label: 'กำลังดำเนินการ', css: 'badge-light-warning' },
-    WAIT_TEST: { label: 'รอเทส', css: 'badge-light-info' },
-    TESTING: { label: 'กำลังเทส', css: 'badge-light-info' },
-    COMPLETED: { label: 'เสร็จสิ้น', css: 'badge-light-success' },
-};
+const status = toStatusMap(QC_WORK_ORDER_STATUS_LABEL, QC_WORK_ORDER_STATUS_BADGE);
+
+const ITEM_STATUS = toStatusMap(SALES_ITEM_STATUS_LABEL, SALES_ITEM_STATUS_BADGE);
 
 const StatusBadge: React.FC<{ status: string; map: Record<string, { label: string; css: string }> }> = ({ status, map }) => {
     const entry = map[status] || { label: status, css: 'badge-light-dark' };

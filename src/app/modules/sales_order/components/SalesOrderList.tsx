@@ -10,20 +10,7 @@ import TableActionButton from '../../../custom_components/TableActionButton';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import { toDateOnly } from '../../../utils/validate_utils';
-
-const URGENCY_LABEL: Record<UrgencyLevel, string> = {
-    LOW: 'ต่ำ',
-    NORMAL: 'ปกติ',
-    HIGH: 'สูง',
-    URGENT: 'เร่งด่วน',
-};
-
-const URGENCY_BADGE: Record<UrgencyLevel, string> = {
-    LOW: 'badge-light-secondary',
-    NORMAL: 'badge-light-primary',
-    HIGH: 'badge-light-warning',
-    URGENT: 'badge-light-danger',
-};
+import { URGENCY_LABEL, URGENCY_BADGE } from '../../../helpers/statusLabels';
 
 // useTableParams exposes a single generic `filter` string slot, and treats "ทั้งหมด"
 // as the "no filter" sentinel. Urgency level and the "needs action" toggle both need
