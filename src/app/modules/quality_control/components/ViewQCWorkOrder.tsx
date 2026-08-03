@@ -90,6 +90,12 @@ const ViewQCWorkOrder: React.FC = () => {
     const [pdfLoading, setPdfLoading] = useState(false);
     const [testResultDetails, setTestResultDetails] = useState<TestResultDetail[]>([]);
     const [costLoading, setCostLoading] = useState(false);
+    // transfer_date / delivery_date are dedicated BE columns now (split out of
+    // customer_receipt_number, which QCWorkOrderData still carries but this
+    // page no longer displays as a date) — kept as local state since
+    // QCWorkOrderData (shared type) doesn't carry them yet.
+    const [transferDate, setTransferDate] = useState<string>("");
+    const [deliveryDate, setDeliveryDate] = useState<string>("");
 
     const [now, setNow] = useState(Date.now());
     const [activePage, setActivePage] = useState(0);
@@ -123,6 +129,8 @@ const ViewQCWorkOrder: React.FC = () => {
             const raw = result.data;
             setRawData(raw);
             setTestResults(raw.test_results ?? []);
+            setTransferDate(raw.qc_form?.transfer_date ?? "");
+            setDeliveryDate(raw.qc_form?.delivery_date ?? "");
 
             setCostLoading(true);
             getTestResultsCostByQCWorkOrder(Number(id))
@@ -583,9 +591,14 @@ const ViewQCWorkOrder: React.FC = () => {
                             <div className="col-6 col-md-3">
                                 <InfoField label="ทีม" value={formData.teamName || undefined} />
                             </div>
-                            {formData.customerReceiptNumber && (
-                                <div className="col-12">
-                                    <InfoField label="วันที่ย้าย / ส่ง" value={formData.customerReceiptNumber} />
+                            {transferDate && (
+                                <div className="col-6 col-md-3">
+                                    <InfoField label="วันที่ย้าย" value={formatThaiDate(transferDate)} />
+                                </div>
+                            )}
+                            {deliveryDate && (
+                                <div className="col-6 col-md-3">
+                                    <InfoField label="วันที่ส่ง" value={formatThaiDate(deliveryDate)} />
                                 </div>
                             )}
                         </div>

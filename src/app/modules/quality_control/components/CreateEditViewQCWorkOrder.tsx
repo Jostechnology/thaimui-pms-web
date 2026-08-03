@@ -20,6 +20,17 @@ import { formatIntegerInput } from "../../../utils/input_format_utils";
 
 type PageMode = "create" | "view" | "edit";
 
+// customer_receipt_number used to double as both "วันที่ย้าย" and "วันที่ส่ง"
+// (one field, two inputs — editing one clobbered the other). The BE now has
+// dedicated transfer_date / delivery_date columns and customer_receipt_number
+// means an actual receipt number instead. QCWorkOrderData (shared type, not
+// owned by this fix) doesn't carry the two new date fields yet, so they're
+// layered on locally here rather than touching that shared file.
+type QCWorkOrderFormState = QCWorkOrderData & {
+	transferDate: string;
+	deliveryDate: string;
+};
+
 const CreateEditViewQCWorkOrder: React.FC = () => {
 	const { qc_workorder_id } = useParams<{ qc_workorder_id: string }>();
 	const location = useLocation();
@@ -34,7 +45,11 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 	const [loading, setLoading] = useState(false);
 	const [pdfLoading, setPdfLoading] = useState(false);
 
-	const [formData, setFormData] = useState<QCWorkOrderData>(qcWorkData);
+	const [formData, setFormData] = useState<QCWorkOrderFormState>({
+		...qcWorkData,
+		transferDate: "",
+		deliveryDate: "",
+	});
 	const [salesOrders, setSalesOrders] = useState<any[]>([]);
 	const [searchSalesOrder, setSearchSalesOrder] = useState<string>("");
 	const [salesItems, setSalesItems] = useState<any[]>([]);
@@ -122,6 +137,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 					...qcWorkData,
 					// QCWorkOrder fields
 					work_order_id: raw.work_order_id,
+					documentNumber: raw.qc_work_order_code ?? "",
 					// QCForm fields — map snake_case → camelCase
 					ptt: form.std_ptt ?? false,
 					chevron: form.std_chevron ?? false,
@@ -142,7 +158,11 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 					serialOthersText: form.serial_others_text ?? "",
 					generalRemark: form.general_remark ?? "",
 					details: form.details ?? "",
+					// customerReceiptNumber is loaded read-through only (see QCWorkOrderFormState
+					// note above) — this FE no longer writes it; kept for PDF export fidelity.
 					customerReceiptNumber: form.customer_receipt_number ?? "",
+					transferDate: form.transfer_date ?? "",
+					deliveryDate: form.delivery_date ?? "",
 					docEntry: raw.doc_entry ?? "",          // ← ใช้ doc_entry ที่ backend ส่งใหม่
 					salesItemId: raw.sales_item_id ?? undefined,
 					salesItemCode: raw.sales_item_code ?? "",
@@ -191,7 +211,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 		}
 	};
 
-	const handleInputChange = (field: keyof QCWorkOrderData, value: any) => {
+	const handleInputChange = (field: keyof QCWorkOrderFormState, value: any) => {
 		setFormData((prev) => ({
 			...prev,
 			[field]: value,
@@ -355,7 +375,7 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				console.error("Failed to fetch sales order info", e);
 			}
 		} else {
-			setFormData(qcWorkData);
+			setFormData({ ...qcWorkData, transferDate: "", deliveryDate: "" });
 			setSearchSalesOrder("");
 			setSalesItems([]);
 			setMaterialList([]);
@@ -437,18 +457,18 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 										disabled
 									/>
 								</div>
-								<div className="col-md-2">
-									<label className="form-label">เลขที่</label>
-									<input
-										type="text"
-										className="form-control"
-										value={formData.documentNumber}
-										onChange={(e) =>
-											handleInputChange("documentNumber", e.target.value)
-										}
-										disabled
-									/>
-								</div>
+								{formData.documentNumber && (
+									<div className="col-md-2">
+										<label className="form-label">เลขที่ใบสั่งเทส</label>
+										<input
+											type="text"
+											className="form-control"
+											value={formData.documentNumber}
+											disabled
+											readOnly
+										/>
+									</div>
+								)}
 							</div>
 
 							{/* Customer Information */}
@@ -567,11 +587,11 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 								<div className="col-md-3">
 									<label className="form-label">วันที่ย้าย</label>
 									<input
-										type="text"
+										type="date"
 										className="form-control"
-										value={formData.customerReceiptNumber}
+										value={formData.transferDate}
 										onChange={(e) =>
-											handleInputChange("customerReceiptNumber", e.target.value)
+											handleInputChange("transferDate", e.target.value)
 										}
 										disabled={isReadOnly}
 									/>
@@ -580,11 +600,11 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 								<div className="col-md-3">
 									<label className="form-label">วันที่ส่ง</label>
 									<input
-										type="text"
+										type="date"
 										className="form-control"
-										value={formData.customerReceiptNumber}
+										value={formData.deliveryDate}
 										onChange={(e) =>
-											handleInputChange("customerReceiptNumber", e.target.value)
+											handleInputChange("deliveryDate", e.target.value)
 										}
 										disabled={isReadOnly}
 									/>
@@ -1060,8 +1080,12 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 						<tr>
 							<td style={{ padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>รหัสสินค้า (Sales Item)</td>
 							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.docEntry}</td>
-							<td style={{ padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>วันที่ย้าย / ส่ง</td>
-							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.customerReceiptNumber}</td>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>วันที่ย้าย</td>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }}>{formData.transferDate}</td>
+						</tr>
+						<tr>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc", fontWeight: "bold", background: "#f5f5f5" }}>วันที่ส่ง</td>
+							<td style={{ padding: "3px 6px", border: "1px solid #ccc" }} colSpan={3}>{formData.deliveryDate}</td>
 						</tr>
 					</tbody>
 				</table>
