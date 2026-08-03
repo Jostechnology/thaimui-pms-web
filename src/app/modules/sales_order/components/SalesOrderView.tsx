@@ -13,6 +13,51 @@ import { SalesItem } from '../../../type_interface/SalesItemType';
 import { Branch } from '../../../type_interface/BranchType';
 import { SalesOrderDetail } from '../../../type_interface/SalesOrderType';
 
+// Best-guess "what to do next" for a sales item row, derived only from fields
+// already rendered in this table (see the row markup below). This is a
+// convenience shortcut, not a gate — the explicit status/action buttons stay
+// exactly as they are; this never hides information, it only offers one more
+// way forward once both a work order and a QC order already exist.
+//
+// NOTE: item.work_order is typed `any` (SalesItemType.ts) and, at runtime, is
+// dumped via the backend's WorkOrderSchema — which does NOT include
+// item_components, so "has no filled components yet" can't be read directly
+// off this item. status === 'READY' (the WO's pre-production state) is used
+// as the closest available proxy instead.
+const getNextAction = (item: SalesItem): { label: string; to: string } | null => {
+    if (item.status === 'COMPLETED') return null;
+
+    if (item.work_order && item.work_order.status === 'READY') {
+        return {
+            label: 'กรอกส่วนประกอบใบสั่งผลิต',
+            to: `/workorder/workorders_view/${item.work_order.work_order_id}`,
+        };
+    }
+
+    if (item.test && item.num_qc_work_order === 0) {
+        return {
+            label: 'สร้างใบสั่ง QC',
+            to: `/quality_control/qc_workorders_list/create?doc_entry=${item.doc_entry}&sales_item_id=${item.sales_item_id}`,
+        };
+    }
+
+    if (item.num_qc_work_order > 0) {
+        return {
+            label: 'ดูใบสั่ง QC',
+            to: `/quality_control/qc_workorders_list?search=${encodeURIComponent(item.item_code)}`,
+        };
+    }
+
+    if (item.passed_qty > 0) {
+        return {
+            label: 'สร้างใบรับรอง',
+            to: `/quality_control/qc_test_cert_list/create?doc_entry=${item.doc_entry}&sales_item_id=${item.sales_item_id}`,
+        };
+    }
+
+    return null;
+};
+
 const SalesOrderView: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -454,6 +499,21 @@ const SalesOrderView: React.FC = () => {
                                                             <i className="bi bi-clipboard2-check me-1"></i>สร้างใบสั่ง QC
                                                         </button>
                                                     )}
+                                                    {(() => {
+                                                        const nextAction = getNextAction(item);
+                                                        return nextAction ? (
+                                                            <button
+                                                                className="btn btn-sm btn-light-info py-1 px-3"
+                                                                title={nextAction.label}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    navigate(nextAction.to);
+                                                                }}
+                                                            >
+                                                                <i className="bi bi-arrow-right-circle me-1"></i>ดำเนินการต่อ
+                                                            </button>
+                                                        ) : null;
+                                                    })()}
                                                 </div>
                                             </td>
                                         </tr>
