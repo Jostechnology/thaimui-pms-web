@@ -80,6 +80,9 @@ const WorkorderList: React.FC = () => {
 
     const workingCount = workorders.filter(w => normalizeStatusKey(w.status) === 'INPROGRESS').length;
     const COMPLETEDCount = workorders.filter(w => normalizeStatusKey(w.status) === 'COMPLETED').length;
+    // แจ้งเตือนว่าจำนวนที่แสดงนับเฉพาะหน้านี้ (เกิดจากการกรองสถานะฝั่ง Client เนื่องจาก Server ยังไม่รองรับ)
+    const [pageOnlyFilterNote, setPageOnlyFilterNote] = useState<boolean>(false);
+
     useTableParams({
         currentPage,
         setCurrentPage,
@@ -118,16 +121,19 @@ const WorkorderList: React.FC = () => {
             );
             if (result && result.success) {
                 // SERVER MAY NOT APPLY FILTER — apply client-side fallback filter
-                let items = result.data.items || [];
+                const rawItems = result.data.items || [];
                 const filterParam = normalizeStatusKey(statusFilter) || '';
-                if (filterParam) {
-                    items = items.filter((it: any) => normalizeStatusKey(it.status) === filterParam);
-                }
+                const items = filterParam
+                    ? rawItems.filter((it: any) => normalizeStatusKey(it.status) === filterParam)
+                    : rawItems;
                 setWorkorders(items);
                 setTotalPages(result.pagination?.pages ?? 0);
+                // ถ้ากรองสถานะแล้วตัดรายการออกจริง แสดงว่า pagination total อ้างอิงจากข้อมูลที่ยังไม่ได้กรอง
+                setPageOnlyFilterNote(!!filterParam && items.length !== rawItems.length);
             } else {
                 setWorkorders([]);
                 setTotalPages(0);
+                setPageOnlyFilterNote(false);
             }
         } catch (error) {
             console.error(error);
@@ -405,7 +411,12 @@ const WorkorderList: React.FC = () => {
                     {/* Pagination */}
                     <div className='d-flex flex-stack flex-wrap pt-10'>
                         <div className='fs-6 fw-semibold text-gray-700'>
-                            {/* แสดงข้อความจำนวนรายการถ้าต้องการ */}
+                            {pageOnlyFilterNote && (
+                                <span className='text-warning'>
+                                    <i className='bi bi-exclamation-triangle me-1'></i>
+                                    จำนวนที่แสดงนับเฉพาะหน้านี้ เนื่องจากตัวกรองสถานะยังไม่ถูกนำไปใช้ที่ฝั่งเซิร์ฟเวอร์
+                                </span>
+                            )}
                         </div>
                         <TablePaginator
                             currentPage={currentPage}

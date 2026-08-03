@@ -25,6 +25,27 @@ const URGENCY_BADGE: Record<UrgencyLevel, string> = {
     URGENT: 'badge-light-danger',
 };
 
+// useTableParams treats "ทั้งหมด" as the "no filter" sentinel for its `filter` slot.
+// urgencyFilter uses "" for "no filter" internally, so convert between the two.
+const urgencyToFilterParam = (urgency: UrgencyLevel | ''): string => urgency || 'ทั้งหมด';
+const filterParamToUrgency = (raw: string): UrgencyLevel | '' =>
+    (!raw || raw === 'ทั้งหมด') ? '' : (raw as UrgencyLevel);
+
+const parseDateRangeFromParams = (searchParams: URLSearchParams): [Date | null, Date | null] => {
+    const rawMonth = searchParams.get('month');
+    const rawStartDate = searchParams.get('startDate');
+    const rawEndDate = searchParams.get('endDate');
+    if (rawMonth) {
+        const [year, month] = rawMonth.split('-').map(Number);
+        if (year && month) {
+            return [new Date(year, month - 1, 1), new Date(year, month, 0)];
+        }
+    } else if (rawStartDate && rawEndDate) {
+        return [new Date(rawStartDate), new Date(rawEndDate)];
+    }
+    return [null, null];
+};
+
 const SalesOrderList: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -40,9 +61,9 @@ const SalesOrderList: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState<string>(searchParams.get("search") || "");
     const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get("page") || "1"));
     const [pageConfig, setPageConfig] = useState(parseInt(searchParams.get("pageConfig") || "10"));
-    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(() => parseDateRangeFromParams(searchParams));
     const [startDate, endDate] = dateRange;
-    const [urgencyFilter, setUrgencyFilter] = useState<UrgencyLevel | "">("");
+    const [urgencyFilter, setUrgencyFilter] = useState<UrgencyLevel | "">(() => filterParamToUrgency(searchParams.get("filter") || ""));
     const [urgencySort, setUrgencySort] = useState<"" | "asc" | "desc">("");
 
     const cycleUrgencySort = () => {
@@ -58,6 +79,11 @@ const SalesOrderList: React.FC = () => {
         setKeyword,
         setPageConfig,
         setSearchTerm,
+        filter: urgencyToFilterParam(urgencyFilter),
+        setFilter: (value: string) => setUrgencyFilter(filterParamToUrgency(value)),
+        startDate,
+        endDate,
+        setDateRange,
     });
 
     // Live search: debounce searchTerm -> keyword (750ms). Enter fires immediately (see input below).
