@@ -272,7 +272,12 @@ const CreateEditViewQCWorkOrder: React.FC = () => {
 				const result = await createQCWorkOrder(formData);
 				if (result.success) {
 					Swal.fire("สำเร็จ!", "สร้างใบสั่งเทสเรียบร้อยแล้ว", "success");
-					navigate("/quality_control/qc_workorders_list");
+					const newId = result.data?.qc_work_order_id;
+					if (newId) {
+						navigate(`/quality_control/qc_workorders_list/view/${newId}`);
+					} else {
+						navigate("/quality_control/qc_workorders_list");
+					}
 				} else {
 					Swal.fire("ผิดพลาด!", result.message || "ไม่สามารถสร้างข้อมูลได้", "error");
 				}
