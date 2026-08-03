@@ -89,6 +89,20 @@ const WorkorderList: React.FC = () => {
         setPageConfig,
         setSearchTerm
     });
+
+    // Live search: debounce searchTerm -> keyword (750ms). Enter fires immediately (see input below).
+    // Guarded against firing on mount / URL-restore because it only acts when the
+    // debounced value actually differs from the committed keyword.
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            if (keyword !== searchTerm) {
+                setKeyword(searchTerm);
+                setCurrentPage(1);
+            }
+        }, 750);
+        return () => clearTimeout(handler);
+    }, [searchTerm, keyword]);
+
     const fetchWorkorders = async () => {
         if ((startDate && !endDate) || (!startDate && endDate)) return;
         setDataLoading(true);
@@ -243,7 +257,12 @@ const WorkorderList: React.FC = () => {
                                 placeholder='ค้นหาจากรหัสใบสั่งผลิต'
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && setKeyword(searchTerm)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        setKeyword(searchTerm);
+                                        setCurrentPage(1);
+                                    }
+                                }}
                             />
                         </div>
                     </div>
