@@ -9,9 +9,9 @@ import {
     getComponentTemplates,
     getComponentTemplateById,
     getItemComponentSections,
-    saveItemComponentSections,
-    updateItemComponentMaterialUsage,
+    saveItemComponent,
 } from '../../../services/componentTemplateService';
+import type { SaveItemComponentPayload } from '../../../services/componentTemplateService';
 import {
     createItemComponentEditRequest,
     cancelComponentEditRequest,
@@ -226,10 +226,13 @@ const ComponentDetailEditor: React.FC = () => {
     }, [originalMaterialSelections, materialSelections]);
 
     // ── Apply a fresh ItemComponent to state ──
-    // Split in two on purpose: a save that only touches sections (or only
-    // materials) must be able to refresh ITS half from the response without
-    // stomping the other half's in-flight, not-yet-saved edits. See
-    // handleSave's sequencing comment for why this matters.
+    // Split in two on purpose. Both halves come from the SAME response now
+    // (handleSave makes exactly one request to the combined save endpoint),
+    // but sections are sent — and therefore refreshed — on every save,
+    // while materials are only sent, and only refreshed, when
+    // materialsChanged. Keeping the split means an unrelated sections-only
+    // save can never stomp the materials half of state with anything other
+    // than an idempotent echo of what was already there.
     const applyComponentSectionState = (comp: ItemComponent) => {
         setComponent(comp);
         if (comp.component_template_id) {
@@ -358,8 +361,9 @@ const ComponentDetailEditor: React.FC = () => {
         // it inline instead of only as a server 400. The server remains the
         // real authority (it sums usage across the whole WorkOrder against
         // MaterialList.quantity, not remaining_num — see
-        // updateItemComponentMaterialUsage's docstring on the API side); this
-        // is best-effort UX sugar on top of that.
+        // _write_material_usage's docstring on the API side, shared by both
+        // the combined save endpoint and the standalone material_usage PATCH);
+        // this is best-effort UX sugar on top of that.
         if (materialsChanged) {
             for (const m of materialSelections) {
                 if (!m.quantity_used || m.quantity_used <= 0) {
@@ -443,76 +447,59 @@ const ComponentDetailEditor: React.FC = () => {
                 };
             });
 
-            // ── Save ordering (sections, then materials) ──
-            // Sections stay the unconditional, primary write — exactly as
-            // before this feature existed — and materials only fire a second
-            // call when materialsChanged. That matters because a single-use
-            // approval is consumed by WHICHEVER write succeeds first while
-            // hasApproval is true: the backend's _assert_editable has no
-            // concept of "this save has two parts," so if both calls fire
-            // under one approval, the second one always 403s (the component
-            // re-locks the instant the first write consumes the request).
-            // Sections goes first because it's this page's original,
-            // unconditional action (template/section edits, the test-section
-            // removal confirm above, QC auto-sync) — keeping it first leaves
-            // that whole existing contract untouched. Materials is the new,
-            // additive, change-gated action, so it takes the second slot: when
-            // there's no active approval (the common case — most edits happen
-            // before any WorkRun starts) both calls succeed independently with
-            // no consumption involved at all. When there IS a single-use
-            // approval and both changed, the materials call cleanly 403s after
-            // sections already saved; we surface that as a distinct message
-            // and — critically — never touch materialSelections on that path,
-            // so the user's material edits survive for the next approval
-            // instead of being silently dropped.
-            const sectionsRes = await saveItemComponentSections(Number(componentId), {
+            // ── One request, one transaction ──
+            // POST .../save takes sections_data and/or material_usage and
+            // runs ONE _assert_editable/approval-consumption/version/document
+            // cycle for both, so a locked-with-approval save that touches
+            // both parts no longer needs (and can no longer survive) two
+            // separate calls — the old sections-then-materials sequence used
+            // to 403 on the second call because the single-use approval was
+            // already consumed by the first.
+            //
+            // sections_data is sent on every save, unconditionally — this
+            // page has always rebuilt and resent the full section set on
+            // every Save click (even when the user only touched materials),
+            // and that pre-existing behavior is preserved as-is here. It's
+            // now harmless: both parts land in the same transaction instead
+            // of burning a second approval, so re-sending unchanged sections
+            // costs nothing it didn't already cost before this endpoint
+            // existed. material_usage is included ONLY when materialsChanged
+            // — by key presence, not truthiness — because omitting the key
+            // entirely is how this endpoint means "leave materials alone";
+            // sending it (even as []) is a real, explicit "replace/clear
+            // materials" instruction, and an unchanged materials section must
+            // never trigger that.
+            const payload: SaveItemComponentPayload = {
                 component_template_id: selectedTemplateId,
                 sections_data: sectionsData,
                 ...(changeReason ? { change_reason: changeReason } : {}),
-            });
+            };
+            if (materialsChanged) {
+                payload.material_usage = materialSelections.map(m => ({
+                    material_list_id: m.material_list_id,
+                    quantity_used: m.quantity_used,
+                }));
+            }
 
-            if (!sectionsRes?.success) {
-                // A locked save answers 403 with a Thai explanation — show it verbatim.
-                Swal.fire('บันทึกไม่สำเร็จ', sectionsRes?.message || 'ไม่สามารถบันทึกข้อมูลได้', 'error');
+            const res = await saveItemComponent(Number(componentId), payload);
+
+            if (!res?.success) {
+                // A locked save (or an over-allocation, etc.) answers with a
+                // Thai explanation — show it verbatim, and leave both
+                // formData/testSectionOverrides and materialSelections
+                // exactly as the user left them: nothing was written, so
+                // nothing here should be discarded.
+                Swal.fire('บันทึกไม่สำเร็จ', res?.message || 'ไม่สามารถบันทึกข้อมูลได้', 'error');
                 return;
             }
 
             // Drop the response straight into state (doc_version bumped, any
-            // approval now reflected as consumed) instead of a full refetch —
-            // and deliberately do NOT touch materialSelections here, in case a
-            // materials PATCH is about to follow.
-            applyComponentSectionState(sectionsRes.data);
-
-            if (!materialsChanged) {
-                await Swal.fire({ title: 'บันทึกสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false });
-                return;
+            // approval now reflected as consumed) instead of a full refetch.
+            applyComponentSectionState(res.data);
+            if (materialsChanged) {
+                applyMaterialUsageState(res.data);
             }
-
-            const materialsRes = await updateItemComponentMaterialUsage(Number(componentId), {
-                material_usage: materialSelections.map(m => ({
-                    material_list_id: m.material_list_id,
-                    quantity_used: m.quantity_used,
-                })),
-                ...(changeReason ? { change_reason: changeReason } : {}),
-            });
-
-            if (materialsRes?.success) {
-                applyComponentSectionState(materialsRes.data);
-                applyMaterialUsageState(materialsRes.data);
-                await Swal.fire({ title: 'บันทึกสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false });
-                return;
-            }
-
-            // Sections saved, materials didn't — show the server's verbatim
-            // Thai message (covers both "approval already consumed by the
-            // sections write above" and genuine validation failures like
-            // over-allocation) and leave materialSelections exactly as the
-            // user left it.
-            Swal.fire(
-                'บันทึกแบบฟอร์มสำเร็จ แต่บันทึกวัตถุดิบไม่สำเร็จ',
-                materialsRes?.message || 'ไม่สามารถบันทึกวัตถุดิบได้',
-                'warning'
-            );
+            await Swal.fire({ title: 'บันทึกสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false });
         } catch {
             Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้', 'error');
         } finally {

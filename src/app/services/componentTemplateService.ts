@@ -170,6 +170,50 @@ export const updateItemComponentMaterialUsage = async (
     }
 };
 
+/**
+ * Combined save: sections and/or material usage in ONE request, ONE
+ * transaction on the backend (POST .../save) — one `_assert_editable`, one
+ * approval consumption, one version row, one document regeneration. This
+ * replaces the old two-call orchestration (saveItemComponentSections then
+ * updateItemComponentMaterialUsage) for this screen, which used to 403 on
+ * the second call whenever a single-use edit approval was in play.
+ *
+ * Key presence, not truthiness, controls which part is touched:
+ * - Omit `sections_data` entirely to leave sections untouched.
+ * - Omit `material_usage` entirely to leave material usage untouched.
+ * - `sections_data: []` / `material_usage: []` are real "clear this part"
+ *   instructions — never send either key unless you mean it.
+ * Sending neither key is rejected by the backend (400) before any write, so
+ * a no-op save can't burn the approval.
+ *
+ * The response is the updated ItemComponent dumped with the same schema as
+ * the other item_component endpoints — drop it straight into state instead
+ * of refetching.
+ */
+export interface SaveItemComponentPayload {
+    component_template_id?: number | null;
+    sections_data?: SectionDataPayloadEntry[];
+    material_usage?: MaterialUsagePayloadEntry[];
+    change_reason?: string;
+}
+
+export const saveItemComponent = async (
+    itemComponentId: number,
+    payload: SaveItemComponentPayload
+): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "POST",
+            `/item_component/${itemComponentId}/save`,
+            payload,
+            { wrapData: false }
+        );
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
 export const saveItemComponentSectionsBatch = async (
     payload: {
         item_component_id: number;
