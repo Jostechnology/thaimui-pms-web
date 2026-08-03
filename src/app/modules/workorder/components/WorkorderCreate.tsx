@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Select from 'react-select';
 import { Content } from '../../../../_metronic/layout/components/content';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -14,22 +14,16 @@ import {
 import type { SalesOrderSearch, SalesOrderDetail } from '../../../type_interface/SalesOrderType';
 import type { SalesItem } from '../../../type_interface/SalesItemType';
 import type { Material } from '../../../type_interface/MaterialType';
-import type { WorkOrder, ItemComponent } from '../../../type_interface/WorkOrderType';
+import type { WorkOrder } from '../../../type_interface/WorkOrderType';
 import type { ComponentTemplate, TemplateSection } from '../../../type_interface/ComponentTemplateType';
 import TemplateSectionForm from './TemplateSectionForm';
+import MaterialPicklist, { getAvailableForMaterial, type MaterialSelection } from './MaterialPicklist';
 import Swal from 'sweetalert2';
-
-interface MaterialRow {
-    id: number;
-    material_list_id: number | '';
-    quantity_used: number | '';
-}
 
 interface ComponentItem {
     id: number;
     component_name: string;
-    materials: MaterialRow[];
-    nextMaterialId: number;
+    materials: MaterialSelection[];
 }
 
 type SectionFormData = Record<string, any>;
@@ -61,7 +55,7 @@ const WorkorderCreate: React.FC = () => {
 
     // Components - each component has multiple materials
     const [components, setComponents] = useState<ComponentItem[]>([
-        { id: 1, component_name: '', materials: [{ id: 1, material_list_id: '', quantity_used: '' }], nextMaterialId: 2 },
+        { id: 1, component_name: '', materials: [] },
     ]);
     const [nextComponentId, setNextComponentId] = useState(2);
 
@@ -180,7 +174,7 @@ const WorkorderCreate: React.FC = () => {
 
     const resetComponents = () => {
         setComponents([
-            { id: 1, component_name: '', materials: [{ id: 1, material_list_id: '', quantity_used: '' }], nextMaterialId: 2 },
+            { id: 1, component_name: '', materials: [] },
         ]);
         setNextComponentId(2);
     };
@@ -189,7 +183,7 @@ const WorkorderCreate: React.FC = () => {
     const addComponent = () => {
         setComponents(prev => [
             ...prev,
-            { id: nextComponentId, component_name: '', materials: [{ id: 1, material_list_id: '', quantity_used: '' }], nextMaterialId: 2 }
+            { id: nextComponentId, component_name: '', materials: [] }
         ]);
         setNextComponentId(prev => prev + 1);
     };
@@ -205,92 +199,42 @@ const WorkorderCreate: React.FC = () => {
     };
 
     // ─── Material helpers ──────────────────────────────────────
-    const addMaterial = (componentId: number) => {
+    const updateComponentMaterials = (componentId: number, next: MaterialSelection[]) => {
         setComponents(prev =>
-            prev.map(comp => {
-                if (comp.id === componentId) {
-                    return {
-                        ...comp,
-                        materials: [...comp.materials, { id: comp.nextMaterialId, material_list_id: '', quantity_used: '' }],
-                        nextMaterialId: comp.nextMaterialId + 1
-                    };
-                }
-                return comp;
-            })
+            prev.map(comp => comp.id === componentId ? { ...comp, materials: next } : comp)
         );
     };
 
-    const removeMaterial = (componentId: number, materialRowId: number) => {
-        setComponents(prev =>
-            prev.map(comp => {
-                if (comp.id === componentId) {
-                    return {
-                        ...comp,
-                        materials: comp.materials.filter(m => m.id !== materialRowId)
-                    };
-                }
-                return comp;
-            })
-        );
-    };
+    // Single pass over every component's material rows, grouped by
+    // material_list_id — feeds the per-component "allocatedElsewhere" slice
+    // below so each component's picklist reflects what every OTHER
+    // component is using, live, without hiding materials from dropdowns.
+    const materialUsageByMaterial = useMemo(() => {
+        const map: Record<number, { componentId: number; qty: number; label: string }[]> = {};
+        components.forEach((comp, idx) => {
+            comp.materials.forEach(m => {
+                const qty = Number(m.quantity_used) || 0;
+                if (qty <= 0) return;
+                if (!map[m.material_list_id]) map[m.material_list_id] = [];
+                map[m.material_list_id].push({
+                    componentId: comp.id,
+                    qty,
+                    label: comp.component_name.trim() || `ส่วนประกอบที่ ${idx + 1}`,
+                });
+            });
+        });
+        return map;
+    }, [components]);
 
-    const updateMaterial = (componentId: number, materialRowId: number, field: keyof MaterialRow, value: any) => {
-        setComponents(prev =>
-            prev.map(comp => {
-                if (comp.id === componentId) {
-                    return {
-                        ...comp,
-                        materials: comp.materials.map(m =>
-                            m.id === materialRowId ? { ...m, [field]: value } : m
-                        )
-                    };
-                }
-                return comp;
-            })
-        );
-    };
-
-    const handleQuantityChange = (componentId: number, materialRowId: number, value: string, maxAmount: number) => {
-        if (value === '' || /^\d+$/.test(value)) {
-            if (value === '') {
-                updateMaterial(componentId, materialRowId, 'quantity_used', '');
-                return;
-            }
-            const num = Number(value);
-            if (num > maxAmount) {
-                updateMaterial(componentId, materialRowId, 'quantity_used', maxAmount);
-                return;
-            }
-            updateMaterial(componentId, materialRowId, 'quantity_used', num);
-        }
-    };
-
-    const getSelectedMaterialIdsInComponent = (componentId: number): number[] => {
-        const comp = components.find(c => c.id === componentId);
-        if (!comp) return [];
-        return comp.materials
-            .map(m => m.material_list_id)
-            .filter((id): id is number => id !== '');
-    };
-
-    const getAvailableQuantity = (materialListId: number): number => {
-        const mat = materials.find(m => m.material_list_id === materialListId);
-        return mat ? mat.remaining_num : 0;
-    };
-
-    const getTotalUsedForMaterial = (materialListId: number, excludeComponentId?: number, excludeMaterialRowId?: number): number => {
-        let total = 0;
-        for (const comp of components) {
-            for (const mat of comp.materials) {
-                if (mat.material_list_id === materialListId) {
-                    if (comp.id === excludeComponentId && mat.id === excludeMaterialRowId) {
-                        continue;
-                    }
-                    total += Number(mat.quantity_used) || 0;
-                }
-            }
-        }
-        return total;
+    const getAllocatedElsewhere = (componentId: number): Record<number, { qty: number; label: string }[]> => {
+        const result: Record<number, { qty: number; label: string }[]> = {};
+        Object.entries(materialUsageByMaterial).forEach(([materialListIdStr, entries]) => {
+            const others = entries
+                .filter(e => e.componentId !== componentId)
+                .map(e => ({ qty: e.qty, label: e.label }));
+            if (others.length > 0) result[Number(materialListIdStr)] = others;
+        });
+        return result;
     };
 
     // ─── Submit (Step 1) ───────────────────────────────────────
@@ -306,25 +250,30 @@ const WorkorderCreate: React.FC = () => {
                 Swal.fire('ข้อมูลไม่ครบ', `กรุณาระบุชื่อส่วนประกอบที่ ${i + 1}`, 'warning');
                 return;
             }
-            const validMaterials = comp.materials.filter(m => m.material_list_id !== '');
-            if (validMaterials.length === 0) {
+            if (comp.materials.length === 0) {
                 Swal.fire('ข้อมูลไม่ครบ', `กรุณาเพิ่มวัตถุดิบในส่วนประกอบที่ ${i + 1}`, 'warning');
                 return;
             }
-            if (validMaterials.some(m => m.quantity_used === '' || Number(m.quantity_used) <= 0)) {
+            if (comp.materials.some(m => !m.quantity_used || m.quantity_used <= 0)) {
                 Swal.fire('ข้อมูลไม่ถูกต้อง', `จำนวนวัตถุดิบในส่วนประกอบที่ ${i + 1} ต้องมากกว่า 0`, 'warning');
                 return;
             }
-        }
-
-        for (let i = 0; i < components.length; i++) {
-            const comp = components[i];
-            const matIds = comp.materials
-                .map(m => m.material_list_id)
-                .filter((id): id is number => id !== '');
-            if (new Set(matIds).size !== matIds.length) {
-                Swal.fire('ข้อมูลซ้ำ', `มีวัตถุดิบที่ซ้ำกันในส่วนประกอบที่ ${i + 1} กรุณาตรวจสอบอีกครั้ง`, 'warning');
-                return;
+            // A material row's checkbox IS its identity within a component,
+            // so a duplicate material_list_id in one component is now
+            // structurally impossible — no dedupe check needed here anymore.
+            const allocatedElsewhere = getAllocatedElsewhere(comp.id);
+            for (const m of comp.materials) {
+                const mat = materials.find(mm => mm.material_list_id === m.material_list_id);
+                if (!mat) continue;
+                const available = getAvailableForMaterial(mat, allocatedElsewhere[m.material_list_id]);
+                if (Number.isFinite(available) && m.quantity_used > available) {
+                    Swal.fire(
+                        'จำนวนเกินคงเหลือ',
+                        `วัตถุดิบ "${mat.item_name}" ในส่วนประกอบที่ ${i + 1} มีจำนวนเกินคงเหลือ (คงเหลือ ${available})`,
+                        'warning'
+                    );
+                    return;
+                }
             }
         }
 
@@ -342,16 +291,13 @@ const WorkorderCreate: React.FC = () => {
         setSubmitting(true);
         setLoading();
         try {
-            const item_components = components.map(comp => {
-                const validMaterials = comp.materials.filter(m => m.material_list_id !== '');
-                return {
-                    component_name: comp.component_name.trim(),
-                    material_usage: validMaterials.map(m => ({
-                        material_list_id: m.material_list_id as number,
-                        quantity_used: Number(m.quantity_used),
-                    })),
-                };
-            });
+            const item_components = components.map(comp => ({
+                component_name: comp.component_name.trim(),
+                material_usage: comp.materials.map(m => ({
+                    material_list_id: m.material_list_id,
+                    quantity_used: Number(m.quantity_used),
+                })),
+            }));
 
             const payload = {
                 sales_item_id: selectedSalesItemId as number,
@@ -434,9 +380,7 @@ const WorkorderCreate: React.FC = () => {
     };
 
 
-    const hasAnySelectedMaterial = components.some(comp =>
-        comp.materials.some(m => m.material_list_id !== '')
-    );
+    const hasAnySelectedMaterial = components.some(comp => comp.materials.length > 0);
 
     return (
         <Content>
@@ -538,131 +482,47 @@ const WorkorderCreate: React.FC = () => {
                                 </button>
                             </div>
 
-                            {materials.length === 0 && (
-                                <div className="alert alert-warning d-flex align-items-center py-3 mb-5">
-                                    <i className="bi bi-exclamation-triangle text-warning me-3 fs-4"></i>
-                                    <span>ไม่พบวัตถุดิบสำหรับรายการสินค้าที่เลือก</span>
-                                </div>
-                            )}
-
-                            {components.map((comp, compIdx) => {
-                                const selectedInThisComponent = getSelectedMaterialIdsInComponent(comp.id);
-                                const hasUnselectedInThisComp = comp.materials.some(m => m.material_list_id === '');
-                                const availableForThisComponent = materials.filter(m =>
-                                    !selectedInThisComponent.includes(m.material_list_id)
-                                ).length;
-                                const total = availableForThisComponent + selectedInThisComponent.length
-
-                                return (
-                                    <div key={comp.id} className="card card-flush shadow-sm border-0 mb-5">
-                                        <div className="card-header py-4 px-6 bg-light-primary d-flex justify-content-between align-items-center">
-                                            <div className="d-flex align-items-center flex-grow-1 me-3">
-                                                <span className="badge badge-primary me-3 fs-6">{compIdx + 1}</span>
-                                                <input
-                                                    type="text"
-                                                    className="form-control form-control-lg form-control-sm fw-bold"
-                                                    placeholder={`ชื่อส่วนประกอบ (Component ${compIdx + 1})`}
-                                                    value={comp.component_name}
-                                                    onChange={(e) => updateComponentName(comp.id, e.target.value)}
-                                                    style={{ maxWidth: 300 }}
-                                                />
-                                            </div>
-                                            {components.length > 1 && (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-icon btn-light-danger"
-                                                    title="ลบส่วนประกอบ"
-                                                    onClick={() => removeComponent(comp.id)}
-                                                >
-                                                    <i className="bi bi-trash fs-4"></i>
-                                                </button>
-                                            )}
+                            {components.map((comp, compIdx) => (
+                                <div key={comp.id} className="card card-flush shadow-sm border-0 mb-5">
+                                    <div className="card-header py-4 px-6 bg-light-primary d-flex justify-content-between align-items-center">
+                                        <div className="d-flex align-items-center flex-grow-1 me-3">
+                                            <span className="badge badge-primary me-3 fs-6">{compIdx + 1}</span>
+                                            <input
+                                                type="text"
+                                                className="form-control form-control-lg form-control-sm fw-bold"
+                                                placeholder={`ชื่อส่วนประกอบ (Component ${compIdx + 1})`}
+                                                value={comp.component_name}
+                                                onChange={(e) => updateComponentName(comp.id, e.target.value)}
+                                                style={{ maxWidth: 300 }}
+                                            />
                                         </div>
-                                        <div className="card-body py-5 px-6">
-                                            <div className="d-flex justify-content-between align-items-center mb-4">
-                                                <span className="fw-bold text-muted text-uppercase fs-7">
-                                                    รายการวัตถุดิบ (Materials)
-                                                </span>
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-light-primary fw-bold"
-                                                    onClick={() => {
-                                                        addMaterial(comp.id)
-                                                    }}
-                                                    disabled={
-                                                        (total <= comp.materials.length)
-                                                    }
-                                                >
-                                                    <i className="bi bi-plus me-1"></i> เพิ่มวัตถุดิบ
-                                                </button>
-                                            </div>
-
-                                            {comp.materials.map((mat, matIdx) => {
-                                                const selectedMaterial = materials.find(m => m.material_list_id === mat.material_list_id);
-                                                const usedByOthers = selectedMaterial ? getTotalUsedForMaterial(selectedMaterial.material_list_id, comp.id, mat.id) : 0;
-                                                const availableFromStock = selectedMaterial ? getAvailableQuantity(selectedMaterial.material_list_id) : 0;
-                                                const maxQty = selectedMaterial ? availableFromStock - usedByOthers : 1;
-                                                const remaining = selectedMaterial ? maxQty - (Number(mat.quantity_used) || 0) : 0;
-                                                const availableForDropdown = materials.filter(m =>
-                                                    !selectedInThisComponent.includes(m.material_list_id) ||
-                                                    mat.material_list_id === m.material_list_id
-                                                );
-
-                                                return (
-                                                    <div key={mat.id} className="row align-items-center mb-3">
-                                                        <div className="col-md-6 mb-2 mb-md-0">
-                                                            <select
-                                                                className="form-select form-select-solid"
-                                                                value={mat.material_list_id}
-                                                                onChange={(e) => {
-                                                                    const val = e.target.value;
-                                                                    updateMaterial(comp.id, mat.id, 'material_list_id', val === '' ? '' : Number(val));
-                                                                }}
-                                                                disabled={materials.length === 0}
-                                                            >
-                                                                <option value="">เลือกวัตถุดิบ (Material)</option>
-                                                                {availableForDropdown.map((m) => (
-                                                                    <option key={m.material_list_id} value={m.material_list_id}>
-                                                                        {m.item_name}{m.item_group ? ` [${m.item_group}]` : ''}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
-
-                                                        <div className="col-md-3 mb-2 mb-md-0">
-                                                            <input
-                                                                type="text"
-                                                                className="form-control form-control-lg"
-                                                                placeholder="จำนวน"
-                                                                value={mat.quantity_used}
-                                                                onChange={(e) =>
-                                                                    handleQuantityChange(comp.id, mat.id, e.target.value, maxQty)
-                                                                }
-                                                            />
-                                                        </div>
-
-                                                        <div className="col-md-3 d-flex align-items-center justify-content-between">
-                                                            <span className="text-muted fs-7">
-                                                                {selectedMaterial ? `(คงเหลือ: ${remaining})` : ''}
-                                                            </span>
-                                                            {comp.materials.length > 1 && (
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn btn-sm btn-icon btn-light-danger ms-2"
-                                                                    title="ลบวัตถุดิบ"
-                                                                    onClick={() => removeMaterial(comp.id, mat.id)}
-                                                                >
-                                                                    <i className="bi bi-x fs-3"></i>
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                        {components.length > 1 && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm btn-icon btn-light-danger"
+                                                title="ลบส่วนประกอบ"
+                                                onClick={() => removeComponent(comp.id)}
+                                            >
+                                                <i className="bi bi-trash fs-4"></i>
+                                            </button>
+                                        )}
                                     </div>
-                                );
-                            })}
+                                    <div className="card-body py-5 px-6">
+                                        <div className="mb-4">
+                                            <span className="fw-bold text-muted text-uppercase fs-7">
+                                                รายการวัตถุดิบ (Materials)
+                                            </span>
+                                        </div>
+
+                                        <MaterialPicklist
+                                            materials={materials}
+                                            value={comp.materials}
+                                            onChange={(next) => updateComponentMaterials(comp.id, next)}
+                                            allocatedElsewhere={getAllocatedElsewhere(comp.id)}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
                         </>
                     )}
 

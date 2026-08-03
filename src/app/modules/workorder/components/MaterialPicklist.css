@@ -1,0 +1,25 @@
+/* MaterialPicklist.css — table styles for the checkbox-driven material
+   picklist used by WorkorderCreate step 1 (and later ComponentDetailEditor). */
+
+.mp-table-wrap {
+    max-height: 460px;
+    overflow-y: auto;
+}
+
+/* Sticky header — position:sticky must live on the <th> itself (not <tr>)
+   for reliable cross-browser behaviour inside a scrollable table body. */
+.mp-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: #f9f9f9;
+}
+
+/* Keep the qty input a comfortable touch target on tablets. */
+.mp-qty-input {
+    min-height: 40px;
+}
+
+/* กลุ่ม / ใช้แล้วที่อื่น columns collapse via Bootstrap's d-none d-md-table-cell
+   utility classes in the markup (md breakpoint = 768px) — nothing extra
+   needed here; the equivalent info renders inline under the name below md. */
