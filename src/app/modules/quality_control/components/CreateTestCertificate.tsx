@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Select from "react-select";
 import { SalesOrderSearch } from "../../../type_interface/SalesOrderType";
 import { searchSalesOrderService, getSalesOrderForCertificate } from "../../../services/salesOrderService";
 import { getTestResultsBySalesOrder } from "../../../services/testResultService";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Swal from "sweetalert2";
 import { createCertificate } from "../../../services/certificateService";
 
@@ -42,6 +42,10 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => (
 
 const CreateTestCertificate: React.FC = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    // Guards the sales_item_id auto-select so it only fires once, right after
+    // the deep-linked sales order's test results have loaded.
+    const autoSelectedTestResult = useRef(false);
 
     const [overallStatus, setOverallStatus] = useState<'acceptable' | 'not_acceptable'>('acceptable');
     const [salesOrderOptions, setSalesOrderOptions] = useState<SalesOrderSearch[]>([]);
@@ -186,19 +190,29 @@ const CreateTestCertificate: React.FC = () => {
         }
 
         try {
-            // Fetch SO detail for customer + PO ref
-            const soRes = await getSalesOrderForCertificate(Number(option.doc_entry));
+            setTestResultsLoading(true);
+            // SO detail (customer + PO ref) and test results for this SO don't
+            // depend on each other — fetch both at once instead of serially.
+            const [soRes, trRes] = await Promise.all([
+                getSalesOrderForCertificate(Number(option.doc_entry)),
+                getTestResultsBySalesOrder(Number(option.doc_entry)),
+            ]);
+
             if (soRes && soRes.success && soRes.data) {
                 setCertForm(prev => ({
                     ...prev,
                     customerName: soRes.data.card_name || "",
                     poReference: soRes.data.po_reference || "",
                 }));
+                // Deep-link entry (see effect below) only knows doc_entry —
+                // backfill doc_num once the SO detail resolves so the Select
+                // shows a proper label instead of a blank one.
+                setSelectedSalesOrder((prev: any) => prev && {
+                    ...prev,
+                    doc_num: soRes.data.doc_num ?? prev.doc_num,
+                });
             }
 
-            // Fetch test results for this SO
-            setTestResultsLoading(true);
-            const trRes = await getTestResultsBySalesOrder(Number(option.doc_entry));
             if (trRes && trRes.success) {
                 setTestResults(Array.isArray(trRes.data) ? trRes.data : []);
             }
@@ -215,6 +229,32 @@ const CreateTestCertificate: React.FC = () => {
         const timeout = setTimeout(() => { handleSearchSalesOrder(searchKeyword); }, 750);
         return () => clearTimeout(timeout);
     }, [searchKeyword]);
+
+    // Deep-link entry from ViewQCWorkOrder ("สร้างใบรับรอง") — ?doc_entry= runs
+    // the exact same path manual search does (handleSelectSalesOrder), so
+    // manual search keeps working unchanged when these params are absent.
+    useEffect(() => {
+        const docEntryParam = searchParams.get("doc_entry");
+        if (!docEntryParam) return;
+        handleSelectSalesOrder({ doc_entry: Number(docEntryParam) });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Once the deep-linked SO's test results are in, auto-select the one
+    // matching ?sales_item_id= (client-side, by sales_item_id — see :69).
+    useEffect(() => {
+        if (autoSelectedTestResult.current) return;
+        const salesItemIdParam = searchParams.get("sales_item_id");
+        if (!salesItemIdParam || testResults.length === 0) return;
+        const match = testResults.find(
+            (tr) => tr.sales_item_id === Number(salesItemIdParam)
+        );
+        if (match) {
+            handleSelectTestResult(match);
+            autoSelectedTestResult.current = true;
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [testResults, searchParams]);
 
     return (
         <div className="container-fluid px-10 py-8">

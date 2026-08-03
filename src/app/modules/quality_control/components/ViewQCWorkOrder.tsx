@@ -311,6 +311,13 @@ const ViewQCWorkOrder: React.FC = () => {
 
     const statusInfo = getStatusInfo(rawData?.status ?? "");
 
+    // At least one completed test result passed QC — a certificate can be
+    // created from it. Mirrors the completed/passedCount logic used in the
+    // "สรุปการทดสอบ" summary below.
+    const hasPassedTest = testResults.some(
+        (tr) => tr.session_status === "COMPLETED" && tr.overall_status === "PASSED"
+    );
+
     const activeTestSessions = testResultDetails.filter(tr => tr.session_status === 'INPROGRESS');
     const ACTIVE_SESSIONS_PER_PAGE = 3;
     const totalActivePages = Math.ceil(activeTestSessions.length / ACTIVE_SESSIONS_PER_PAGE);
@@ -393,6 +400,16 @@ const ViewQCWorkOrder: React.FC = () => {
                             : <><i className="bi bi-file-earmark-pdf me-1" />Export PDF</>
                         }
                     </button>
+                    {hasPassedTest && formData.docEntry && (
+                        <button
+                            className="btn btn-success"
+                            onClick={() => navigate(
+                                `/quality_control/qc_test_cert_list/create?doc_entry=${formData.docEntry}&sales_item_id=${formData.salesItemId ?? ""}`
+                            )}
+                        >
+                            <i className="bi bi-patch-check me-1" />สร้างใบรับรอง
+                        </button>
+                    )}
                     {formData.is_component_declared ? (
                         <button
                             className="btn btn-light-secondary"
