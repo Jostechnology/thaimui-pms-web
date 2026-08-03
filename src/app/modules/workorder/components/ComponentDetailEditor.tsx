@@ -380,6 +380,13 @@ const ComponentDetailEditor: React.FC = () => {
 
         // Saving against an approved request cuts a new version — the reason is
         // stored on that version row, so make the user spell out what changed.
+        // Prefilled with the requester's own words from the original edit
+        // request (component.active_edit_request.reason) so the user isn't
+        // asked to write the same justification twice — once to ask
+        // Production for the unlock (handleSubmitRequest), again here to
+        // consume it. Still editable, still mandatory; only the blank-page
+        // problem goes away. review_remark is the APPROVER's note, not the
+        // requester's reason, so it is deliberately not used as the prefill.
         let changeReason: string | undefined;
         if (hasApproval) {
             const result = await Swal.fire({
@@ -387,6 +394,7 @@ const ComponentDetailEditor: React.FC = () => {
                 input: 'textarea',
                 inputLabel: 'เหตุผลในการแก้ไข',
                 inputPlaceholder: 'ระบุสิ่งที่แก้ไขในเวอร์ชันนี้...',
+                inputValue: approval?.reason || '',
                 inputAttributes: { rows: '4' },
                 showCancelButton: true,
                 confirmButtonText: 'บันทึก',
