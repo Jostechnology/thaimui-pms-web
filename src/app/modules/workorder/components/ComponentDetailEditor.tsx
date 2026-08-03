@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Content } from '../../../../_metronic/layout/components/content';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Modal } from 'react-bootstrap';
@@ -10,18 +10,21 @@ import {
     getComponentTemplateById,
     getItemComponentSections,
     saveItemComponentSections,
+    updateItemComponentMaterialUsage,
 } from '../../../services/componentTemplateService';
 import {
     createItemComponentEditRequest,
     cancelComponentEditRequest,
 } from '../../../services/componentEditRequestService';
 import { getWorkOrderById } from '../../../services/workorder';
-import type { WorkOrder, ItemComponent } from '../../../type_interface/WorkOrderType';
+import type { WorkOrder, ItemComponent, ComponentMaterialUsage } from '../../../type_interface/WorkOrderType';
 import type { ComponentTemplate, TemplateSection } from '../../../type_interface/ComponentTemplateType';
 import { packIntoRows } from '../../../type_interface/ComponentTemplateType';
 import { downloadComponentDocument } from '../../../services/documentGeneratorService';
 import TemplateSectionForm from './TemplateSectionForm';
 import ComponentVersionHistoryModal from './ComponentVersionHistoryModal';
+import MaterialPicklist, { getAvailableForMaterial } from './MaterialPicklist';
+import type { MaterialOption, MaterialSelection } from './MaterialPicklist';
 
 // ─── Form data state: keyed by section_key ──────────────────
 type SectionFormData = Record<string, any>;
@@ -74,6 +77,13 @@ const ComponentDetailEditor: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [downloading, setDownloading] = useState(false);
 
+    // Materials — the component's own ComponentMaterialUsage rows, edited as a
+    // full-replacement set (mirrors WorkorderCreate's per-component materials
+    // state). Kept independent of `component` so a partial save (see
+    // handleSave) can update `component` without discarding in-flight edits
+    // here.
+    const [materialSelections, setMaterialSelections] = useState<MaterialSelection[]>([]);
+
     // ── Test-section overrides ──
     // Per-component override of each section's is_test_section flag, keyed by
     // section_key. null = inherit the template's flag for that section.
@@ -99,6 +109,132 @@ const ComponentDetailEditor: React.FC = () => {
     const hasPendingRequest = approval?.status === 'PENDING';
     const canEdit = !locked || hasApproval;
 
+    // ── Materials: candidate list ──
+    // GET /get_work_order_by_id does NOT return SalesItem.material_list —
+    // WorkOrderSchema nests sales_item as SalesItemForWorkOrderSchema, which
+    // omits material_list; only SalesItemSchemaDetail (used by other flows,
+    // e.g. WorkorderCreate's own sales-order-detail fetch) carries it. So the
+    // full candidate pool from the sales item is NOT reachable from data this
+    // page already fetches, and per the brief this page must not add a new
+    // endpoint call to reach it (that would touch a service this file
+    // doesn't own). What IS reachable: every MaterialList already referenced
+    // by ANY component's material_usages across this work order — each usage
+    // row nests its own material_list (ComponentMaterialUsageSchema). We
+    // build the candidate list from that union. A material that has never
+    // been assigned to ANY component of this work order will not appear here
+    // — see the task report for this caveat.
+    const materialOptions = useMemo<MaterialOption[]>(() => {
+        const map = new Map<number, MaterialOption>();
+        const consider = (usages?: ComponentMaterialUsage[]) => {
+            (usages || []).forEach(u => {
+                if (map.has(u.material_list_id) || !u.material_list) return;
+                // Backend's MaterialListSchema also dumps unit_name; the FE
+                // ComponentMaterialUsage.material_list type just doesn't
+                // declare it. Read it defensively rather than editing a type
+                // file this component doesn't own.
+                const ml = u.material_list as ComponentMaterialUsage['material_list'] & { unit_name?: string };
+                map.set(u.material_list_id, {
+                    material_list_id: ml.material_list_id,
+                    item_code: ml.item_code,
+                    item_name: ml.item_name,
+                    item_group: ml.item_group,
+                    unit_name: ml.unit_name,
+                    remaining_num: ml.remaining_num,
+                    quantity: ml.quantity,
+                });
+            });
+        };
+        (workOrder?.item_components || []).forEach(c => consider(c.material_usages));
+        consider(component?.material_usages);
+        return Array.from(map.values());
+    }, [workOrder, component]);
+
+    // ── Materials: cross-component allocation ──
+    // Same shape as WorkorderCreate's materialUsageByMaterial/getAllocatedElsewhere,
+    // but sourced from each sibling component's already-saved material_usages
+    // (this page only edits ONE component, so siblings are read-only here).
+    const materialUsageByMaterial = useMemo(() => {
+        const map: Record<number, { componentId: number; qty: number; label: string }[]> = {};
+        (workOrder?.item_components || []).forEach((comp, idx) => {
+            (comp.material_usages || []).forEach(u => {
+                const qty = Number(u.quantity_used) || 0;
+                if (qty <= 0) return;
+                if (!map[u.material_list_id]) map[u.material_list_id] = [];
+                map[u.material_list_id].push({
+                    componentId: comp.item_component_id,
+                    qty,
+                    label: comp.component_name?.trim() || `ส่วนประกอบที่ ${idx + 1}`,
+                });
+            });
+        });
+        return map;
+    }, [workOrder]);
+
+    const allocatedElsewhere = useMemo(() => {
+        const currentId = Number(componentId);
+        const result: Record<number, { qty: number; label: string }[]> = {};
+        Object.entries(materialUsageByMaterial).forEach(([materialListIdStr, entries]) => {
+            const others = entries
+                .filter(e => e.componentId !== currentId)
+                .map(e => ({ qty: e.qty, label: e.label }));
+            if (others.length > 0) result[Number(materialListIdStr)] = others;
+        });
+        return result;
+    }, [materialUsageByMaterial, componentId]);
+
+    // ── Materials: change detection ──
+    // Drives whether handleSave calls the material_usage PATCH at all — an
+    // unchanged materials section should never burn the single-use approval.
+    const originalMaterialSelections = useMemo<MaterialSelection[]>(() => (
+        (component?.material_usages || []).map(u => ({
+            material_list_id: u.material_list_id,
+            quantity_used: u.quantity_used,
+        }))
+    ), [component]);
+
+    const materialsChanged = useMemo(() => {
+        const normalize = (list: MaterialSelection[]) =>
+            [...list]
+                .map(m => `${m.material_list_id}:${Number(m.quantity_used)}`)
+                .sort()
+                .join('|');
+        return normalize(originalMaterialSelections) !== normalize(materialSelections);
+    }, [originalMaterialSelections, materialSelections]);
+
+    // ── Apply a fresh ItemComponent to state ──
+    // Split in two on purpose: a save that only touches sections (or only
+    // materials) must be able to refresh ITS half from the response without
+    // stomping the other half's in-flight, not-yet-saved edits. See
+    // handleSave's sequencing comment for why this matters.
+    const applyComponentSectionState = (comp: ItemComponent) => {
+        setComponent(comp);
+        if (comp.component_template_id) {
+            setSelectedTemplateId(comp.component_template_id);
+        }
+        // Rebuild formData + test-section overrides from saved section data
+        if (comp.component_template_sections?.length) {
+            const fd: SectionFormData = {};
+            const overrides: Record<string, boolean | null> = {};
+            for (const sd of comp.component_template_sections) {
+                fd[sd.section_key] = sd.data;
+                overrides[sd.section_key] = sd.is_test_section ?? null;
+            }
+            setFormData(fd);
+            setTestSectionOverrides(overrides);
+        } else {
+            setTestSectionOverrides({});
+        }
+    };
+
+    const applyMaterialUsageState = (comp: ItemComponent) => {
+        setMaterialSelections(
+            (comp.material_usages || []).map(u => ({
+                material_list_id: u.material_list_id,
+                quantity_used: u.quantity_used,
+            }))
+        );
+    };
+
     // ── Fetch work order + component ──
     const fetchData = useCallback(async () => {
         setLoading();
@@ -114,23 +250,8 @@ const ComponentDetailEditor: React.FC = () => {
             }
 
             if (compRes?.success && compRes.data) {
-                setComponent(compRes.data);
-                if (compRes.data.component_template_id) {
-                    setSelectedTemplateId(compRes.data.component_template_id);
-                }
-                // Rebuild formData + test-section overrides from saved section data
-                if (compRes.data.component_template_sections?.length) {
-                    const fd: SectionFormData = {};
-                    const overrides: Record<string, boolean | null> = {};
-                    for (const sd of compRes.data.component_template_sections) {
-                        fd[sd.section_key] = sd.data;
-                        overrides[sd.section_key] = sd.is_test_section ?? null;
-                    }
-                    setFormData(fd);
-                    setTestSectionOverrides(overrides);
-                } else {
-                    setTestSectionOverrides({});
-                }
+                applyComponentSectionState(compRes.data);
+                applyMaterialUsageState(compRes.data);
             }
 
             if (tplRes?.success && tplRes.data?.items) {
@@ -209,6 +330,32 @@ const ComponentDetailEditor: React.FC = () => {
             return;
         }
 
+        // Client-side pre-check for material over-allocation, so the user sees
+        // it inline instead of only as a server 400. The server remains the
+        // real authority (it sums usage across the whole WorkOrder against
+        // MaterialList.quantity, not remaining_num — see
+        // updateItemComponentMaterialUsage's docstring on the API side); this
+        // is best-effort UX sugar on top of that.
+        if (materialsChanged) {
+            for (const m of materialSelections) {
+                if (!m.quantity_used || m.quantity_used <= 0) {
+                    Swal.fire('ข้อมูลไม่ถูกต้อง', 'จำนวนวัตถุดิบที่ใช้ต้องมากกว่า 0', 'warning');
+                    return;
+                }
+                const mat = materialOptions.find(mm => mm.material_list_id === m.material_list_id);
+                if (!mat) continue;
+                const available = getAvailableForMaterial(mat, allocatedElsewhere[m.material_list_id]);
+                if (Number.isFinite(available) && m.quantity_used > (available as number)) {
+                    Swal.fire(
+                        'จำนวนเกินคงเหลือ',
+                        `วัตถุดิบ "${mat.item_name}" มีจำนวนเกินคงเหลือ (คงเหลือ ${available})`,
+                        'warning'
+                    );
+                    return;
+                }
+            }
+        }
+
         // Warn before removing the last remaining test section — this deletes the
         // auto-created QC work order, and the backend rejects the save outright if
         // testing has already started against it.
@@ -264,20 +411,76 @@ const ComponentDetailEditor: React.FC = () => {
                 };
             });
 
-            const res = await saveItemComponentSections(Number(componentId), {
+            // ── Save ordering (sections, then materials) ──
+            // Sections stay the unconditional, primary write — exactly as
+            // before this feature existed — and materials only fire a second
+            // call when materialsChanged. That matters because a single-use
+            // approval is consumed by WHICHEVER write succeeds first while
+            // hasApproval is true: the backend's _assert_editable has no
+            // concept of "this save has two parts," so if both calls fire
+            // under one approval, the second one always 403s (the component
+            // re-locks the instant the first write consumes the request).
+            // Sections goes first because it's this page's original,
+            // unconditional action (template/section edits, the test-section
+            // removal confirm above, QC auto-sync) — keeping it first leaves
+            // that whole existing contract untouched. Materials is the new,
+            // additive, change-gated action, so it takes the second slot: when
+            // there's no active approval (the common case — most edits happen
+            // before any WorkRun starts) both calls succeed independently with
+            // no consumption involved at all. When there IS a single-use
+            // approval and both changed, the materials call cleanly 403s after
+            // sections already saved; we surface that as a distinct message
+            // and — critically — never touch materialSelections on that path,
+            // so the user's material edits survive for the next approval
+            // instead of being silently dropped.
+            const sectionsRes = await saveItemComponentSections(Number(componentId), {
                 component_template_id: selectedTemplateId,
                 sections_data: sectionsData,
                 ...(changeReason ? { change_reason: changeReason } : {}),
             });
 
-            if (res?.success) {
-                await Swal.fire({ title: 'บันทึกสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false });
-                // Re-pull: doc_version bumps and the approval (if any) is now consumed.
-                await fetchData();
-            } else {
+            if (!sectionsRes?.success) {
                 // A locked save answers 403 with a Thai explanation — show it verbatim.
-                Swal.fire('บันทึกไม่สำเร็จ', res?.message || 'ไม่สามารถบันทึกข้อมูลได้', 'error');
+                Swal.fire('บันทึกไม่สำเร็จ', sectionsRes?.message || 'ไม่สามารถบันทึกข้อมูลได้', 'error');
+                return;
             }
+
+            // Drop the response straight into state (doc_version bumped, any
+            // approval now reflected as consumed) instead of a full refetch —
+            // and deliberately do NOT touch materialSelections here, in case a
+            // materials PATCH is about to follow.
+            applyComponentSectionState(sectionsRes.data);
+
+            if (!materialsChanged) {
+                await Swal.fire({ title: 'บันทึกสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false });
+                return;
+            }
+
+            const materialsRes = await updateItemComponentMaterialUsage(Number(componentId), {
+                material_usage: materialSelections.map(m => ({
+                    material_list_id: m.material_list_id,
+                    quantity_used: m.quantity_used,
+                })),
+                ...(changeReason ? { change_reason: changeReason } : {}),
+            });
+
+            if (materialsRes?.success) {
+                applyComponentSectionState(materialsRes.data);
+                applyMaterialUsageState(materialsRes.data);
+                await Swal.fire({ title: 'บันทึกสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false });
+                return;
+            }
+
+            // Sections saved, materials didn't — show the server's verbatim
+            // Thai message (covers both "approval already consumed by the
+            // sections write above" and genuine validation failures like
+            // over-allocation) and leave materialSelections exactly as the
+            // user left it.
+            Swal.fire(
+                'บันทึกแบบฟอร์มสำเร็จ แต่บันทึกวัตถุดิบไม่สำเร็จ',
+                materialsRes?.message || 'ไม่สามารถบันทึกวัตถุดิบได้',
+                'warning'
+            );
         } catch {
             Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้', 'error');
         } finally {
@@ -517,6 +720,25 @@ const ComponentDetailEditor: React.FC = () => {
                             </option>
                         ))}
                     </select>
+                </div>
+            </div>
+
+            {/* Materials */}
+            <div className='card shadow-sm mb-8'>
+                <div className='card-header border-0 pt-5 pb-3'>
+                    <h3 className='fw-bold text-gray-900 fs-5 mb-0'>
+                        <i className='bi bi-box-seam me-2 text-primary'></i>
+                        วัตถุดิบที่ใช้
+                    </h3>
+                </div>
+                <div className='card-body pt-0 pb-6'>
+                    <MaterialPicklist
+                        materials={materialOptions}
+                        value={materialSelections}
+                        onChange={setMaterialSelections}
+                        allocatedElsewhere={allocatedElsewhere}
+                        readOnly={!canEdit}
+                    />
                 </div>
             </div>
 

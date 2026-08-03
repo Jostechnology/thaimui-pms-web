@@ -139,6 +139,37 @@ export const saveItemComponentSections = async (
     }
 };
 
+/**
+ * Full-replace a component's material usage set (PATCH .../material_usage).
+ * `material_usage: []` is valid — it means the component uses no materials,
+ * not an error. Same lock/approval/versioning shape as
+ * saveItemComponentSections: pass `change_reason` when the save is consuming
+ * an approved edit request. The response is the updated ItemComponent dumped
+ * with the same schema as getItemComponentSections/getItemComponentDetail —
+ * drop it straight into state instead of refetching.
+ */
+export interface MaterialUsagePayloadEntry {
+    material_list_id: number;
+    quantity_used: number;
+}
+
+export const updateItemComponentMaterialUsage = async (
+    itemComponentId: number,
+    payload: { material_usage: MaterialUsagePayloadEntry[]; change_reason?: string }
+): Promise<APIResponse> => {
+    try {
+        const response = await front_api(
+            "PATCH",
+            `/item_component/${itemComponentId}/material_usage`,
+            payload,
+            { wrapData: false }
+        );
+        return await handleResponse(response);
+    } catch (e) {
+        return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
 export const saveItemComponentSectionsBatch = async (
     payload: {
         item_component_id: number;
