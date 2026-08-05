@@ -1,7 +1,8 @@
 import EnvConfig from "../environments/envConfig";
 import { getGroupId, getTokenFromLocal } from "../helpers/appHelpers";
 import { authTokenDedicated } from "../helpers/authenticationHelpers";
-import { front_api } from "./apiConfig";
+import { front_api, upload_api } from "./apiConfig";
+import type { DecodeMap, ItemDecodeUploadReport } from "../type_interface/WorkOrderType";
 
 
 interface APIResponse {
@@ -176,6 +177,50 @@ export const createWorkOrder = async (payload: {
         return await handleResponse(response);
     } catch (e) {
         return { success: false, message: "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+    }
+};
+
+// Best-effort autofill: decode a batch of material item codes into detail
+// fields. Returns { success, results } where results is keyed by item_code.
+// Never throws — a failed/unavailable endpoint degrades to success:false and
+// callers simply skip autofill (all fields stay user-editable).
+export const decodeItemCodes = async (
+    items: { item_code: string; item_group: string }[]
+): Promise<APIResponse & { results?: DecodeMap }> => {
+    try {
+        const response = await front_api(
+            "POST",
+            "/decode_item_codes",
+            { items },
+            { wrapData: false }
+        );
+        if (!response) return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
+        const result = await response.json();
+        return response.ok
+            ? { ...result, success: true }
+            : { ...result, success: false };
+    } catch (error) {
+        console.error("decodeItemCodes Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
+// Upload the item-description xlsx to (re)build all material-code decode data.
+// Multipart upload — this REPLACES all existing decode data on the backend.
+// Returns { success, report? } where report is the validation report. Never
+// throws; a failed/unavailable endpoint degrades to success:false.
+export const uploadItemDecode = async (
+    file: File
+): Promise<{ success: boolean; message?: string; report?: ItemDecodeUploadReport }> => {
+    try {
+        const result = await upload_api("/upload_item_decode", file);
+        if (!result) {
+            return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
+        }
+        return { success: true, report: result as ItemDecodeUploadReport };
+    } catch (error) {
+        console.error("uploadItemDecode Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
     }
 };
 

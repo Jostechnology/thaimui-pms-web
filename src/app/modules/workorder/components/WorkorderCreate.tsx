@@ -5,7 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppLoading } from '../../../context/AppLoadingContext';
 import { useAlertModal } from '../../../context/ModalContext';
 import { searchSalesOrderService, getSalesOrderService } from '../../../services/salesOrderService';
-import { createWorkOrder } from '../../../services/workorder';
+import { createWorkOrder, decodeItemCodes } from '../../../services/workorder';
 import {
     getComponentTemplates,
     getComponentTemplateById,
@@ -14,7 +14,7 @@ import {
 import type { SalesOrderSearch, SalesOrderDetail } from '../../../type_interface/SalesOrderType';
 import type { SalesItem } from '../../../type_interface/SalesItemType';
 import type { Material } from '../../../type_interface/MaterialType';
-import type { WorkOrder } from '../../../type_interface/WorkOrderType';
+import type { WorkOrder, DecodeMap } from '../../../type_interface/WorkOrderType';
 import type { ComponentTemplate, TemplateSection } from '../../../type_interface/ComponentTemplateType';
 import TemplateSectionForm from './TemplateSectionForm';
 import MaterialPicklist, { getAvailableForMaterial, type MaterialSelection } from './MaterialPicklist';
@@ -71,6 +71,9 @@ const WorkorderCreate: React.FC = () => {
     const [detailFormData, setDetailFormData] = useState<Record<number, SectionFormData>>({});
     const [savingDetails, setSavingDetails] = useState(false);
     const [applySameTemplateToAll, setApplySameTemplateToAll] = useState(false);
+    // Best-effort material-code decode map (keyed by item_code), batched once
+    // per created work order and fed to every TemplateSectionForm for autofill.
+    const [decodeMap, setDecodeMap] = useState<DecodeMap>({});
 
     // ── Load templates list once (needed for step 2) ──
     useEffect(() => {
@@ -81,6 +84,37 @@ const WorkorderCreate: React.FC = () => {
             }
         })();
     }, []);
+
+    // ── Batch-decode every material's item_code once the work order exists ──
+    // Collects a de-duped {item_code,item_group} set across every component's
+    // material_usages, hits /decode_item_codes ONCE, and stores the map for
+    // all TemplateSectionForms. Best-effort: a miss/failure just leaves
+    // decodeMap empty and every field stays user-editable.
+    useEffect(() => {
+        if (!createdWorkOrder) {
+            setDecodeMap({});
+            return;
+        }
+        const seen = new Set<string>();
+        const items: { item_code: string; item_group: string }[] = [];
+        createdWorkOrder.item_components.forEach(comp => {
+            (comp.material_usages || []).forEach(u => {
+                const code = u.material_list?.item_code;
+                const group = u.material_list?.item_group;
+                if (!code || seen.has(code)) return;
+                seen.add(code);
+                items.push({ item_code: code, item_group: group || '' });
+            });
+        });
+        if (items.length === 0) {
+            setDecodeMap({});
+            return;
+        }
+        (async () => {
+            const res = await decodeItemCodes(items);
+            if (res?.success && res.results) setDecodeMap(res.results);
+        })();
+    }, [createdWorkOrder]);
 
     // ── Pre-fill from URL params ──
     useEffect(() => {
@@ -690,6 +724,7 @@ const WorkorderCreate: React.FC = () => {
                                                         salesItemCode={createdWorkOrder?.sales_item?.item_code}
                                                         componentName={comp.component_name}
                                                         materialUsages={comp.material_usages}
+                                                        decodeMap={decodeMap}
                                                     />
                                                 </div>
                                             ))}

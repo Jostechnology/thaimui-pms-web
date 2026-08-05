@@ -16,8 +16,8 @@ import {
     createItemComponentEditRequest,
     cancelComponentEditRequest,
 } from '../../../services/componentEditRequestService';
-import { getWorkOrderById } from '../../../services/workorder';
-import type { WorkOrder, ItemComponent, ComponentMaterialUsage } from '../../../type_interface/WorkOrderType';
+import { getWorkOrderById, decodeItemCodes } from '../../../services/workorder';
+import type { WorkOrder, ItemComponent, ComponentMaterialUsage, DecodeMap } from '../../../type_interface/WorkOrderType';
 import type { ComponentTemplate, TemplateSection } from '../../../type_interface/ComponentTemplateType';
 import { packIntoRows } from '../../../type_interface/ComponentTemplateType';
 import { downloadComponentDocument } from '../../../services/documentGeneratorService';
@@ -83,6 +83,10 @@ const ComponentDetailEditor: React.FC = () => {
     // handleSave) can update `component` without discarding in-flight edits
     // here.
     const [materialSelections, setMaterialSelections] = useState<MaterialSelection[]>([]);
+
+    // Best-effort material-code decode map (keyed by item_code), batched once
+    // per component load and fed to every TemplateSectionForm for autofill.
+    const [decodeMap, setDecodeMap] = useState<DecodeMap>({});
 
     // ── Test-section overrides ──
     // Per-component override of each section's is_test_section flag, keyed by
@@ -292,6 +296,32 @@ const ComponentDetailEditor: React.FC = () => {
     }, [workOrderId, componentId]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+
+    // ── Batch-decode this component's material item_codes once it loads ──
+    // De-dupes {item_code,item_group} across the component's material_usages,
+    // hits /decode_item_codes ONCE, and stores the map for every
+    // TemplateSectionForm. Best-effort: a miss/failure leaves decodeMap empty
+    // and every detail field stays user-editable.
+    useEffect(() => {
+        const usages = component?.material_usages || [];
+        const seen = new Set<string>();
+        const items: { item_code: string; item_group: string }[] = [];
+        usages.forEach(u => {
+            const code = u.material_list?.item_code;
+            const group = u.material_list?.item_group;
+            if (!code || seen.has(code)) return;
+            seen.add(code);
+            items.push({ item_code: code, item_group: group || '' });
+        });
+        if (items.length === 0) {
+            setDecodeMap({});
+            return;
+        }
+        (async () => {
+            const res = await decodeItemCodes(items);
+            if (res?.success && res.results) setDecodeMap(res.results);
+        })();
+    }, [component]);
 
     // ── Load template when selected ──
     useEffect(() => {
@@ -809,6 +839,7 @@ const ComponentDetailEditor: React.FC = () => {
                                                         salesItemNum={workOrder?.sales_item?.quantity}
                                                         componentName={component?.component_name}
                                                         materialUsages={component?.material_usages}
+                                                        decodeMap={decodeMap}
                                                         readOnly={!canEdit}
                                                     />
                                                 </div>

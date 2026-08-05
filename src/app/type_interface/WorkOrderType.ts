@@ -110,6 +110,57 @@ export interface SalesItemTestResult {
     work_run_id?: number | null;
 }
 
+// ─── Material-code autofill (POST /decode_item_codes) ────────
+// Best-effort decode of a material's item_code into detail-cell fields.
+// Every field is optional: SLING/CHAIN emit a subset of structured fields,
+// non-decodable categories emit only `description`, and a miss emits none.
+// Keys deliberately match the FE schema keys in TemplateSectionForm.tsx.
+export interface DecodedFields {
+    type?: string;
+    brand?: string;
+    manufacturer?: string;
+    structure?: string;
+    core?: string;
+    spiral?: string;
+    grade?: string;
+    grade_unit?: string;
+    size?: string;
+    description?: string;
+}
+
+// 'decode' = positional code decode (SLING/CHAIN); 'reference' = description
+// lookup; 'none' = neither matched (FE shows a non-blocking hint).
+export type DecodeSource = 'decode' | 'reference' | 'none';
+
+export interface DecodeResult {
+    source: DecodeSource;
+    fields: DecodedFields;
+}
+
+// Keyed by raw item_code, as returned by the decode endpoint.
+export type DecodeMap = Record<string, DecodeResult>;
+
+export interface DecodeItemCodesResponse {
+    results: DecodeMap;
+}
+
+// ─── Item-description upload (POST /upload_item_decode) ───────
+// Validation report returned after uploading the item-description xlsx.
+// `blocked` non-empty => import REJECTED, nothing was written.
+export interface ItemDecodeLoadedCounts {
+    SLING: number;
+    CHAIN: number;
+    reference: number;
+}
+
+export interface ItemDecodeUploadReport {
+    ok: boolean;
+    blocked: string[];   // non-empty => import rejected, nothing written
+    warnings: string[];  // import proceeded despite these
+    reserved: string[];  // info: declared positions with no meaning yet
+    loaded_counts: ItemDecodeLoadedCounts;
+}
+
 export interface ComponentMaterialUsage {
     usage_id: number;
     item_component_id: number;

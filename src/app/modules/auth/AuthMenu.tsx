@@ -198,6 +198,14 @@ export const subRoutesConfig: SubRouteType[] = [
         display : true
     },
     {
+        module_code: "ITEM_DECODE_UPLOAD",
+        main_module_code: "SETTING",
+        path: "/setting/item_decode_upload",
+        title: "นำเข้าข้อมูลถอดรหัสวัสดุ",
+        permission: [],
+        display : true
+    },
+    {
         module_code: "DASHBOARD",
         main_module_code: "WORKORDERS",
         path: "/workorder/workorders_dashboard",

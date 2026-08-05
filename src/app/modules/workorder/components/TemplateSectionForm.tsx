@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import type { TemplateSection } from '../../../type_interface/ComponentTemplateType';
 import { MATERIAL_ITEM_TYPES, type MaterialItemType, type MaterialRow } from '../../../type_interface/ComponentTemplateType';
-import type { ComponentMaterialUsage } from '../../../type_interface/WorkOrderType';
+import type { ComponentMaterialUsage, DecodeMap } from '../../../type_interface/WorkOrderType';
 
 // Render mode for template rows that have no matching material from the
 // work order. 'dim' keeps the row visible (so the template structure is
@@ -45,8 +45,12 @@ const SLING_SCHEMA: ItemTypeSchema = {
             { key : 'type', prefix : 'ลวดสลิง'},
             { key: 'structure', prefix: 'โครงสร้าง' },
             { key: 'core', prefix: 'แกน' },
+            { key: 'spiral', prefix: 'เกลียว' },
             { key: 'brand', prefix: 'ยี่ห้อ' },
-            { key: 'grade', prefix: 'เกรด', postfix: 'N/mm²' },
+            // grade's unit is data-driven (grade_unit, e.g. "N/mm2") rather than
+            // a hardcoded postfix — the decode legend supplies it per material.
+            { key: 'grade', prefix: 'เกรด' },
+            { key: 'grade_unit' },
             { key: 'size', prefix: 'ขนาด', postfix: 'mm' },
         ],
     },
@@ -98,18 +102,6 @@ const CHAIN_SCHEMA: ItemTypeSchema = {
     unitText: 'ม. / กก.',
 };
 
-const FERRULE_SCHEMA: ItemTypeSchema = {
-    detail: {
-        fields: [
-            { key: 'description' },
-            { key: 'ferrule', prefix: 'ปลอก' },
-        ],
-    },
-    per_set: { fields: [{ key: 'pieces', postfix: 'ตัว' }] },
-    total: { fields: [{ key: 'pieces',}] },
-    unitText: 'ตัว',
-};
-
 const DEFAULT_SCHEMA: ItemTypeSchema = {
     detail: { fields: [{ key: 'description' }] },
     per_set: { fields: [{ key: 'pieces', postfix: 'ตัว' }] },
@@ -120,7 +112,6 @@ const DEFAULT_SCHEMA: ItemTypeSchema = {
 function getSchema(itemType: MaterialItemType): ItemTypeSchema {
     if (itemType === 'SLING') return SLING_SCHEMA;
     if (itemType === 'CHAIN') return CHAIN_SCHEMA;
-    if (itemType === 'FERRULE') return FERRULE_SCHEMA;
     return DEFAULT_SCHEMA;
 }
 
@@ -331,6 +322,13 @@ export interface TemplateSectionFormProps {
     componentName?: string;
     materialUsages?: ComponentMaterialUsage[];
     /**
+     * Best-effort decode of each material's item_code into detail-cell fields,
+     * keyed by raw item_code. Supplied by the parent (batched one call per
+     * component load). Used only to seed empty detail fields and to surface a
+     * non-blocking "no decode" hint; never blocks editing.
+     */
+    decodeMap?: DecodeMap;
+    /**
      * View-only mode — used when the component's document is locked and no edit
      * approval is active. Every control renders non-interactive and no autofill
      * is written back through onUpdate.
@@ -348,6 +346,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
     salesItemNum,
     componentName,
     materialUsages = [],
+    decodeMap = {},
     readOnly = false,
 }) => {
     // ── Materialize autofilled defaults into `data` so they're persisted
@@ -414,6 +413,31 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                 }
             }
 
+            // detail ← decodeMap[item_code].fields  (DETAIL CELL ONLY)
+            // Best-effort autofill of the decoded detail fields (type, brand,
+            // grade, size, description, …). Empty-guarded per field so it never
+            // overwrites anything the user (or the description seed above)
+            // already put there — idempotent, same style as the seeds above.
+            // Deliberately touches only `detail`; per_set / set / total stay
+            // manual and untouched.
+            const decoded = decodeMap[usage.material_list?.item_code || ''];
+            if (decoded?.fields) {
+                const prevDetail = newRow.detail || {};
+                const mergedDetail: Record<string, any> = { ...prevDetail };
+                let detailChanged = false;
+                Object.entries(decoded.fields).forEach(([key, val]) => {
+                    if (val == null || val === '') return;
+                    if (mergedDetail[key] == null || mergedDetail[key] === '') {
+                        mergedDetail[key] = val;
+                        detailChanged = true;
+                    }
+                });
+                if (detailChanged) {
+                    newRow.detail = mergedDetail;
+                    rowChanged = true;
+                }
+            }
+
             // SLING per_set.produced_lengths seed
             if (tplRow.itemType === 'SLING' && tplRow.slingLegs) {
                 const prevPerSet = newRow.per_set || {};
@@ -437,7 +461,7 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
 
         if (changed) onUpdate(next);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [section.key, materialUsages, salesItemNum, readOnly]);
+    }, [section.key, materialUsages, salesItemNum, decodeMap, readOnly]);
 
     switch (section.type) {
         case 'header': {
@@ -606,6 +630,12 @@ const TemplateSectionForm: React.FC<TemplateSectionFormProps> = ({
                                                     readOnly={readOnly}
                                                     onChange={next => updateRowCell(tplRow.key, 'detail', next)}
                                                 />
+                                                {usage && decodeMap[usage.material_list?.item_code || '']?.source === 'none' && (
+                                                    <div className='fs-9 text-warning mt-1'>
+                                                        <i className='bi bi-info-circle me-1'></i>
+                                                        ไม่พบข้อมูลถอดรหัสรายละเอียด กรุณากรอกเอง
+                                                    </div>
+                                                )}
                                             </td>
                                             {/* ต่อชุด */}
                                             <td className='align-middle'>

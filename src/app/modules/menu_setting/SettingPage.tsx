@@ -10,6 +10,7 @@ import BranchCreate from "./components/BranchCreate";
 import BranchEdit from "./components/BranchEdit";
 import ShiftManagement from "./components/ShiftManagement";
 import HolidayManagement from "./components/HolidayManagement";
+import ItemDecodeUpload from "./components/ItemDecodeUpload";
 
 const SettingPage = () => {
 
@@ -27,6 +28,7 @@ const SettingPage = () => {
 
             <Route path="shift_management" element={<ShiftManagement />}/>
             <Route path="holiday_management" element={<HolidayManagement />}/>
+            <Route path="item_decode_upload" element={<ItemDecodeUpload />}/>
         </Routes>
     );
 

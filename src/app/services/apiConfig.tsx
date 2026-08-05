@@ -93,6 +93,58 @@ export const front_api = async (
 };
  
 
+// Multipart/form-data uploader. front_api is JSON-only, so file uploads go
+// through here. Mirrors front_api's token-refresh guard, appends the file as
+// the `file` field, and lets the browser set the multipart boundary (we must
+// NOT set Content-Type ourselves). Returns parsed JSON, or false on failure.
+export const upload_api = async (path: string, file: File) => {
+	try {
+		if (isTokenExpired()) {
+			const refresh_token = getTokenRefresh();
+			if (!refresh_token) {
+				giveAccessDenied();
+				return false;
+			}
+
+			const res = await refresh(refresh_token);
+			if (!res || res.status !== 200) {
+				console.error("Can't refresh token");
+				giveAccessDenied(true);
+				return false;
+			}
+
+			const data = await res.json();
+			if (data.success) {
+				const result = authTokenDedicated(data.access_token, data.refresh_token);
+				if (!result) {
+					giveAccessDenied(true);
+					return false;
+				}
+			}
+		}
+
+		const fd = new FormData();
+		fd.append("file", file);
+
+		const res = await fetch(`${env.front_api}${path}`, {
+			method: "POST",
+			headers: {
+				// NOTE: do NOT set Content-Type — the browser adds the
+				// multipart boundary automatically.
+				Authorization: `Bearer ${getTokenFromLocal()}`,
+			},
+			body: fd,
+		});
+
+		if (!res) return false;
+
+		return await res.json();
+	} catch (error) {
+		console.error(`Upload API Error [POST ${path}]:`, error);
+		return false;
+	}
+};
+
 export const document_generator_api = async (
 	method: "GET" | "POST" | "PUT" | "DELETE",
 	path: string,
