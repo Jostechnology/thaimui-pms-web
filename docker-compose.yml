@@ -3,7 +3,7 @@ services:
   app:
     build : .
     platform: linux/amd64
-    image: registry.gitlab.com/jostechnology/thaimui-pms-web-dev:thaimui-1.0.17
+    image: registry.gitlab.com/jostechnology/thaimui-pms-web-dev:thaimui-1.0.20
     container_name: thaimui-pms-web
     ports:
       - "7002:5173"
