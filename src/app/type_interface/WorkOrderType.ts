@@ -251,7 +251,7 @@ export interface ItemComponentVersion {
     // ── Frozen blobs — omitted by the version LIST endpoint, present on the detail one ──
     /** shaped like TemplateSection[] from ComponentTemplateType, frozen as raw JSON */
     sections_snapshot?: any[];
-    section_data_snapshot?: { section_key: string; section_type: string; data: any }[];
+    section_data_snapshot?: { section_key: string; section_type: string; data: any; is_test_section?: boolean }[];
     material_usage_snapshot?: any[];
     doc_ref_no: string | null;
     /** storage path of this version's document — feed to downloadComponentDocumentByPath() */

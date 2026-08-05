@@ -2602,15 +2602,46 @@ const ViewTestResultSession: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Product spec (per-session snapshot) */}
-                            {/* TODO(testspec unification): this stays hand-entered because the
-                                pinned API contract doesn't expose a pinned-snapshot field here —
-                                TestResultDetail carries no ItemComponentVersion.section_data_snapshot
-                                (or similar) to prefill/lock this from. Once the BE exposes one
-                                (per work_run_sources' pinned version, resolved through the run's
-                                TestSpec), wire it in instead of inventing an endpoint now. See
-                                project_testspec_unification memory (S5 — QC/test should read the
-                                pinned version, not a live/manual copy). */}
+                            {/* Pinned test-section reference (S5). Read-only view of the
+                                component version the tested pieces were actually built against
+                                — resolved from the feeding runs' pins, not the live template.
+                                The manual Product Spec below stays hand-entered: its wire-rope
+                                fields (construction/grade/diameter/…) are not a defined
+                                projection of arbitrary template section data, so we surface the
+                                pinned spec for the tester to read rather than fuzzily autofilling. */}
+                            {testResult.resolved_component_version && (() => {
+                                const rcv = testResult.resolved_component_version!;
+                                const testSections = (rcv.section_data_snapshot ?? []).filter(s => s.is_test_section);
+                                return (
+                                    <div className="border border-primary rounded p-4 mb-6 bg-light-primary bg-opacity-25">
+                                        <div className="d-flex align-items-center justify-content-between mb-3">
+                                            <h6 className="fw-bold text-gray-700 mb-0">
+                                                <i className="bi bi-lock-fill me-2 text-primary" />
+                                                สเปคที่ตรึงไว้ (Pinned): {rcv.component_name} · v{rcv.version_no}
+                                            </h6>
+                                            {testResult.mixed_version && (
+                                                <span className="badge badge-light-warning">หลายเวอร์ชัน — แสดงเวอร์ชันล่าสุด</span>
+                                            )}
+                                        </div>
+                                        {testSections.length === 0 ? (
+                                            <div className="text-muted fs-8">เวอร์ชันนี้ไม่มีส่วนทดสอบที่ตรึงไว้</div>
+                                        ) : (
+                                            <div className="row g-3">
+                                                {testSections.map(sec => (
+                                                    <div key={sec.section_key} className="col-md-6">
+                                                        <div className="fw-semibold fs-8 text-gray-600 mb-1">{sec.section_key}</div>
+                                                        <pre className="bg-white border rounded p-2 mb-0 fs-8 text-gray-800" style={{ whiteSpace: "pre-wrap" }}>
+                                                            {typeof sec.data === "string" ? sec.data : JSON.stringify(sec.data, null, 2)}
+                                                        </pre>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Product spec (per-session snapshot) — manual entry (see note above). */}
                             <div className="border rounded p-4 mb-6 bg-light-primary bg-opacity-10">
                                 <h6 className="fw-bold text-gray-700 mb-3">
                                     <i className="bi bi-rulers me-2 text-primary" />ข้อมูลจำเพาะสินค้า (Product Spec)
