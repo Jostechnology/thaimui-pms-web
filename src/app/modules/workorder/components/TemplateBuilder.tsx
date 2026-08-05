@@ -1350,22 +1350,22 @@ const TemplateBuilder: React.FC = () => {
                                 <div className='card-header border-0 py-3 d-flex align-items-center justify-content-between'
                                     style={{ cursor: 'pointer', userSelect: 'none' }}
                                     onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}>
-                                    <div className='d-flex align-items-center'>
-                                        <span className='badge badge-light-primary me-3 fw-bold'>
+                                    <div className='d-flex align-items-center flex-grow-1 me-3' style={{ minWidth: 0 }}>
+                                        <span className='badge badge-light-primary me-3 fw-bold flex-shrink-0'>
                                             {idx + 1}
                                         </span>
-                                        <i className={`bi ${SECTION_TYPE_ICONS[section.type]} me-2 text-primary`}></i>
-                                        <span className='fw-bold fs-6'>
+                                        <i className={`bi ${SECTION_TYPE_ICONS[section.type]} me-2 text-primary flex-shrink-0`}></i>
+                                        <span className='fw-bold fs-6 text-truncate' style={{ minWidth: 0 }}>
                                             {SECTION_TYPE_LABELS[section.type]}
                                             {('title' in section && section.title) && (
                                                 <span className='text-muted fw-normal ms-2'>— {(section as any).title}</span>
                                             )}
                                         </span>
                                         {(section as any).is_test_section && (
-                                            <span className='badge badge-light-info ms-3'>ทดสอบ</span>
+                                            <span className='badge badge-light-info ms-3 flex-shrink-0 text-nowrap'>ทดสอบ</span>
                                         )}
                                     </div>
-                                    <div className='d-flex gap-1 align-items-center' onClick={e => e.stopPropagation()}>
+                                    <div className='d-flex gap-1 align-items-center flex-shrink-0' onClick={e => e.stopPropagation()}>
                                         <div className='form-check form-check-custom form-check-solid form-switch me-3'
                                             title='ส่วนของการทดสอบ'>
                                             <input
