@@ -531,22 +531,24 @@ const ComponentDetailEditor: React.FC = () => {
             }
             await Swal.fire({ title: 'บันทึกสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false });
 
-            // TestSpec unification BE1 gate: the SalesItem isn't marked `test`
-            // even though this component declares a test section, so the BE
-            // skipped creating a TestSpec/QC doc for it — surface that as an
-            // info toast (mirrors the toast pattern in ProductionConsole.tsx)
-            // rather than silently doing nothing.
+            // TestSpec unification: tell the user what this save did to the
+            // item's auto test docs (QC work orders) instead of silently
+            // creating/removing them — symmetric across skip/create/remove.
+            // Toast idiom mirrors ProductionConsole.tsx.
             const notice = res.test_section_notice;
+            const toast = (icon: 'info' | 'success', title: string, text: string) =>
+                Swal.fire({ toast: true, position: 'top-end', icon, title, text, timer: 5000, showConfirmButton: false });
             if (notice?.skipped) {
-                Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: 'info',
-                    title: 'มีส่วนของการทดสอบ แต่สินค้านี้ไม่ได้ระบุให้ทดสอบ',
-                    text: `ไม่ได้สร้างเอกสารทดสอบให้: ${notice.component_names.join(', ')}`,
-                    timer: 4500,
-                    showConfirmButton: false,
-                });
+                toast('info', 'มีส่วนของการทดสอบ แต่สินค้านี้ไม่ได้ระบุให้ทดสอบ',
+                    `ไม่ได้สร้างเอกสารทดสอบให้: ${(notice.skipped_component_names ?? []).join(', ')}`);
+            }
+            if (notice?.created?.length) {
+                toast('success', 'สร้างใบสั่งเทสอัตโนมัติแล้ว',
+                    notice.created.map(c => `${c.component_name} → ${c.qc_work_order_code}`).join(', '));
+            }
+            if (notice?.removed?.length) {
+                toast('info', 'ลบใบสั่งเทสอัตโนมัติแล้ว',
+                    notice.removed.map(r => r.qc_work_order_code).join(', '));
             }
         } catch {
             Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้', 'error');
@@ -776,8 +778,19 @@ const ComponentDetailEditor: React.FC = () => {
                         disabled={!canEdit}
                         onChange={e => {
                             const val = e.target.value ? Number(e.target.value) : null;
+                            // Switching to a different template starts a fresh
+                            // section set — drop stale section form data AND
+                            // per-section test-section overrides so the new
+                            // template can't inherit values from the previous
+                            // one. (Latent bug: harmless only while section keys
+                            // are random; two templates sharing keys would bleed
+                            // state.) The edit-existing hydrate path sets the id
+                            // directly, not through this handler, so it's safe.
+                            if (val !== selectedTemplateId) {
+                                setFormData({});
+                                setTestSectionOverrides({});
+                            }
                             setSelectedTemplateId(val);
-                            if (!val) setFormData({});
                         }}
                     >
                         <option value=''>-- กรุณาเลือก Template --</option>

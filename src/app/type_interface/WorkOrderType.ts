@@ -223,9 +223,16 @@ export interface ItemComponent {
 // SalesItem isn't marked `test = true`, so the BE created NO TestSpec / QC
 // document for it (BE1 gate — see project_testspec_unification memory). The
 // FE surfaces this as an info toast instead of silently doing nothing.
+// What a component save did to this SalesItem's COMPONENT_SECTION test docs,
+// so the UI can tell the user (symmetric across skip/create/remove). Only the
+// keys with content are present; the whole notice is null when nothing changed.
 export interface TestSectionNotice {
-    skipped: true;
-    component_names: string[];
+    // BE1: item is test=false, so declared test sections were ignored.
+    skipped?: boolean;
+    skipped_component_names?: string[];
+    // Auto test docs (QC work orders) created / removed by this save.
+    created?: { component_name: string; qc_work_order_code: string }[];
+    removed?: { qc_work_order_code: string }[];
 }
 
 // Same shape as ItemComponent everywhere else, plus the save-only notice above.
