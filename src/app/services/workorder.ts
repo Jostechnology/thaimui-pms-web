@@ -1,8 +1,13 @@
 import EnvConfig from "../environments/envConfig";
 import { getGroupId, getTokenFromLocal } from "../helpers/appHelpers";
 import { authTokenDedicated } from "../helpers/authenticationHelpers";
-import { front_api, upload_api } from "./apiConfig";
-import type { DecodeMap, ItemDecodeUploadReport } from "../type_interface/WorkOrderType";
+import { download_api, front_api, upload_api } from "./apiConfig";
+import type {
+    DecodeMap,
+    ItemDecodeOverview,
+    ItemDecodeUploadReport,
+    ItemReferenceListResponse,
+} from "../type_interface/WorkOrderType";
 
 
 interface APIResponse {
@@ -222,6 +227,62 @@ export const uploadItemDecode = async (
         console.error("uploadItemDecode Error:", error);
         return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
     }
+};
+
+// Read-only view of the currently loaded decode data (categories + legends and
+// the total reference count). Never throws; degrades to success:false.
+export const getItemDecodeOverview = async (): Promise<
+    { success: boolean; message?: string } & Partial<ItemDecodeOverview>
+> => {
+    try {
+        const response = await front_api(
+            "GET",
+            "/get_item_decode_overview",
+            {},
+            { wrapData: false }
+        );
+        if (!response) return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
+        const result = await response.json();
+        return response.ok ? { ...result, success: true } : { ...result, success: false };
+    } catch (error) {
+        console.error("getItemDecodeOverview Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
+// Paginated, searchable browser over the raw item_no → description references.
+// Never throws; degrades to success:false.
+export const getItemReferenceList = async (params: {
+    page: number;
+    per_page: number;
+    search?: string;
+}): Promise<{ success: boolean; message?: string } & Partial<ItemReferenceListResponse>> => {
+    try {
+        const qs = new URLSearchParams({
+            page: params.page.toString(),
+            per_page: params.per_page.toString(),
+        });
+        if (params.search) qs.append("search", params.search);
+
+        const response = await front_api(
+            "GET",
+            `/get_item_reference_list?${qs.toString()}`,
+            {},
+            { wrapData: false }
+        );
+        if (!response) return { success: false, message: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" };
+        const result = await response.json();
+        return response.ok ? { ...result, success: true } : { ...result, success: false };
+    } catch (error) {
+        console.error("getItemReferenceList Error:", error);
+        return { success: false, message: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว" };
+    }
+};
+
+// Trigger a browser download of the decode data as an .xlsx file. Returns
+// true on success, false on failure (non-blocking — caller surfaces the error).
+export const exportItemDecode = async (): Promise<boolean> => {
+    return await download_api("/export_item_decode", "ThaiMui - Item Description.xlsx");
 };
 
 export const getItemComponentDetail = async (itemComponentId: number) => {

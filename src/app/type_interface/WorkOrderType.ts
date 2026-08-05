@@ -161,6 +161,46 @@ export interface ItemDecodeUploadReport {
     loaded_counts: ItemDecodeLoadedCounts;
 }
 
+// ─── Item-decode overview (GET /get_item_decode_overview) ────
+// Read-only view of the currently loaded decode data. Each category groups
+// its positional fields; each field carries its `segment` (code range) and the
+// full code→value legend for that field.
+export interface ItemDecodeValue {
+    code: string;
+    value: string;
+}
+
+export interface ItemDecodeFieldGroup {
+    field: string;
+    segment: string;
+    values: ItemDecodeValue[];
+}
+
+export interface ItemDecodeCategory {
+    category: string;
+    value_count: number;
+    fields: ItemDecodeFieldGroup[];
+}
+
+export interface ItemDecodeOverview {
+    categories: ItemDecodeCategory[];
+    reference_count: number;
+}
+
+// ─── Item reference browser (GET /get_item_reference_list) ───
+// Paginated, searchable list of the raw item_no → description references.
+export interface ItemReferenceRow {
+    item_no: string;
+    item_description: string;
+}
+
+export interface ItemReferenceListResponse {
+    data: ItemReferenceRow[];
+    total: number;
+    page: number;
+    pages: number;
+}
+
 export interface ComponentMaterialUsage {
     usage_id: number;
     item_component_id: number;

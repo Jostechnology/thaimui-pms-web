@@ -145,6 +145,66 @@ export const upload_api = async (path: string, file: File) => {
 	}
 };
 
+// Binary download helper. front_api is JSON-only, so file downloads go through
+// here. Mirrors front_api's token-refresh guard, fetches GET with the Bearer
+// header, reads the response as a blob, and triggers a browser download via a
+// temporary object URL + anchor click. Non-blocking: returns true on success,
+// false on any failure (caller decides how to surface it).
+export const download_api = async (path: string, filename: string): Promise<boolean> => {
+	try {
+		if (isTokenExpired()) {
+			const refresh_token = getTokenRefresh();
+			if (!refresh_token) {
+				giveAccessDenied();
+				return false;
+			}
+
+			const res = await refresh(refresh_token);
+			if (!res || res.status !== 200) {
+				console.error("Can't refresh token");
+				giveAccessDenied(true);
+				return false;
+			}
+
+			const data = await res.json();
+			if (data.success) {
+				const result = authTokenDedicated(data.access_token, data.refresh_token);
+				if (!result) {
+					giveAccessDenied(true);
+					return false;
+				}
+			}
+		}
+
+		const res = await fetch(`${env.front_api}${path}`, {
+			method: "GET",
+			headers: {
+				Authorization: `Bearer ${getTokenFromLocal() || ""}`,
+			},
+		});
+
+		if (!res || !res.ok) {
+			console.error(`Download API Error [GET ${path}]: status ${res ? res.status : "no response"}`);
+			return false;
+		}
+
+		const blob = await res.blob();
+		const url = window.URL.createObjectURL(blob);
+		const anchor = document.createElement("a");
+		anchor.href = url;
+		anchor.download = filename;
+		document.body.appendChild(anchor);
+		anchor.click();
+		document.body.removeChild(anchor);
+		window.URL.revokeObjectURL(url);
+
+		return true;
+	} catch (error) {
+		console.error(`Download API Error [GET ${path}]:`, error);
+		return false;
+	}
+};
+
 export const document_generator_api = async (
 	method: "GET" | "POST" | "PUT" | "DELETE",
 	path: string,
