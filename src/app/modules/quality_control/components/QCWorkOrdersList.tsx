@@ -17,6 +17,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { toDateOnly } from '../../../utils/validate_utils';
 import { QC_WORK_ORDER_STATUS_LABEL, QC_WORK_ORDER_STATUS_BADGE, type QCWorkOrderStatus } from '../../../helpers/statusLabels';
+import type { TestSpec } from '../../../type_interface/QCWorkOrderType';
 
 interface SalesItem {
     sales_item_id: number;
@@ -49,7 +50,12 @@ interface QCWorkOrderData {
     updated_by: string | null;
     quantity: number;
     sales_item: SalesItem | null;
-    source_work_order_id?: number | null;
+    // TestSpec unification: test_spec is populated for COMPONENT_SECTION
+    // (auto-created) QCs — labeling by component_name + version_no is what
+    // keeps multiple test-section components on the same sales item as
+    // distinct, identifiable rows instead of collapsing into one generic
+    // "จากใบสั่งผลิต" badge (see project_testspec_unification memory, S4).
+    test_spec?: TestSpec | null;
     is_component_declared?: boolean;
 }
 
@@ -446,8 +452,11 @@ const QCWorkOrdersList: React.FC = () => {
                                                         );
                                                     })()}
                                                     {item.is_component_declared && (
-                                                        <span className='badge badge-light-info fw-semibold'>
-                                                            <i className='bi bi-diagram-3 me-1'></i>จากใบสั่งผลิต
+                                                        <span className='badge badge-light-info fw-semibold' title='ใบสั่งเทสที่สร้างจาก Test Section ของ Component'>
+                                                            <i className='bi bi-diagram-3 me-1'></i>
+                                                            {item.test_spec?.component_name
+                                                                ? `${item.test_spec.component_name}${item.test_spec.version_no != null ? ` v${item.test_spec.version_no}` : ''}`
+                                                                : 'จากใบสั่งผลิต'}
                                                         </span>
                                                     )}
                                                 </div>

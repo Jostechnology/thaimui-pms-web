@@ -1,5 +1,6 @@
 import type { Employee } from './EmployeeType';
 import type { Machine } from './MachineType';
+import type { ItemComponentVersion } from './WorkOrderType';
 
 export interface TestResultMachineCost {
     depreciation_per_second: number;
@@ -95,4 +96,21 @@ export interface TestResultDetail {
     photos: TestResultPhoto[];
     spec: TestResultSpec | null;
     cost: TestResultCost | null;
+    /**
+     * True when the WorkRuns feeding this session were pinned to more than one
+     * version of the same component (TestSpec unification "mixed version"
+     * decision — see project_testspec_unification memory). Render the session
+     * as normal, just show a soft warning; never block on this.
+     */
+    mixed_version?: boolean;
+    /**
+     * The component version this session's tested pieces were actually built
+     * against — resolved from the feeding WorkRuns' pins (or the TestSpec's
+     * pinned version), NOT the live template. Present only on COMPONENT_SECTION
+     * sessions. Used to show the pinned test-section spec read-only so the
+     * tester references the as-built document (S5 — see
+     * project_testspec_unification memory). When mixed_version is true this is
+     * the highest-version pin among the sources.
+     */
+    resolved_component_version?: ItemComponentVersion | null;
 }

@@ -257,6 +257,30 @@ export interface ItemComponent {
     test_section_keys?: string[];
 }
 
+// ─── Component save — test-section-skipped notice ─────────────
+// Present only on the item-component SAVE response (POST .../save), never on
+// GET/detail payloads: the component declares a test section but the parent
+// SalesItem isn't marked `test = true`, so the BE created NO TestSpec / QC
+// document for it (BE1 gate — see project_testspec_unification memory). The
+// FE surfaces this as an info toast instead of silently doing nothing.
+// What a component save did to this SalesItem's COMPONENT_SECTION test docs,
+// so the UI can tell the user (symmetric across skip/create/remove). Only the
+// keys with content are present; the whole notice is null when nothing changed.
+export interface TestSectionNotice {
+    // BE1: item is test=false, so declared test sections were ignored.
+    skipped?: boolean;
+    skipped_component_names?: string[];
+    // Auto test docs (QC work orders) created / removed by this save.
+    created?: { component_name: string; qc_work_order_code: string }[];
+    removed?: { qc_work_order_code: string }[];
+}
+
+// Same shape as ItemComponent everywhere else, plus the save-only notice above.
+// The save envelope carries the saved ItemComponent in `data` and the BE1
+// skip-notice as a SIBLING key (matches the batch endpoint's
+// `test_section_notices` and the list-endpoint `total/page/pages` convention),
+// NOT merged into the component. Consume it at `res.test_section_notice`.
+
 // ─── Component document versioning ───────────────────────────
 // Every save of a component's sections freezes a snapshot and generates its own
 // document under work_orders/{wo_code}/components/{id}/v{n} (older, backfilled
@@ -274,7 +298,7 @@ export interface ItemComponentVersion {
     // ── Frozen blobs — omitted by the version LIST endpoint, present on the detail one ──
     /** shaped like TemplateSection[] from ComponentTemplateType, frozen as raw JSON */
     sections_snapshot?: any[];
-    section_data_snapshot?: { section_key: string; section_type: string; data: any }[];
+    section_data_snapshot?: { section_key: string; section_type: string; data: any; is_test_section?: boolean }[];
     material_usage_snapshot?: any[];
     doc_ref_no: string | null;
     /** storage path of this version's document — feed to downloadComponentDocumentByPath() */
