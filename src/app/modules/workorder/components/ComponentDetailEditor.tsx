@@ -513,7 +513,7 @@ const ComponentDetailEditor: React.FC = () => {
 
             const res = await saveItemComponent(Number(componentId), payload);
 
-            if (!res?.success) {
+            if (!res?.success || !res.data) {
                 // A locked save (or an over-allocation, etc.) answers with a
                 // Thai explanation — show it verbatim, and leave both
                 // formData/testSectionOverrides and materialSelections
@@ -530,6 +530,24 @@ const ComponentDetailEditor: React.FC = () => {
                 applyMaterialUsageState(res.data);
             }
             await Swal.fire({ title: 'บันทึกสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false });
+
+            // TestSpec unification BE1 gate: the SalesItem isn't marked `test`
+            // even though this component declares a test section, so the BE
+            // skipped creating a TestSpec/QC doc for it — surface that as an
+            // info toast (mirrors the toast pattern in ProductionConsole.tsx)
+            // rather than silently doing nothing.
+            const notice = res.test_section_notice;
+            if (notice?.skipped) {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'info',
+                    title: 'มีส่วนของการทดสอบ แต่สินค้านี้ไม่ได้ระบุให้ทดสอบ',
+                    text: `ไม่ได้สร้างเอกสารทดสอบให้: ${notice.component_names.join(', ')}`,
+                    timer: 4500,
+                    showConfirmButton: false,
+                });
+            }
         } catch {
             Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้', 'error');
         } finally {

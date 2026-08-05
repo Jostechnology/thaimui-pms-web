@@ -229,9 +229,8 @@ const ViewQCWorkOrder: React.FC = () => {
                 teamCode: so.group_code ?? "",
                 teamName: so.group_name ?? "",
                 // Component-declared QC work order passthrough fields (snake_case on purpose)
-                source_work_order_id: raw.source_work_order_id ?? null,
+                test_spec: raw.test_spec ?? null,
                 is_component_declared: raw.is_component_declared ?? false,
-                source_work_order_code: raw.source_work_order_code ?? null,
             });
         } catch (err) {
             console.error(err);
@@ -352,6 +351,15 @@ const ViewQCWorkOrder: React.FC = () => {
 
     const statusInfo = getStatusInfo(rawData?.status ?? "");
 
+    // Component-declared QCs are labeled by the specific component + the doc
+    // version its TestSpec was pinned to, so two test-section components on
+    // the same sales item read as distinct docs instead of both saying the
+    // same generic "จากใบสั่งผลิต" (see project_testspec_unification memory, S4).
+    const testSpec = formData.test_spec ?? null;
+    const testSpecLabel = testSpec?.component_name
+        ? `${testSpec.component_name}${testSpec.version_no != null ? ` v${testSpec.version_no}` : ""}`
+        : null;
+
     // At least one completed test result passed QC — a certificate can be
     // created from it. Mirrors the completed/passedCount logic used in the
     // "สรุปการทดสอบ" summary below.
@@ -394,7 +402,8 @@ const ViewQCWorkOrder: React.FC = () => {
                         <>
                             <div className="wo-header-vdivider" />
                             <span className="badge badge-light-info fw-semibold">
-                                <i className="bi bi-diagram-3 me-1"></i>จากใบสั่งผลิต
+                                <i className="bi bi-diagram-3 me-1"></i>
+                                {testSpecLabel ? `จาก Component: ${testSpecLabel}` : "จากใบสั่งผลิต"}
                             </span>
                         </>
                     )}
@@ -659,31 +668,60 @@ const ViewQCWorkOrder: React.FC = () => {
 
                     {formData.is_component_declared ? (
                         /* Component-declared QC work order — no QCForm / QCItem rows.
-                           The WorkOrder component document IS the test specification,
-                           so link out to it instead of rendering empty standards/items blocks. */
+                           The component document (pinned to test_spec.version_no) IS the
+                           test specification, so link out to that SPECIFIC component
+                           instead of rendering empty standards/items blocks. */
                         <CardSection
                             icon="bi-diagram-3-fill"
                             title="ที่มาของใบสั่งเทส"
-                            badge={<span className="badge badge-light-info ms-1">จากใบสั่งผลิต</span>}
+                            badge={
+                                <span className="badge badge-light-info ms-1">
+                                    {testSpecLabel || "จากใบสั่งผลิต"}
+                                </span>
+                            }
                         >
                             <div className="d-flex flex-column align-items-center text-center py-6 px-4">
                                 <i className="bi bi-file-earmark-text text-primary fs-3x mb-3"></i>
                                 <p className="text-gray-700 fs-6 mb-1">
-                                    ใบสั่งเทสนี้ถูกสร้างขึ้นอัตโนมัติจาก <strong>Test Section</strong> ในเอกสารใบสั่งผลิต
-                                </p>
-                                <p className="text-muted fs-7 mb-6">
-                                    มาตรฐาน / ใบรับรอง / Serial Number และรายการสินค้า ถูกกำหนดไว้ในเอกสารใบสั่งผลิตแทนแบบฟอร์ม QC นี้
-                                    {formData.source_work_order_code && (
-                                        <> (เลขที่เอกสาร <strong>{formData.source_work_order_code}</strong>)</>
+                                    ใบสั่งเทสนี้ถูกสร้างขึ้นอัตโนมัติจาก <strong>Test Section</strong> ในเอกสารชิ้นส่วน (Component)
+                                    {testSpec?.component_name && (
+                                        <> <strong>{testSpec.component_name}</strong></>
+                                    )}
+                                    {testSpec?.version_no != null && (
+                                        <> เวอร์ชัน <strong>v{testSpec.version_no}</strong></>
                                     )}
                                 </p>
+                                <p className="text-muted fs-7 mb-3">
+                                    มาตรฐาน / ใบรับรอง / Serial Number และรายการสินค้า ถูกกำหนดไว้ในเอกสารชิ้นส่วนแทนแบบฟอร์ม QC นี้
+                                </p>
+                                {testSpec?.section_keys && testSpec.section_keys.length > 0 && (
+                                    <div className="d-flex flex-wrap justify-content-center gap-1 mb-6">
+                                        {testSpec.section_keys.map(key => (
+                                            <span key={key} className="badge badge-light-secondary fs-8">{key}</span>
+                                        ))}
+                                    </div>
+                                )}
                                 <button
                                     className="btn btn-primary"
-                                    disabled={!formData.source_work_order_id}
-                                    onClick={() => navigate(`/workorder/workorders_detail/${formData.source_work_order_id}`)}
+                                    disabled={!formData.work_order_id}
+                                    onClick={() => {
+                                        if (testSpec?.item_component_id != null && formData.work_order_id) {
+                                            // Deep-link straight to the specific component that
+                                            // declared this test section (route supports targeting
+                                            // one component by id — see WorkorderPage's
+                                            // "component_detail/:workOrderId/:componentId" route).
+                                            navigate(`/workorder/component_detail/${formData.work_order_id}/${testSpec.item_component_id}`);
+                                        } else if (formData.work_order_id) {
+                                            // TODO(testspec unification): a COMPONENT_SECTION test_spec
+                                            // should always carry item_component_id — this branch is a
+                                            // defensive fallback for malformed/legacy data and lands on
+                                            // the work-order-level detail page instead of the component.
+                                            navigate(`/workorder/workorders_detail/${formData.work_order_id}`);
+                                        }
+                                    }}
                                 >
                                     <i className="bi bi-box-arrow-up-right me-2"></i>
-                                    ไปที่เอกสารใบสั่งผลิต
+                                    {testSpec?.item_component_id != null ? "ไปที่เอกสารชิ้นส่วน" : "ไปที่เอกสารใบสั่งผลิต"}
                                 </button>
                             </div>
                         </CardSection>

@@ -95,4 +95,11 @@ export interface TestResultDetail {
     photos: TestResultPhoto[];
     spec: TestResultSpec | null;
     cost: TestResultCost | null;
+    /**
+     * True when the WorkRuns feeding this session were pinned to more than one
+     * version of the same component (TestSpec unification "mixed version"
+     * decision — see project_testspec_unification memory). Render the session
+     * as normal, just show a soft warning; never block on this.
+     */
+    mixed_version?: boolean;
 }

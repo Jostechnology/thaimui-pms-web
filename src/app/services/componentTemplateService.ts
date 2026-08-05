@@ -1,5 +1,5 @@
 import { front_api } from "./apiConfig";
-import type { ItemComponentVersion } from "../type_interface/WorkOrderType";
+import type { ItemComponentVersion, ItemComponent, TestSectionNotice } from "../type_interface/WorkOrderType";
 
 interface APIResponse<T = any> {
     success: boolean;
@@ -200,7 +200,7 @@ export interface SaveItemComponentPayload {
 export const saveItemComponent = async (
     itemComponentId: number,
     payload: SaveItemComponentPayload
-): Promise<APIResponse> => {
+): Promise<APIResponse<ItemComponent> & { test_section_notice?: TestSectionNotice | null }> => {
     try {
         const response = await front_api(
             "POST",

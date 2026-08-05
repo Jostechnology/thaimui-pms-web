@@ -1486,6 +1486,24 @@ const ViewTestResultSession: React.FC = () => {
                 </div>
             </div>
 
+            {/* ── Mixed-version soft warning ──
+                TestSpec unification: runs feeding this session were pinned to more
+                than one version of the same component. Soft-warn only — never
+                block (see project_testspec_unification memory, "mixed version"
+                decision). */}
+            {testResult.mixed_version && (
+                <div className="alert alert-warning d-flex align-items-start mb-8">
+                    <i className="bi bi-exclamation-triangle-fill fs-3 me-3 mt-1"></i>
+                    <div className="flex-grow-1">
+                        <div className="fw-bold fs-6 mb-1">Session นี้รวมงานจาก Component คนละเวอร์ชันกัน</div>
+                        <div className="fs-7">
+                            Work Run ที่นำมาทดสอบใน Session นี้ถูก pin ไว้กับเอกสารชิ้นส่วนคนละเวอร์ชัน
+                            กรุณาตรวจสอบว่าผลทดสอบตรงกับเวอร์ชันของแต่ละ Work Run ก่อนสรุปผล
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ── KPI CARDS (INPROGRESS / PAUSED / COMPLETED) ── */}
             {(isActive || isCompleted) && (
                 <div className="row g-5 mb-8">
@@ -2585,6 +2603,14 @@ const ViewTestResultSession: React.FC = () => {
                             </div>
 
                             {/* Product spec (per-session snapshot) */}
+                            {/* TODO(testspec unification): this stays hand-entered because the
+                                pinned API contract doesn't expose a pinned-snapshot field here —
+                                TestResultDetail carries no ItemComponentVersion.section_data_snapshot
+                                (or similar) to prefill/lock this from. Once the BE exposes one
+                                (per work_run_sources' pinned version, resolved through the run's
+                                TestSpec), wire it in instead of inventing an endpoint now. See
+                                project_testspec_unification memory (S5 — QC/test should read the
+                                pinned version, not a live/manual copy). */}
                             <div className="border rounded p-4 mb-6 bg-light-primary bg-opacity-10">
                                 <h6 className="fw-bold text-gray-700 mb-3">
                                     <i className="bi bi-rulers me-2 text-primary" />ข้อมูลจำเพาะสินค้า (Product Spec)
