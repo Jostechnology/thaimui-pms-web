@@ -42,6 +42,8 @@ const PickingRequestCreate: React.FC = () => {
     const [soLoading, setSoLoading] = useState(false);
     const [selectedSO, setSelectedSO] = useState<SOOption | null>(null);
     const [soDetailLoading, setSoDetailLoading] = useState(false);
+    // Set when the selected SO is under center cancel — blocks new picking requests.
+    const [soCanceling, setSoCanceling] = useState(false);
 
     // Pickable options built from SO detail
     const [pickableOptions, setPickableOptions] = useState<PickableOption[]>([]);
@@ -82,11 +84,13 @@ const PickingRequestCreate: React.FC = () => {
         setSoOptions([]);
         setPickableOptions([]);
         setRows([emptyRow()]);
+        setSoCanceling(false);
 
         setSoDetailLoading(true);
         try {
             const res = await getSalesOrderById(opt.doc_entry);
             if (res?.success && res.data) {
+                setSoCanceling(!!res.data.cancel_requested);
                 const options: PickableOption[] = [];
 
                 // Sales items — exclude produced items (they come from manufacturing, not warehouse)
@@ -134,6 +138,7 @@ const PickingRequestCreate: React.FC = () => {
         setSelectedSO(null);
         setPickableOptions([]);
         setRows([emptyRow()]);
+        setSoCanceling(false);
     };
 
     // --- Row management ---
@@ -161,6 +166,11 @@ const PickingRequestCreate: React.FC = () => {
     const handleSubmit = async () => {
         if (!selectedSO) {
             Swal.fire('แจ้งเตือน', 'กรุณาเลือก Sales Order', 'warning');
+            return;
+        }
+
+        if (soCanceling) {
+            Swal.fire('แจ้งเตือน', 'Order นี้ถูกขอยกเลิกจากส่วนกลางแล้ว — ไม่สามารถสร้างคำขอเบิกใหม่ได้', 'warning');
             return;
         }
 
@@ -294,13 +304,23 @@ const PickingRequestCreate: React.FC = () => {
                 </div>
             </div>
 
+            {/* Cancel notice — SO under center cancel cannot receive new picking requests */}
+            {soCanceling && (
+                <div className='alert alert-warning d-flex align-items-center mb-6'>
+                    <i className='bi bi-exclamation-triangle-fill fs-2 me-3'></i>
+                    <span className='fs-7'>
+                        Order นี้ถูกขอยกเลิกจากส่วนกลางแล้ว — ไม่สามารถสร้างคำขอเบิกใหม่ได้
+                    </span>
+                </div>
+            )}
+
             {/* Items table */}
             <div className='card shadow-sm mb-6'>
                 <div className='card-header border-0 pt-5 d-flex justify-content-between align-items-center'>
                     <h5 className='card-title fw-bold'>
                         <i className='bi bi-list-ul me-2 text-primary'></i>รายการที่ต้องการเบิก
                     </h5>
-                    <button className='btn btn-sm btn-light-primary fw-bold' onClick={addRow} disabled={!selectedSO}>
+                    <button className='btn btn-sm btn-light-primary fw-bold' onClick={addRow} disabled={!selectedSO || soCanceling}>
                         <i className='bi bi-plus-lg me-1'></i>เพิ่มแถว
                     </button>
                 </div>
@@ -427,7 +447,7 @@ const PickingRequestCreate: React.FC = () => {
                 <button className='btn btn-light fw-bold' onClick={() => navigate(-1)} disabled={saving}>
                     ยกเลิก
                 </button>
-                <button className='btn btn-primary fw-bold px-8' onClick={handleSubmit} disabled={saving || !selectedSO}>
+                <button className='btn btn-primary fw-bold px-8' onClick={handleSubmit} disabled={saving || !selectedSO || soCanceling}>
                     {saving
                         ? <><span className='spinner-border spinner-border-sm me-2' />กำลังสร้าง...</>
                         : <><i className='bi bi-check-lg me-2'></i>สร้างคำขอเบิก</>

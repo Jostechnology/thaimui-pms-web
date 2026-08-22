@@ -20,6 +20,12 @@ export type SalesOrderDetail = {
     group_code: string;
     group_name: string;
     status: 'INPROGRESS' | 'COMPLETED';
+    // Center-driven cancel (cancel-pending drain). cancel_requested blocks new
+    // forward work while in-flight runs/tests finish; cancel_completed_date is set
+    // once the drain empties (terminal).
+    cancel_requested: boolean;
+    cancel_requested_date: string | null;
+    cancel_completed_date: string | null;
     items: SalesItem[];
     material_list: any[];
     created_date: string;

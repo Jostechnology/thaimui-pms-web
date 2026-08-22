@@ -207,8 +207,30 @@ const SalesOrderView: React.FC = () => {
         );
     }
 
+    // Center-driven cancel. isCanceling gates every new-work button; isCanceled
+    // means the drain has emptied (terminal).
+    const isCanceling = !!salesOrder.cancel_requested;
+    const isCanceled = !!salesOrder.cancel_completed_date;
+
     return (
         <Content>
+            {/* ===== Cancel banner ===== */}
+            {isCanceling && (
+                <div className={`alert d-flex align-items-center mb-8 ${isCanceled ? 'alert-danger' : 'alert-warning'}`}>
+                    <i className={`bi ${isCanceled ? 'bi-x-octagon-fill' : 'bi-exclamation-triangle-fill'} fs-2 me-3`} />
+                    <div>
+                        <h4 className="mb-1 fw-bolder">
+                            {isCanceled ? 'Order ถูกยกเลิกแล้ว' : 'Order ถูกขอยกเลิกจากส่วนกลาง'}
+                        </h4>
+                        <span className="fs-7">
+                            {isCanceled
+                                ? `งานที่ค้างอยู่เสร็จสิ้นครบแล้ว — ยกเลิกสมบูรณ์เมื่อ ${formatDateTime(salesOrder.cancel_completed_date!)}`
+                                : 'ไม่สามารถเพิ่มใบสั่งผลิต/QC/เทส หรือคำขอเบิกใหม่ได้ งานที่กำลังดำเนินการอยู่ให้ทำต่อจนจบ แล้วระบบจะยกเลิกให้อัตโนมัติ'}
+                        </span>
+                    </div>
+                </div>
+            )}
+
             {/* ===== Header ===== */}
             <div className="d-flex flex-wrap justify-content-between align-items-start mb-8">
                 <div>
@@ -477,7 +499,7 @@ const SalesOrderView: React.FC = () => {
                                             </td>
                                             <td className="text-center pe-4">
                                                 <div className="d-flex flex-column align-items-center gap-2">
-                                                    {item.produce && !item.work_order && (
+                                                    {item.produce && !item.work_order && !isCanceling && (
                                                         <button
                                                             className="btn btn-sm btn-light-primary py-1 px-3"
                                                             onClick={(e) => {
@@ -488,7 +510,7 @@ const SalesOrderView: React.FC = () => {
                                                             <i className="bi bi-gear me-1"></i>สร้างใบสั่งผลิต
                                                         </button>
                                                     )}
-                                                    {item.num_qc_work_order === 0 && (
+                                                    {item.num_qc_work_order === 0 && !isCanceling && (
                                                         <button
                                                             className="btn btn-sm btn-light-warning py-1 px-3"
                                                             onClick={(e) => {
@@ -501,7 +523,7 @@ const SalesOrderView: React.FC = () => {
                                                     )}
                                                     {(() => {
                                                         const nextAction = getNextAction(item);
-                                                        return nextAction ? (
+                                                        return nextAction && !isCanceling ? (
                                                             <button
                                                                 className="btn btn-sm btn-light-info py-1 px-3"
                                                                 title={nextAction.label}
