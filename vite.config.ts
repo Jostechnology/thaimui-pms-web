@@ -54,7 +54,7 @@ export default defineConfig({
     },
     open: true,
     cors: true,
-    allowedHosts: ["test-pms.jostechnology.co.th"],
+    allowedHosts: ["app-pms.potal-thaimui.com"],
   },
   preview: {
     port: 4173,
